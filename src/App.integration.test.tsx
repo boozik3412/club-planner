@@ -12,9 +12,18 @@ const desktopMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("./components/BasePlanCanvas", () => ({
-  BasePlanCanvas: ({ betweenRequest }: { betweenRequest: { mode: string } | null }) => (
+  BasePlanCanvas: ({
+    betweenRequest,
+    measureRequest,
+    onAddDimension,
+  }: {
+    betweenRequest: { mode: string } | null;
+    measureRequest: number | null;
+    onAddDimension: (start: { xM: number; yM: number }, end: { xM: number; yM: number }) => void;
+  }) => (
     <main aria-label="Рабочая область плана">
       {betweenRequest ? `Режим между перегородками: ${betweenRequest.mode}` : null}
+      {measureRequest ? <button type="button" onClick={() => onAddDimension({ xM: 1, yM: 1 }, { xM: 4, yM: 1 })}>Создать тестовый размер</button> : null}
     </main>
   ),
 }));
@@ -137,5 +146,32 @@ describe("App integration", () => {
     expect(fireEvent.keyDown(window, { key: "F5", code: "F5", cancelable: true })).toBe(false);
     expect(fireEvent.keyDown(window, { key: "r", ctrlKey: true, cancelable: true })).toBe(false);
     expect(fireEvent.keyDown(window, { key: "p", ctrlKey: true, cancelable: true })).toBe(false);
+  });
+
+  it("creates an array, reusable template, permanent dimension and updates the summary", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "ПК — 1 место" }));
+    await user.click(screen.getByRole("button", { name: "Создать ряд" }));
+    expect(screen.getByText(/3 предметов · 0 групп/)).toBeInTheDocument();
+    expect(screen.getAllByText("3", { selector: ".summary-grid dd" })).toHaveLength(2);
+
+    const templateName = screen.getByRole("textbox", { name: "Название составного шаблона" });
+    await user.type(templateName, "Игровой ряд");
+    await user.click(screen.getByRole("button", { name: "Сохранить выборку" }));
+    expect(screen.getByText("Игровой ряд")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Вставить" }));
+    expect(screen.getByText(/6 предметов · 1 групп/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Линейка · постоянный размер" }));
+    await user.click(screen.getByRole("button", { name: "Создать тестовый размер" }));
+    expect(screen.getByText("3.00 м")).toBeInTheDocument();
+
+    const passage = screen.getByRole("spinbutton", { name: "Минимальный проход, м" });
+    await user.clear(passage);
+    await user.type(passage, "1.2");
+    await user.tab();
+    expect(screen.getByRole("spinbutton", { name: "Минимальный проход, м" })).toHaveValue(1.2);
   });
 });

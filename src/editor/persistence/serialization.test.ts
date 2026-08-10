@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { groupObjectsCommand } from "../commands/project-commands";
+import { addDimensionCommand, saveCompositeTemplateCommand } from "../commands/advanced-commands";
 import { createEmptyProject, updateProject } from "../model/project";
 import { createObjectFromTemplate } from "../model/templates";
 import { decodeProject, encodeProject } from "./serialization";
@@ -36,12 +37,22 @@ describe(".clubplan serialization", () => {
     delete source.canvas.wallSnapOffsetM;
     delete source.canvas.autoRotateFurnitureToWall;
     delete source.canvas.autoRotatePartitionsToWall;
+    delete source.canvas.semanticLayerVisible;
+    delete source.canvas.clearanceWarningsVisible;
+    delete source.canvas.minimumPassageWidthM;
+    delete source.dimensions;
+    delete source.customTemplates;
     const decoded = decodeProject(JSON.stringify(source));
     expect(decoded.project.canvas).toMatchObject({
       wallSnapOffsetM: 0,
       autoRotateFurnitureToWall: false,
       autoRotatePartitionsToWall: true,
+      semanticLayerVisible: true,
+      clearanceWarningsVisible: true,
+      minimumPassageWidthM: 1,
     });
+    expect(decoded.project.dimensions).toEqual([]);
+    expect(decoded.project.customTemplates).toEqual([]);
   });
 
   it("round-trips custom shapes and their physical height", () => {
@@ -60,6 +71,22 @@ describe(".clubplan serialization", () => {
       "custom-oval",
     ]);
     expect(decoded.project.objects[0].heightM).toBe(2.4);
+  });
+
+  it("round-trips semantic objects, dimensions and composite templates", () => {
+    const base = updateProject(createEmptyProject(), (draft) => {
+      draft.canvas.minimumPassageWidthM = 1.2;
+      draft.objects = [createObjectFromTemplate("door", 2, 3, "door")];
+    });
+    const withDimension = addDimensionCommand(base, { xM: 1, yM: 1 }, { xM: 4, yM: 1 });
+    const withTemplate = saveCompositeTemplateCommand(withDimension, ["door"], "Дверной модуль");
+    const decoded = decodeProject(encodeProject(withTemplate?.project as typeof base));
+
+    expect(decoded.project.canvas.minimumPassageWidthM).toBe(1.2);
+    expect(decoded.project.objects[0].properties).toMatchObject({ doorSwing: "right", openingAngleDeg: 90 });
+    expect(decoded.project.dimensions[0]).toMatchObject({ start: { xM: 1, yM: 1 }, end: { xM: 4, yM: 1 } });
+    expect(decoded.project.customTemplates[0]).toMatchObject({ name: "Дверной модуль" });
+    expect(decoded.project.customTemplates[0].items[0].object.type).toBe("door");
   });
 
   it("migrates legacy v6 JSON", () => {

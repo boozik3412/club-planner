@@ -58,6 +58,20 @@ function KindDetails({ object, width, depth }: { object: PlanObject; width: numb
   if (object.kind === "bar") {
     return Array.from({ length: 4 }, (_, index) => <circle key={index} cx={-width / 2 + width * (index + 1) / 5} cy={depth * 0.3} r={Math.min(width / 20, depth * 0.1)} fill="none" stroke="#78684e" strokeWidth={strokeWidth} vectorEffect="non-scaling-stroke" />);
   }
+  if (object.kind === "door") {
+    const clockwise = object.properties?.doorSwing !== "left";
+    const arcY = clockwise ? width : -width;
+    return <>
+      <line x1={-width / 2} y1="0" x2={width / 2} y2="0" stroke="#7c5c32" strokeWidth={2.4} vectorEffect="non-scaling-stroke" />
+      <path d={`M ${width / 2} 0 A ${width} ${width} 0 0 ${clockwise ? 1 : 0} ${-width / 2} ${arcY}`} fill="none" stroke="#b17c42" strokeWidth={1.6} strokeDasharray="6 4" vectorEffect="non-scaling-stroke" />
+    </>;
+  }
+  if (object.kind === "window") {
+    return <>
+      <line x1={-width / 2} y1={-depth * 0.18} x2={width / 2} y2={-depth * 0.18} stroke="#167da8" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+      <line x1={-width / 2} y1={depth * 0.18} x2={width / 2} y2={depth * 0.18} stroke="#167da8" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+    </>;
+  }
   return null;
 }
 
@@ -80,7 +94,9 @@ export const ObjectShape = memo(function ObjectShape({
   const isZone = object.kind === "zone";
   const isPartition = object.kind === "partition";
   const isEllipse = object.kind === "custom-circle" || object.kind === "custom-oval";
-  const radius = isPartition ? 0 : Math.min(width, depth) * 0.06;
+  const radius = isPartition || object.kind === "door" || object.kind === "window"
+    ? 0
+    : Math.min(width, depth) * 0.06;
 
   return (
     <g

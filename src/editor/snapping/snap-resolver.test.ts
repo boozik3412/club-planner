@@ -37,7 +37,7 @@ describe("wall snap resolver", () => {
     const result = resolve(-0.45);
     expect(result.deltaYM).toBeCloseTo(-0.5);
     expect(result.activeBoundaryId).toBe("wall");
-    expect(result.guide?.boundary.id).toBe("wall");
+    expect(result.guide?.boundary?.id).toBe("wall");
   });
 
   it("uses a screen-space threshold with metric limits", () => {

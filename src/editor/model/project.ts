@@ -53,6 +53,9 @@ export function createEmptyProject(
       wallSnapOffsetM: 0,
       autoRotateFurnitureToWall: false,
       autoRotatePartitionsToWall: true,
+      semanticLayerVisible: true,
+      clearanceWarningsVisible: true,
+      minimumPassageWidthM: 1,
       basePlanVisible: true,
       planLabelsVisible: true,
       objectLabelsVisible: true,
@@ -65,6 +68,8 @@ export function createEmptyProject(
     ],
     objects: [],
     groups: [],
+    dimensions: [],
+    customTemplates: [],
   };
 }
 

@@ -31,6 +31,8 @@ export const OBJECT_TEMPLATES: readonly ObjectTemplate[] = [
   { type: "custom-rectangle", label: "Произвольный прямоугольник", shortLabel: "Прямоугольник", kind: "custom-rectangle", widthM: 1.5, depthM: 1, heightM: 1, layerId: "furniture", fill: "#f2d6a2" },
   { type: "custom-circle", label: "Произвольный круг", shortLabel: "Круг", kind: "custom-circle", widthM: 1.2, depthM: 1.2, heightM: 1, layerId: "furniture", fill: "#c9e5f5" },
   { type: "custom-oval", label: "Произвольный овал", shortLabel: "Овал", kind: "custom-oval", widthM: 1.8, depthM: 1.1, heightM: 1, layerId: "furniture", fill: "#d9d2f2" },
+  { type: "door", label: "Дверь", shortLabel: "Дверь", kind: "door", widthM: 0.9, depthM: 0.12, layerId: "furniture", fill: "#d8c6a8" },
+  { type: "window", label: "Окно", shortLabel: "Окно", kind: "window", widthM: 1.4, depthM: 0.12, layerId: "furniture", fill: "#b9dff2" },
 ] as const;
 
 export const OBJECT_TYPE_SET = new Set<ObjectType>(
@@ -65,7 +67,11 @@ export function createObjectFromTemplate(
     locked: false,
     labelVisible: true,
     style: { fill: template.fill },
-    properties: template.seats ? { seats: template.seats } : undefined,
+    properties: template.seats
+      ? { seats: template.seats }
+      : type === "door"
+        ? { doorSwing: "right", openingAngleDeg: 90 }
+        : undefined,
   };
 }
 

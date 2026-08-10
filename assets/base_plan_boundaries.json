@@ -31,5 +31,17 @@
     { "id": "wall-right-c", "kind": "wall", "start": { "xM": 60.62853, "yM": 0.91694 }, "end": { "xM": 60.62853, "yM": 4.80568 }, "thicknessM": 0.17018 },
     { "id": "wall-right-room-top", "kind": "wall", "start": { "xM": 60.71362, "yM": 2.83718 }, "end": { "xM": 62.1538, "yM": 2.83718 }, "thicknessM": 0 },
     { "id": "wall-right-room-bottom", "kind": "wall", "start": { "xM": 60.71362, "yM": 4.80568 }, "end": { "xM": 62.1538, "yM": 4.80568 }, "thicknessM": 0 }
+  ],
+  "openings": [
+    { "id": "window-main-1", "kind": "window", "start": { "xM": 7.35, "yM": 0.91694 }, "end": { "xM": 11.65, "yM": 0.91694 } },
+    { "id": "window-main-2", "kind": "window", "start": { "xM": 16.65, "yM": 0.91694 }, "end": { "xM": 21.35, "yM": 0.91694 } },
+    { "id": "window-main-3", "kind": "window", "start": { "xM": 24.8, "yM": 0.91694 }, "end": { "xM": 29.25, "yM": 0.91694 } },
+    { "id": "window-room-a", "kind": "window", "start": { "xM": 34.65, "yM": 0.91694 }, "end": { "xM": 37.05, "yM": 0.91694 } },
+    { "id": "window-right-a", "kind": "window", "start": { "xM": 52.1, "yM": 0.91694 }, "end": { "xM": 54.55, "yM": 0.91694 } },
+    { "id": "window-right-b", "kind": "window", "start": { "xM": 55.25, "yM": 0.91694 }, "end": { "xM": 58.25, "yM": 0.91694 } },
+    { "id": "door-room-a", "kind": "door", "start": { "xM": 35.0, "yM": 4.80568 }, "end": { "xM": 35.9, "yM": 4.80568 }, "swing": "right", "openingAngleDeg": 90 },
+    { "id": "door-room-b", "kind": "door", "start": { "xM": 38.0, "yM": 4.80568 }, "end": { "xM": 38.9, "yM": 4.80568 }, "swing": "left", "openingAngleDeg": 90 },
+    { "id": "door-right-a", "kind": "door", "start": { "xM": 52.1, "yM": 5.03682 }, "end": { "xM": 53.0, "yM": 5.03682 }, "swing": "right", "openingAngleDeg": 90 },
+    { "id": "door-right-b", "kind": "door", "start": { "xM": 55.25, "yM": 5.03682 }, "end": { "xM": 56.15, "yM": 5.03682 }, "swing": "left", "openingAngleDeg": 90 }
   ]
 }

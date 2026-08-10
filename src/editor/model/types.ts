@@ -26,7 +26,9 @@ export type ObjectType =
   | "zone"
   | "custom-rectangle"
   | "custom-circle"
-  | "custom-oval";
+  | "custom-oval"
+  | "door"
+  | "window";
 
 export type ObjectKind =
   | "pc"
@@ -43,7 +45,9 @@ export type ObjectKind =
   | "zone"
   | "custom-rectangle"
   | "custom-circle"
-  | "custom-oval";
+  | "custom-oval"
+  | "door"
+  | "window";
 
 export interface ProjectMetadata {
   id: string;
@@ -69,6 +73,9 @@ export interface CanvasSettings {
   wallSnapOffsetM: number;
   autoRotateFurnitureToWall: boolean;
   autoRotatePartitionsToWall: boolean;
+  semanticLayerVisible: boolean;
+  clearanceWarningsVisible: boolean;
+  minimumPassageWidthM: number;
   basePlanVisible: boolean;
   planLabelsVisible: boolean;
   objectLabelsVisible: boolean;
@@ -97,7 +104,11 @@ export interface PlanObject {
   locked: boolean;
   labelVisible: boolean;
   style?: { fill?: string };
-  properties?: { seats?: number };
+  properties?: {
+    seats?: number;
+    doorSwing?: "left" | "right";
+    openingAngleDeg?: number;
+  };
 }
 
 export interface ObjectGroup {
@@ -105,6 +116,26 @@ export interface ObjectGroup {
   name: string;
   objectIds: ObjectId[];
   locked: boolean;
+}
+
+export interface ProjectDimension {
+  id: string;
+  name: string;
+  start: PointM;
+  end: PointM;
+  labelVisible: boolean;
+}
+
+export interface CompositeTemplateItem {
+  offsetXM: number;
+  offsetYM: number;
+  object: Omit<PlanObject, "id" | "xM" | "yM" | "locked">;
+}
+
+export interface CompositeTemplate {
+  id: string;
+  name: string;
+  items: CompositeTemplateItem[];
 }
 
 export interface ProjectState {
@@ -120,6 +151,8 @@ export interface ProjectState {
   layers: Layer[];
   objects: PlanObject[];
   groups: ObjectGroup[];
+  dimensions: ProjectDimension[];
+  customTemplates: CompositeTemplate[];
 }
 
 export interface SelectionState {

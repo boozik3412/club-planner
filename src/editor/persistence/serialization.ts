@@ -1,12 +1,31 @@
 import { createEmptyProject, normalizeAngle } from "../model/project";
 import { getObjectTemplate, OBJECT_TYPE_SET, createStableId } from "../model/templates";
 import type {
+  CompositeTemplate,
+  CompositeTemplateItem,
   Layer,
   ObjectGroup,
   ObjectType,
   PlanObject,
+  ProjectDimension,
   ProjectState,
 } from "../model/types";
+
+function toTemplateObject(source: PlanObject): CompositeTemplateItem["object"] {
+  return {
+    type: source.type,
+    kind: source.kind,
+    name: source.name,
+    widthM: source.widthM,
+    depthM: source.depthM,
+    heightM: source.heightM,
+    rotationDeg: source.rotationDeg,
+    layerId: source.layerId,
+    labelVisible: source.labelVisible,
+    style: source.style ? structuredClone(source.style) : undefined,
+    properties: source.properties ? structuredClone(source.properties) : undefined,
+  };
+}
 
 export interface DecodeResult {
   project: ProjectState;
@@ -87,6 +106,20 @@ function parseObject(
   const rawAngle = asFiniteNumber(record.rotationDeg, `objects[${index}].rotationDeg`);
   const normalizedAngle = normalizeAngle(rawAngle);
   if (normalizedAngle !== rawAngle) warnings.push(`Угол предмета ${id} нормализован`);
+  const parsedProperties: NonNullable<PlanObject["properties"]> = {};
+  if (properties && typeof properties.seats === "number" && Number.isFinite(properties.seats)) {
+    parsedProperties.seats = properties.seats;
+  }
+  if (properties?.doorSwing === "left" || properties?.doorSwing === "right") {
+    parsedProperties.doorSwing = properties.doorSwing;
+  }
+  if (properties && typeof properties.openingAngleDeg === "number" && Number.isFinite(properties.openingAngleDeg)) {
+    parsedProperties.openingAngleDeg = Math.min(180, Math.max(0, properties.openingAngleDeg));
+  }
+  if (type === "door") {
+    parsedProperties.doorSwing ??= "right";
+    parsedProperties.openingAngleDeg ??= 90;
+  }
   return {
     id,
     type,
@@ -102,12 +135,11 @@ function parseObject(
     locked: asBoolean(record.locked, `objects[${index}].locked`),
     labelVisible: asBoolean(record.labelVisible, `objects[${index}].labelVisible`),
     style: style && typeof style.fill === "string" ? { fill: style.fill } : { fill: template.fill },
-    properties:
-      properties && typeof properties.seats === "number" && Number.isFinite(properties.seats)
-        ? { seats: properties.seats }
-        : template.seats
-          ? { seats: template.seats }
-          : undefined,
+    properties: Object.keys(parsedProperties).length > 0
+      ? parsedProperties
+      : template.seats
+        ? { seats: template.seats }
+        : undefined,
   };
 }
 
@@ -143,6 +175,17 @@ function parseClubplan(root: Record<string, unknown>): DecodeResult {
       canvas.autoRotatePartitionsToWall,
       next.canvas.autoRotatePartitionsToWall,
     ),
+    semanticLayerVisible: optionalBoolean(
+      canvas.semanticLayerVisible,
+      next.canvas.semanticLayerVisible,
+    ),
+    clearanceWarningsVisible: optionalBoolean(
+      canvas.clearanceWarningsVisible,
+      next.canvas.clearanceWarningsVisible,
+    ),
+    minimumPassageWidthM: canvas.minimumPassageWidthM === undefined
+      ? next.canvas.minimumPassageWidthM
+      : Math.max(0, asFiniteNumber(canvas.minimumPassageWidthM, "canvas.minimumPassageWidthM")),
     basePlanVisible: asBoolean(canvas.basePlanVisible, "canvas.basePlanVisible"),
     planLabelsVisible: asBoolean(canvas.planLabelsVisible, "canvas.planLabelsVisible"),
     objectLabelsVisible: asBoolean(canvas.objectLabelsVisible, "canvas.objectLabelsVisible"),
@@ -198,6 +241,60 @@ function parseClubplan(root: Record<string, unknown>): DecodeResult {
   next.objects = next.objects.map((object) => lockedGroupObjectIds.has(object.id)
     ? { ...object, locked: true }
     : object);
+
+  const dimensionIds = new Set<string>();
+  next.dimensions = root.dimensions === undefined
+    ? []
+    : asArray(root.dimensions, "dimensions").map((value, index): ProjectDimension => {
+        const dimension = asRecord(value, `dimensions[${index}]`);
+        const id = asString(dimension.id, `dimensions[${index}].id`);
+        if (dimensionIds.has(id)) throw new Error(`Повторяющийся ID размера: ${id}`);
+        dimensionIds.add(id);
+        const start = asRecord(dimension.start, `dimensions[${index}].start`);
+        const end = asRecord(dimension.end, `dimensions[${index}].end`);
+        return {
+          id,
+          name: asString(dimension.name, `dimensions[${index}].name`),
+          start: {
+            xM: asFiniteNumber(start.xM, `dimensions[${index}].start.xM`),
+            yM: asFiniteNumber(start.yM, `dimensions[${index}].start.yM`),
+          },
+          end: {
+            xM: asFiniteNumber(end.xM, `dimensions[${index}].end.xM`),
+            yM: asFiniteNumber(end.yM, `dimensions[${index}].end.yM`),
+          },
+          labelVisible: optionalBoolean(dimension.labelVisible, true),
+        };
+      });
+
+  const templateIds = new Set<string>();
+  next.customTemplates = root.customTemplates === undefined
+    ? []
+    : asArray(root.customTemplates, "customTemplates").map((value, index): CompositeTemplate => {
+        const template = asRecord(value, `customTemplates[${index}]`);
+        const id = asString(template.id, `customTemplates[${index}].id`);
+        if (templateIds.has(id)) throw new Error(`Повторяющийся ID шаблона: ${id}`);
+        templateIds.add(id);
+        const localObjectIds = new Set<string>();
+        const items = asArray(template.items, `customTemplates[${index}].items`).map((itemValue, itemIndex) => {
+          const item = asRecord(itemValue, `customTemplates[${index}].items[${itemIndex}]`);
+          const storedObject = asRecord(item.object, `customTemplates[${index}].items[${itemIndex}].object`);
+          const parsed = parseObject({
+            ...storedObject,
+            id: `template-${index}-${itemIndex}`,
+            xM: 0,
+            yM: 0,
+            locked: false,
+          }, itemIndex, layerIds, localObjectIds, warnings);
+          return {
+            offsetXM: asFiniteNumber(item.offsetXM, `customTemplates[${index}].items[${itemIndex}].offsetXM`),
+            offsetYM: asFiniteNumber(item.offsetYM, `customTemplates[${index}].items[${itemIndex}].offsetYM`),
+            object: toTemplateObject(parsed),
+          };
+        });
+        if (items.length === 0) throw new Error(`Шаблон ${id} не содержит предметов`);
+        return { id, name: asString(template.name, `customTemplates[${index}].name`), items };
+      });
 
   if (root.basePlan && asRecord(root.basePlan, "basePlan").sha256 !== next.basePlan.sha256) {
     warnings.push("Ссылка на базовый план обновлена до актуального замера");

@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import type { LayoutWarning } from "../editor/analysis/layout-analysis";
+import type { ProjectSummary } from "../editor/analysis/project-summary";
+import { distanceMeters, formatMeters } from "../editor/measurement/measurement";
 import { MIXED_VALUE, getMixedValue } from "../editor/selection/selection";
 import { OBJECT_TEMPLATES } from "../editor/model/templates";
 import type {
@@ -22,6 +25,8 @@ interface SidebarProps {
   canUndo: boolean;
   canRedo: boolean;
   status: string;
+  layoutWarnings: LayoutWarning[];
+  projectSummary: ProjectSummary;
   onNew: () => void;
   onOpen: () => void;
   onOpenRecent: (path: string) => void;
@@ -40,6 +45,12 @@ interface SidebarProps {
   onGroup: () => void;
   onUngroup: () => void;
   onAlignBetween: (mode: BetweenBoundariesMode) => void;
+  onStartMeasure: () => void;
+  onDeleteDimension: (dimensionId: string) => void;
+  onCreateArray: (count: number, stepM: number, direction: "horizontal" | "vertical") => void;
+  onSaveCompositeTemplate: (name: string) => void;
+  onInstantiateCompositeTemplate: (templateId: string) => void;
+  onDeleteCompositeTemplate: (templateId: string) => void;
   onEnterGroup: () => void;
   onExitGroup: () => void;
 }
@@ -132,6 +143,8 @@ export function Sidebar({
   canUndo,
   canRedo,
   status,
+  layoutWarnings,
+  projectSummary,
   onNew,
   onOpen,
   onOpenRecent,
@@ -150,9 +163,19 @@ export function Sidebar({
   onGroup,
   onUngroup,
   onAlignBetween,
+  onStartMeasure,
+  onDeleteDimension,
+  onCreateArray,
+  onSaveCompositeTemplate,
+  onInstantiateCompositeTemplate,
+  onDeleteCompositeTemplate,
   onEnterGroup,
   onExitGroup,
 }: SidebarProps) {
+  const [arrayCount, setArrayCount] = useState(3);
+  const [arrayStepM, setArrayStepM] = useState(1.5);
+  const [arrayDirection, setArrayDirection] = useState<"horizontal" | "vertical">("horizontal");
+  const [templateName, setTemplateName] = useState("");
   const single = selectedObjects.length === 1 ? selectedObjects[0] : null;
   const width = getMixedValue(selectedObjects, "widthM");
   const depth = getMixedValue(selectedObjects, "depthM");
@@ -213,13 +236,17 @@ export function Sidebar({
           <label className="check-row"><input type="checkbox" checked={project.canvas.snapEnabled} onChange={(event) => onCanvasChange({ snapEnabled: event.target.checked }, "Привязка")} />Привязка 0,1 м</label>
           <label className="check-row"><input type="checkbox" checked={project.canvas.planLabelsVisible} onChange={(event) => onCanvasChange({ planLabelsVisible: event.target.checked }, "Надписи плана")} />Надписи плана</label>
           <label className="check-row"><input type="checkbox" checked={project.canvas.objectLabelsVisible} onChange={(event) => onCanvasChange({ objectLabelsVisible: event.target.checked }, "Подписи предметов")} />Подписи предметов</label>
+          <label className="check-row"><input type="checkbox" checked={project.canvas.semanticLayerVisible} onChange={(event) => onCanvasChange({ semanticLayerVisible: event.target.checked }, "Семантический слой")} />Стены, двери и окна</label>
+          <label className="check-row"><input type="checkbox" checked={project.canvas.clearanceWarningsVisible} onChange={(event) => onCanvasChange({ clearanceWarningsVisible: event.target.checked }, "Зоны проходов")} />Зоны проходов</label>
           <label className="check-row"><input type="checkbox" checked={project.canvas.autoRotateFurnitureToWall} onChange={(event) => onCanvasChange({ autoRotateFurnitureToWall: event.target.checked }, "Автоповорот мебели")} />Поворот мебели по стене</label>
           <label className="check-row"><input type="checkbox" checked={project.canvas.autoRotatePartitionsToWall} onChange={(event) => onCanvasChange({ autoRotatePartitionsToWall: event.target.checked }, "Автоповорот перегородок")} />Поворот перегородок</label>
         </div>
         <NumberField label="Отступ от стены, м" value={project.canvas.wallSnapOffsetM} min={0} onCommit={(value) => onCanvasChange({ wallSnapOffsetM: Math.max(0, value) }, "Отступ от стены")} />
+        <NumberField label="Минимальный проход, м" value={project.canvas.minimumPassageWidthM} min={0} onCommit={(value) => onCanvasChange({ minimumPassageWidthM: Math.max(0, value) }, "Минимальная ширина прохода")} />
+        <button className="button button--wide" type="button" onClick={onStartMeasure}>Линейка · постоянный размер</button>
         <label className="field-label">Контраст базового чертежа · {Math.round(project.canvas.basePlanOpacity * 100)}%</label>
         <CommitRange value={project.canvas.basePlanOpacity} onCommit={(value) => onCanvasChange({ basePlanOpacity: value }, "Контраст базового плана")} />
-        <p className="hint">Колесо — масштаб · средняя кнопка или Пробел+ЛКМ — панорама · ЛКМ по фону — рамка.</p>
+        <p className="hint">Колесо — масштаб · средняя кнопка или Пробел+ЛКМ — панорама · ЛКМ по фону — рамка. Проверка проходов информационная и не подтверждает соответствие нормам.</p>
       </section>
 
       <section className="panel-section">
@@ -260,9 +287,67 @@ export function Sidebar({
               {selectedObjects.length > 1 ? <button type="button" onClick={() => onAlignBetween("distribute")} disabled={!selectedObjects.some((object) => !object.locked)}>Равные промежутки</button> : null}
               {canFillOpening ? <button type="button" onClick={() => onAlignBetween("fill")}>Заполнить проём</button> : null}
             </div>
+            <details className="selection-tool" open>
+              <summary>Ряд / массив объектов</summary>
+              <div className="property-grid">
+                <label className="property-field"><span>Количество</span><input type="number" min="2" max="100" step="1" value={arrayCount} onChange={(event) => setArrayCount(Number(event.target.value))} /></label>
+                <label className="property-field"><span>Шаг, м</span><input type="number" min="0.1" step="0.1" value={arrayStepM} onChange={(event) => setArrayStepM(Number(event.target.value))} /></label>
+                <label className="property-field property-field--wide"><span>Направление</span><select value={arrayDirection} onChange={(event) => setArrayDirection(event.target.value as "horizontal" | "vertical")}><option value="horizontal">По горизонтали</option><option value="vertical">По вертикали</option></select></label>
+              </div>
+              <button className="button button--wide" type="button" onClick={() => onCreateArray(arrayCount, arrayStepM, arrayDirection)}>Создать ряд</button>
+            </details>
             {selection.groupIds.length === 1 && !selection.groupEditId ? <button className="button button--wide" type="button" onClick={onEnterGroup}>Редактировать элементы группы</button> : null}
           </div>
         )}
+      </section>
+
+      <section className="panel-section">
+        <h2>Составные шаблоны</h2>
+        <div className="inline-entry">
+          <input value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="Название шаблона" aria-label="Название составного шаблона" />
+          <button type="button" disabled={selectedObjects.length === 0} onClick={() => { onSaveCompositeTemplate(templateName); setTemplateName(""); }}>Сохранить выборку</button>
+        </div>
+        {project.customTemplates.length > 0 ? (
+          <div className="managed-list">
+            {project.customTemplates.map((template) => (
+              <div className="managed-list__row" key={template.id}>
+                <span><strong>{template.name}</strong><small>{template.items.length} объектов</small></span>
+                <button type="button" onClick={() => onInstantiateCompositeTemplate(template.id)}>Вставить</button>
+                <button className="button--danger" type="button" onClick={() => onDeleteCompositeTemplate(template.id)} aria-label={`Удалить шаблон ${template.name}`}>×</button>
+              </div>
+            ))}
+          </div>
+        ) : <p className="hint">Выберите готовый набор предметов и сохраните его как повторно используемый модуль проекта.</p>}
+      </section>
+
+      <section className="panel-section">
+        <h2>Постоянные размеры</h2>
+        {project.dimensions.length > 0 ? (
+          <div className="managed-list">
+            {project.dimensions.map((dimension) => (
+              <div className="managed-list__row" key={dimension.id}>
+                <span><strong>{dimension.name}</strong><small>{formatMeters(distanceMeters(dimension.start, dimension.end))}</small></span>
+                <button className="button--danger" type="button" onClick={() => onDeleteDimension(dimension.id)} aria-label={`Удалить ${dimension.name}`}>Удалить</button>
+              </div>
+            ))}
+          </div>
+        ) : <p className="hint">Создайте размер инструментом «Линейка».</p>}
+      </section>
+
+      <section className="panel-section project-summary">
+        <h2>Сводка проекта</h2>
+        <dl className="summary-grid">
+          <div><dt>Игровых мест</dt><dd>{projectSummary.seats}</dd></div>
+          <div><dt>Объектов</dt><dd>{projectSummary.objectCount}</dd></div>
+          <div><dt>Площадь зон</dt><dd>{projectSummary.zoneAreaM2.toFixed(1)} м²</dd></div>
+          <div><dt>Плотность</dt><dd>{projectSummary.seatDensityPerM2 === null ? "—" : `${projectSummary.seatDensityPerM2.toFixed(2)} места/м²`}</dd></div>
+        </dl>
+        <div className={`warning-summary${layoutWarnings.length > 0 ? " has-warning" : ""}`}>
+          <strong>{layoutWarnings.length > 0 ? `Предупреждений: ${layoutWarnings.length}` : "Пересечений не найдено"}</strong>
+          {layoutWarnings.slice(0, 6).map((warning) => <span key={warning.id}>{warning.message}</span>)}
+          {layoutWarnings.length > 6 ? <span>И ещё {layoutWarnings.length - 6}…</span> : null}
+        </div>
+        <p className="hint">Расчёт помогает сравнивать варианты планировки, но не является проверкой строительных, пожарных или санитарных норм.</p>
       </section>
 
       <section className="panel-section export-section">

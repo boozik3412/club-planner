@@ -1,6 +1,7 @@
 import { getObjectsBounds } from "../geometry/geometry";
 import { normalizeAngle } from "../model/project";
 import type { PlanObject, PointM } from "../model/types";
+import { resolveObjectSnap } from "./object-snap";
 import type { PlanBoundary, SnapGuide, SnapResolution } from "./types";
 
 const ACQUIRE_PX = 10;
@@ -33,6 +34,7 @@ interface SnapCandidate {
 
 export interface ResolveMoveSnapInput {
   objects: readonly PlanObject[];
+  otherObjects?: readonly PlanObject[];
   rawDeltaXM: number;
   rawDeltaYM: number;
   boundaries: readonly PlanBoundary[];
@@ -235,6 +237,7 @@ function resolveGridDelta(
 export function resolveMoveSnap(input: ResolveMoveSnapInput): SnapResolution {
   const {
     objects,
+    otherObjects = [],
     rawDeltaXM,
     rawDeltaYM,
     boundaries,
@@ -308,6 +311,23 @@ export function resolveMoveSnap(input: ResolveMoveSnapInput): SnapResolution {
   const uniqueCandidates = [...new Map(candidates.map((candidate) => [candidate.key, candidate])).values()]
     .sort((left, right) => candidateMagnitude(left) - candidateMagnitude(right));
   if (uniqueCandidates.length === 0) {
+    const objectSnap = resolveObjectSnap(
+      objects,
+      otherObjects,
+      rawDeltaXM,
+      rawDeltaYM,
+      acquireToleranceM,
+      candidateIndex,
+    );
+    if (objectSnap) {
+      return {
+        deltaXM: objectSnap.deltaXM,
+        deltaYM: objectSnap.deltaYM,
+        activeBoundaryId: null,
+        guide: objectSnap.guide,
+        rotations: {},
+      };
+    }
     const grid = resolveGridDelta(objects, rawDeltaXM, rawDeltaYM, snapStepM);
     return { ...grid, activeBoundaryId: null, guide: null, rotations: {} };
   }

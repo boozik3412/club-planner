@@ -2,6 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BasePlanCanvas } from "./components/BasePlanCanvas";
 import { Sidebar } from "./components/Sidebar";
+import { analyzeLayout } from "./editor/analysis/layout-analysis";
+import { summarizeProject } from "./editor/analysis/project-summary";
+import {
+  addDimensionCommand,
+  createObjectArrayCommand,
+  deleteCompositeTemplateCommand,
+  deleteDimensionCommand,
+  instantiateCompositeTemplateCommand,
+  saveCompositeTemplateCommand,
+} from "./editor/commands/advanced-commands";
 import {
   addObjectCommand,
   deleteSelectionCommand,
@@ -27,7 +37,7 @@ import {
 } from "./editor/history/history";
 import { loadBasePlan } from "./editor/load-base-plan";
 import { createEmptyProject, normalizeAngle, updateProject } from "./editor/model/project";
-import { EMPTY_SELECTION, type CameraState, type CanvasSettings, type ObjectType, type ProjectState, type SelectionState } from "./editor/model/types";
+import { EMPTY_SELECTION, type CameraState, type CanvasSettings, type ObjectType, type PointM, type ProjectState, type SelectionState } from "./editor/model/types";
 import {
   chooseAndOpenProject,
   clearRecovery,
@@ -79,14 +89,18 @@ export default function App() {
   const [camera, setCamera] = useState<CameraState>({ x: 20, y: 20, zoom: 0.05 });
   const [fitRequest, setFitRequest] = useState(0);
   const [betweenRequest, setBetweenRequest] = useState<BetweenBoundariesRequest | null>(null);
+  const [measureRequest, setMeasureRequest] = useState<number | null>(null);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [recentPaths, setRecentPaths] = useState(readRecentPaths);
   const [status, setStatus] = useState("Готово · локальный режим");
   const statusTimerRef = useRef<number | null>(null);
   const recoveryCheckedRef = useRef(false);
+  const measureSequenceRef = useRef(0);
   const project = previewProject ?? history.present.project;
   const dirty = isHistoryDirty(history);
   const selectedObjects = useMemo(() => getSelectedObjects(project, selection), [project, selection]);
+  const layoutWarnings = useMemo(() => analyzeLayout(project), [project]);
+  const projectSummary = useMemo(() => summarizeProject(project, layoutWarnings), [layoutWarnings, project]);
 
   const showStatus = useCallback((message: string) => {
     setStatus(message);
@@ -106,6 +120,7 @@ export default function App() {
     setHistory((current) => commitHistory(current, nextProject, label));
     setPreviewProject(null);
     setBetweenRequest(null);
+    setMeasureRequest(null);
     setSelection((current) => pruneSelection(nextProject, current));
     showStatus(label);
   }, [showStatus]);
@@ -126,6 +141,7 @@ export default function App() {
     setHistory(createHistory(decoded.project, true));
     setPreviewProject(null);
     setBetweenRequest(null);
+    setMeasureRequest(null);
     setSelection(EMPTY_SELECTION);
     const projectPath = decoded.legacy ? null : payload.path;
     setCurrentPath(projectPath);
@@ -144,6 +160,7 @@ export default function App() {
     setHistory(createHistory(next));
     setPreviewProject(null);
     setBetweenRequest(null);
+    setMeasureRequest(null);
     setSelection(EMPTY_SELECTION);
     setCurrentPath(null);
     setFitRequest((value) => value + 1);
@@ -208,6 +225,7 @@ export default function App() {
     setHistory(next);
     setPreviewProject(null);
     setBetweenRequest(null);
+    setMeasureRequest(null);
     setSelection((current) => pruneSelection(next.present.project, current));
     showStatus(`Отменено: ${history.present.label}`);
   }, [history, showStatus]);
@@ -218,6 +236,7 @@ export default function App() {
     setHistory(next);
     setPreviewProject(null);
     setBetweenRequest(null);
+    setMeasureRequest(null);
     setSelection((current) => pruneSelection(next.present.project, current));
     showStatus(`Повторено: ${next.present.label}`);
   }, [history, showStatus]);
@@ -263,9 +282,68 @@ export default function App() {
       return;
     }
     setPreviewProject(null);
+    setMeasureRequest(null);
     setBetweenRequest((current) => ({ id: (current?.id ?? 0) + 1, mode }));
     showStatus("Укажите первую перегородку на плане");
   }, [selectedObjects, selection.objectIds.length, showStatus]);
+
+  const handleStartMeasure = useCallback(() => {
+    setPreviewProject(null);
+    setBetweenRequest(null);
+    measureSequenceRef.current += 1;
+    setMeasureRequest(measureSequenceRef.current);
+    showStatus("Укажите первую точку размера");
+  }, [showStatus]);
+
+  const handleAddDimension = useCallback((start: PointM, end: PointM) => {
+    const next = addDimensionCommand(history.present.project, start, end);
+    setMeasureRequest(null);
+    if (next === history.present.project) {
+      showStatus("Размер не создан: точки совпадают");
+      return;
+    }
+    commitProject(next, "Добавление размера");
+  }, [commitProject, history.present.project, showStatus]);
+
+  const handleDeleteDimension = useCallback((dimensionId: string) => {
+    commitProject(deleteDimensionCommand(history.present.project, dimensionId), "Удаление размера");
+  }, [commitProject, history.present.project]);
+
+  const handleCreateArray = useCallback((count: number, stepM: number, direction: "horizontal" | "vertical") => {
+    const result = createObjectArrayCommand(history.present.project, selection, count, stepM, direction);
+    if (!result) {
+      showStatus("Выберите хотя бы один незаблокированный предмет");
+      return;
+    }
+    commitProject(result.project, "Создание ряда объектов");
+    setSelection(result.selection);
+  }, [commitProject, history.present.project, selection, showStatus]);
+
+  const handleSaveCompositeTemplate = useCallback((name: string) => {
+    const result = saveCompositeTemplateCommand(history.present.project, selection.objectIds, name);
+    if (!result) {
+      showStatus("Выберите предметы для шаблона");
+      return;
+    }
+    commitProject(result.project, "Сохранение составного шаблона");
+  }, [commitProject, history.present.project, selection.objectIds, showStatus]);
+
+  const handleInstantiateCompositeTemplate = useCallback((templateId: string) => {
+    const base = history.present.project;
+    const result = instantiateCompositeTemplateCommand(
+      base,
+      templateId,
+      base.basePlan.widthM / 2,
+      base.basePlan.heightM / 2,
+    );
+    if (!result) return;
+    commitProject(result.project, "Добавление составного шаблона");
+    setSelection(result.selection);
+  }, [commitProject, history.present.project]);
+
+  const handleDeleteCompositeTemplate = useCallback((templateId: string) => {
+    commitProject(deleteCompositeTemplateCommand(history.present.project, templateId), "Удаление составного шаблона");
+  }, [commitProject, history.present.project]);
 
   const handleDelete = useCallback(() => {
     if (selection.objectIds.length === 0) return;
@@ -466,6 +544,8 @@ export default function App() {
         canUndo={canUndo(history)}
         canRedo={canRedo(history)}
         status={status}
+        layoutWarnings={layoutWarnings}
+        projectSummary={projectSummary}
         onNew={() => { void handleNew(); }}
         onOpen={() => { void handleOpen(); }}
         onOpenRecent={(path) => { void handleOpenRecent(path); }}
@@ -484,6 +564,12 @@ export default function App() {
         onGroup={handleGroup}
         onUngroup={handleUngroup}
         onAlignBetween={handleAlignBetween}
+        onStartMeasure={handleStartMeasure}
+        onDeleteDimension={handleDeleteDimension}
+        onCreateArray={handleCreateArray}
+        onSaveCompositeTemplate={handleSaveCompositeTemplate}
+        onInstantiateCompositeTemplate={handleInstantiateCompositeTemplate}
+        onDeleteCompositeTemplate={handleDeleteCompositeTemplate}
         onEnterGroup={() => handleEnterGroup()}
         onExitGroup={handleExitGroup}
       />
@@ -494,6 +580,7 @@ export default function App() {
           camera={camera}
           fitRequest={fitRequest}
           betweenRequest={betweenRequest}
+          measureRequest={measureRequest}
           onCameraChange={setCamera}
           onSelectionChange={setSelection}
           onPreviewProject={setPreviewProject}
@@ -503,6 +590,8 @@ export default function App() {
           onDeleteSelection={handleDelete}
           onEnterGroup={handleEnterGroup}
           onBetweenMessage={showStatus}
+          onAddDimension={handleAddDimension}
+          onMeasurementMessage={showStatus}
           onReady={(count) => showStatus(`Базовый план готов · ${count} подписей`)}
           onError={(message) => showStatus(`Ошибка базового плана: ${message}`)}
         />

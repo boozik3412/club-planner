@@ -14,11 +14,18 @@ export interface PlanBoundary {
 }
 
 export interface SnapGuide {
-  boundary: PlanBoundary;
+  boundary?: PlanBoundary;
   from: PointM;
   to: PointM;
   distanceM: number;
-  snapType: "wall" | "center" | "corner" | "parallel";
+  snapType:
+    | "wall"
+    | "center"
+    | "corner"
+    | "parallel"
+    | "object-edge"
+    | "object-center"
+    | "equal-gap";
   candidateIndex: number;
   candidateCount: number;
 }
