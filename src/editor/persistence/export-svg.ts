@@ -19,10 +19,13 @@ function objectMarkup(object: PlanObject, unitsPerMeter: number, canvasRotation:
   const depth = object.depthM * unitsPerMeter;
   const fill = escapeXml(object.style?.fill ?? "#d9e5ed");
   const dash = object.kind === "zone" ? ' stroke-dasharray="24 16" fill-opacity="0.42"' : "";
+  const shape = object.kind === "custom-circle" || object.kind === "custom-oval"
+    ? `<ellipse cx="0" cy="0" rx="${width / 2}" ry="${depth / 2}" fill="${fill}" stroke="#26313a" stroke-width="3" vector-effect="non-scaling-stroke"/>`
+    : `<rect x="${-width / 2}" y="${-depth / 2}" width="${width}" height="${depth}" rx="${Math.min(width, depth) * 0.06}" fill="${fill}" stroke="#26313a" stroke-width="3" vector-effect="non-scaling-stroke"${dash}/>`;
   const label = object.labelVisible
     ? `<g transform="rotate(${-canvasRotation} ${x} ${y})"><text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI,Arial,sans-serif" font-size="83" fill="#111820" stroke="#fff" stroke-width="15" paint-order="stroke">${escapeXml(object.name)}</text></g>`
     : "";
-  return `<g data-object-id="${escapeXml(object.id)}"><g transform="translate(${x} ${y}) rotate(${object.rotationDeg})"><rect x="${-width / 2}" y="${-depth / 2}" width="${width}" height="${depth}" rx="${Math.min(width, depth) * 0.06}" fill="${fill}" stroke="#26313a" stroke-width="3" vector-effect="non-scaling-stroke"${dash}/></g>${label}</g>`;
+  return `<g data-object-id="${escapeXml(object.id)}"><g transform="translate(${x} ${y}) rotate(${object.rotationDeg})">${shape}</g>${label}</g>`;
 }
 
 export function buildProjectSvg(project: ProjectState, plan: LoadedBasePlan): string {

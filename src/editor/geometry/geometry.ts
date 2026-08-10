@@ -121,10 +121,16 @@ export function resizeObjectFromHandle(
   if (handle.includes("s")) depthM = Math.max(0.1, originalDepth + localY);
   if (handle.includes("n")) depthM = Math.max(0.1, originalDepth - localY);
 
-  if (keepRatio && handle.length === 2) {
+  if (keepRatio) {
     const ratio = originalWidth / originalDepth;
-    if (widthM / depthM > ratio) depthM = widthM / ratio;
-    else widthM = depthM * ratio;
+    if (handle.length === 2) {
+      if (widthM / depthM > ratio) depthM = widthM / ratio;
+      else widthM = depthM * ratio;
+    } else if (handle === "e" || handle === "w") {
+      depthM = widthM / ratio;
+    } else {
+      widthM = depthM * ratio;
+    }
   }
 
   widthM = Math.max(0.1, snap(widthM));

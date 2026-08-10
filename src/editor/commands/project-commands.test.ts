@@ -38,6 +38,27 @@ describe("project commands", () => {
     expect(updated.objects.map((object) => object.xM)).toEqual([1, 3]);
   });
 
+  it("edits all three dimensions and keeps a custom circle round", () => {
+    const project = updateProject(createEmptyProject(), (draft) => {
+      draft.objects = [
+        createObjectFromTemplate("custom-rectangle", 1, 1, "rectangle"),
+        createObjectFromTemplate("custom-circle", 3, 1, "circle"),
+      ];
+    });
+    const resizedRectangle = updateObjectsCommand(project, ["rectangle"], {
+      widthM: 2.4,
+      depthM: 1.6,
+      heightM: 2.1,
+    });
+    const resizedCircle = updateObjectsCommand(resizedRectangle, ["circle"], {
+      widthM: 1.8,
+      heightM: 1.4,
+    });
+
+    expect(resizedCircle.objects[0]).toMatchObject({ widthM: 2.4, depthM: 1.6, heightM: 2.1 });
+    expect(resizedCircle.objects[1]).toMatchObject({ widthM: 1.8, depthM: 1.8, heightM: 1.4 });
+  });
+
   it("does not create a new project for a no-op edit or snapped drag", () => {
     const project = projectWithTwoTables();
     expect(updateObjectsCommand(project, ["first"], { widthM: project.objects[0].widthM })).toBe(project);

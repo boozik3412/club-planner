@@ -309,7 +309,7 @@ export function BasePlanCanvas({
         gesture.handle,
         currentPlan.x - gesture.startPlan.x,
         currentPlan.y - gesture.startPlan.y,
-        event.shiftKey,
+        event.shiftKey || gesture.object.type === "custom-circle",
         (value) => snapMeters(value, project.canvas.snapEnabled, project.canvas.snapStepM),
       );
       const preview = replaceObjectsCommand(gesture.baseProject, [resized]);

@@ -31,6 +31,24 @@ describe(".clubplan serialization", () => {
     expect(decoded.project.objects.every((object) => object.locked)).toBe(true);
   });
 
+  it("round-trips custom shapes and their physical height", () => {
+    const project = updateProject(createEmptyProject(), (draft) => {
+      draft.objects = [
+        { ...createObjectFromTemplate("custom-rectangle", 1, 2, "rectangle"), heightM: 2.4 },
+        createObjectFromTemplate("custom-circle", 3, 2, "circle"),
+        createObjectFromTemplate("custom-oval", 5, 2, "oval"),
+      ];
+    });
+    const decoded = decodeProject(encodeProject(project));
+
+    expect(decoded.project.objects.map((object) => object.type)).toEqual([
+      "custom-rectangle",
+      "custom-circle",
+      "custom-oval",
+    ]);
+    expect(decoded.project.objects[0].heightM).toBe(2.4);
+  });
+
   it("migrates legacy v6 JSON", () => {
     const decoded = decodeProject(JSON.stringify({
       version: 6,

@@ -153,6 +153,8 @@ export function Sidebar({
   const single = selectedObjects.length === 1 ? selectedObjects[0] : null;
   const width = getMixedValue(selectedObjects, "widthM");
   const depth = getMixedValue(selectedObjects, "depthM");
+  const hasHeight = selectedObjects.length > 0 && selectedObjects.every((object) => typeof object.heightM === "number");
+  const height = hasHeight ? getMixedValue(selectedObjects, "heightM") : undefined;
   const angle = getMixedValue(selectedObjects, "rotationDeg");
   const layer = getMixedValue(selectedObjects, "layerId");
   const locked = getMixedValue(selectedObjects, "locked");
@@ -235,6 +237,7 @@ export function Sidebar({
               {single ? <><NumberField label="X, м" value={single.xM} onCommit={(value) => onMassPatch({ xM: value }, "Координата X")} /><NumberField label="Y, м" value={single.yM} onCommit={(value) => onMassPatch({ yM: value }, "Координата Y")} /></> : null}
               <NumberField label="Ширина, м" value={width} min={0.1} onCommit={(value) => onMassPatch({ widthM: value }, "Массовая ширина")} />
               <NumberField label="Глубина, м" value={depth} min={0.1} onCommit={(value) => onMassPatch({ depthM: value }, "Массовая глубина")} />
+              {hasHeight ? <NumberField label="Высота, м" value={height} min={0.1} onCommit={(value) => onMassPatch({ heightM: value }, "Массовая высота")} /> : null}
               <NumberField label="Угол, °" value={angle} step={1} onCommit={(value) => onMassPatch({ rotationDeg: value }, "Абсолютный угол")} />
               <label className="property-field"><span>Слой</span><select value={layer === MIXED_VALUE || layer === undefined ? "" : layer} onChange={(event) => event.target.value && onMassPatch({ layerId: event.target.value as LayerId }, "Слой предметов")}><option value="">разные значения</option>{project.layers.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select></label>
             </div>

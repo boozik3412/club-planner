@@ -28,6 +28,7 @@ export function replaceObjectsCommand(
       && replacement.yM === object.yM
       && replacement.widthM === object.widthM
       && replacement.depthM === object.depthM
+      && replacement.heightM === object.heightM
       && replacement.rotationDeg === object.rotationDeg
       && replacement.layerId === object.layerId
       && replacement.locked === object.locked
@@ -99,6 +100,7 @@ export type MassObjectPatch = Partial<
     | "yM"
     | "widthM"
     | "depthM"
+    | "heightM"
     | "rotationDeg"
     | "layerId"
     | "locked"
@@ -115,13 +117,23 @@ export function updateObjectsCommand(
   const safePatch = { ...patch };
   if (safePatch.widthM !== undefined) safePatch.widthM = Math.max(0.1, safePatch.widthM);
   if (safePatch.depthM !== undefined) safePatch.depthM = Math.max(0.1, safePatch.depthM);
+  if (safePatch.heightM !== undefined) safePatch.heightM = Math.max(0.1, safePatch.heightM);
   if (safePatch.rotationDeg !== undefined) safePatch.rotationDeg = normalizeAngle(safePatch.rotationDeg);
-  const replacements = project.objects
-    .filter((object) => selected.has(object.id))
-    .filter((object) => Object.entries(safePatch).some(([key, value]) =>
-      !Object.is(object[key as keyof PlanObject], value),
-    ))
-    .map((object) => ({ ...object, ...safePatch }));
+  const replacements = project.objects.flatMap((object) => {
+      if (!selected.has(object.id)) return [];
+      const objectPatch = { ...safePatch };
+      if (object.type === "custom-circle") {
+        if (objectPatch.widthM !== undefined) {
+          objectPatch.depthM = objectPatch.widthM;
+        } else if (objectPatch.depthM !== undefined) {
+          objectPatch.widthM = objectPatch.depthM;
+        }
+      }
+      const changed = Object.entries(objectPatch).some(([key, value]) =>
+        !Object.is(object[key as keyof PlanObject], value),
+      );
+      return changed ? [{ ...object, ...objectPatch }] : [];
+    });
   return replaceObjectsCommand(project, replacements);
 }
 

@@ -73,8 +73,17 @@ function parseObject(
     ? undefined
     : asRecord(record.properties, `objects[${index}].properties`);
   const widthM = asFiniteNumber(record.widthM, `objects[${index}].widthM`);
-  const depthM = asFiniteNumber(record.depthM, `objects[${index}].depthM`);
-  if (widthM < 0.1 || depthM < 0.1) throw new Error(`Предмет ${id} имеет размер меньше 0,1 м`);
+  let depthM = asFiniteNumber(record.depthM, `objects[${index}].depthM`);
+  const heightM = record.heightM === undefined
+    ? template.heightM
+    : asFiniteNumber(record.heightM, `objects[${index}].heightM`);
+  if (widthM < 0.1 || depthM < 0.1 || (heightM !== undefined && heightM < 0.1)) {
+    throw new Error(`Предмет ${id} имеет размер меньше 0,1 м`);
+  }
+  if (type === "custom-circle" && depthM !== widthM) {
+    depthM = widthM;
+    warnings.push(`Диаметр круга ${id} нормализован по ширине`);
+  }
   const rawAngle = asFiniteNumber(record.rotationDeg, `objects[${index}].rotationDeg`);
   const normalizedAngle = normalizeAngle(rawAngle);
   if (normalizedAngle !== rawAngle) warnings.push(`Угол предмета ${id} нормализован`);
@@ -87,6 +96,7 @@ function parseObject(
     yM: asFiniteNumber(record.yM, `objects[${index}].yM`),
     widthM,
     depthM,
+    heightM,
     rotationDeg: normalizedAngle,
     layerId,
     locked: asBoolean(record.locked, `objects[${index}].locked`),

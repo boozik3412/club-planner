@@ -23,7 +23,10 @@ export type ObjectType =
   | "bar"
   | "server"
   | "partition"
-  | "zone";
+  | "zone"
+  | "custom-rectangle"
+  | "custom-circle"
+  | "custom-oval";
 
 export type ObjectKind =
   | "pc"
@@ -37,7 +40,10 @@ export type ObjectKind =
   | "bar"
   | "server"
   | "partition"
-  | "zone";
+  | "zone"
+  | "custom-rectangle"
+  | "custom-circle"
+  | "custom-oval";
 
 export interface ProjectMetadata {
   id: string;
@@ -82,6 +88,7 @@ export interface PlanObject {
   yM: number;
   widthM: number;
   depthM: number;
+  heightM?: number;
   rotationDeg: number;
   layerId: LayerId;
   locked: boolean;

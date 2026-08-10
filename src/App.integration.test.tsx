@@ -83,6 +83,33 @@ describe("App integration", () => {
     expect(desktopMocks.showError).toHaveBeenCalledWith(expect.stringContaining("Не удалось открыть проект"));
   });
 
+  it("creates custom rectangle, circle and oval with editable dimensions", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Прямоугольник$/ }));
+    expect(screen.getByRole("spinbutton", { name: "Ширина, м" })).toHaveValue(1.5);
+    expect(screen.getByRole("spinbutton", { name: "Глубина, м" })).toHaveValue(1);
+    const rectangleHeight = screen.getByRole("spinbutton", { name: "Высота, м" });
+    await user.clear(rectangleHeight);
+    await user.type(rectangleHeight, "2.2");
+    await user.tab();
+    expect(screen.getByRole("spinbutton", { name: "Высота, м" })).toHaveValue(2.2);
+
+    await user.click(screen.getByRole("button", { name: /^Круг$/ }));
+    const circleWidth = screen.getByRole("spinbutton", { name: "Ширина, м" });
+    await user.clear(circleWidth);
+    await user.type(circleWidth, "2");
+    await user.tab();
+    expect(screen.getByRole("spinbutton", { name: "Ширина, м" })).toHaveValue(2);
+    expect(screen.getByRole("spinbutton", { name: "Глубина, м" })).toHaveValue(2);
+
+    await user.click(screen.getByRole("button", { name: /^Овал$/ }));
+    expect(screen.getByRole("spinbutton", { name: "Ширина, м" })).toHaveValue(1.8);
+    expect(screen.getByRole("spinbutton", { name: "Глубина, м" })).toHaveValue(1.1);
+    expect(screen.getByText(/3 предметов · 0 групп/)).toBeInTheDocument();
+  });
+
   it("blocks browser-only desktop shortcuts", () => {
     render(<App />);
 

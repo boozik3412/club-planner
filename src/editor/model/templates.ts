@@ -7,6 +7,7 @@ export interface ObjectTemplate {
   kind: ObjectKind;
   widthM: number;
   depthM: number;
+  heightM?: number;
   layerId: LayerId;
   fill: string;
   seats?: number;
@@ -27,6 +28,9 @@ export const OBJECT_TEMPLATES: readonly ObjectTemplate[] = [
   { type: "server", label: "Серверная стойка", shortLabel: "Серверная стойка", kind: "server", widthM: 0.8, depthM: 1, layerId: "equipment", fill: "#d9dde3" },
   { type: "partition", label: "Перегородка", shortLabel: "Перегородка", kind: "partition", widthM: 3, depthM: 0.12, layerId: "furniture", fill: "#9ca8b3" },
   { type: "zone", label: "Свободная зона", shortLabel: "Свободная зона", kind: "zone", widthM: 3, depthM: 2.5, layerId: "zones", fill: "#dff3e7" },
+  { type: "custom-rectangle", label: "Произвольный прямоугольник", shortLabel: "Прямоугольник", kind: "custom-rectangle", widthM: 1.5, depthM: 1, heightM: 1, layerId: "furniture", fill: "#f2d6a2" },
+  { type: "custom-circle", label: "Произвольный круг", shortLabel: "Круг", kind: "custom-circle", widthM: 1.2, depthM: 1.2, heightM: 1, layerId: "furniture", fill: "#c9e5f5" },
+  { type: "custom-oval", label: "Произвольный овал", shortLabel: "Овал", kind: "custom-oval", widthM: 1.8, depthM: 1.1, heightM: 1, layerId: "furniture", fill: "#d9d2f2" },
 ] as const;
 
 export const OBJECT_TYPE_SET = new Set<ObjectType>(
@@ -55,6 +59,7 @@ export function createObjectFromTemplate(
     yM,
     widthM: template.widthM,
     depthM: template.depthM,
+    heightM: template.heightM,
     rotationDeg: 0,
     layerId: template.layerId,
     locked: false,

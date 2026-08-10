@@ -79,6 +79,7 @@ export const ObjectShape = memo(function ObjectShape({
   const rotationOffset = 30 / zoom;
   const isZone = object.kind === "zone";
   const isPartition = object.kind === "partition";
+  const isEllipse = object.kind === "custom-circle" || object.kind === "custom-oval";
   const radius = isPartition ? 0 : Math.min(width, depth) * 0.06;
 
   return (
@@ -89,21 +90,36 @@ export const ObjectShape = memo(function ObjectShape({
       transform={`translate(${x} ${y})`}
     >
       <g data-object-id={object.id} transform={`rotate(${object.rotationDeg})`}>
-        <rect
-          className="object-hit-area"
-          data-object-id={object.id}
-          x={-width / 2}
-          y={-depth / 2}
-          width={width}
-          height={depth}
-          rx={radius}
-          fill={object.style?.fill ?? "#d9e5ed"}
-          fillOpacity={isZone ? 0.42 : 1}
-          stroke={isZone ? "#478d68" : "#26313a"}
-          strokeDasharray={isZone ? `${12 / zoom} ${8 / zoom}` : undefined}
-          strokeWidth="2"
-          vectorEffect="non-scaling-stroke"
-        />
+        {isEllipse ? (
+          <ellipse
+            className="object-hit-area"
+            data-object-id={object.id}
+            cx="0"
+            cy="0"
+            rx={width / 2}
+            ry={depth / 2}
+            fill={object.style?.fill ?? "#d9e5ed"}
+            stroke="#26313a"
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : (
+          <rect
+            className="object-hit-area"
+            data-object-id={object.id}
+            x={-width / 2}
+            y={-depth / 2}
+            width={width}
+            height={depth}
+            rx={radius}
+            fill={object.style?.fill ?? "#d9e5ed"}
+            fillOpacity={isZone ? 0.42 : 1}
+            stroke={isZone ? "#478d68" : "#26313a"}
+            strokeDasharray={isZone ? `${12 / zoom} ${8 / zoom}` : undefined}
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
         <KindDetails object={object} width={width} depth={depth} />
 
         {showHandles ? (
