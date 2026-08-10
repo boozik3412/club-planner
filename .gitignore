@@ -1,0 +1,22 @@
+# Frontend
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Tauri / Rust
+src-tauri/target/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Logs and temporary QA artifacts
+*.log
+tmp/
+playwright-report/
+test-results/
+

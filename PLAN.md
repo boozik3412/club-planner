@@ -1,0 +1,860 @@
+# PLAN — Club Planner Desktop
+
+Статус: план подготовлен, реализация не начата.  
+Дата актуализации: 2026-08-10.
+
+## 1. Цель и границы плана
+
+Цель — поэтапно превратить рабочий браузерный прототип v6 в автономное русскоязычное Windows-приложение на Tauri 2 и TypeScript, сохранив точную базовую планировку и существующие одиночные операции, а затем добавить множественное выделение, массовое редактирование, постоянные группы, надёжное файловое хранение и атомарный Undo/Redo.
+
+Этот документ описывает архитектуру, модель данных, формат `.clubplan`, миграцию legacy JSON, этапы реализации, проверки и риски. На текущем шаге код приложения, зависимости и конфигурация сборки не создаются.
+
+### В MVP входит
+
+- отдельное окно Windows без необходимости открывать браузер;
+- полностью локальная работа без внешних CDN и сетевых запросов;
+- актуальный векторный базовый план;
+- зум, панорамирование, «Вписать план», сетка, привязка и поворот холста;
+- существующая библиотека предметов и одиночные операции;
+- множественное выделение, совместное перемещение и массовые свойства;
+- постоянные группы и режим редактирования группы;
+- Undo/Redo минимум на 100 пользовательских транзакций;
+- открытие, сохранение и «Сохранить как» через системные диалоги;
+- формат `.clubplan`, импорт legacy JSON, автосохранение для восстановления;
+- экспорт SVG;
+- сборка x64 Windows и установщик NSIS.
+
+### Не входит в обязательный MVP
+
+- вложенные группы;
+- совместное редактирование и облачная синхронизация;
+- серверная часть или учётные записи;
+- PDF-экспорт в печатном масштабе;
+- пользовательская библиотека шаблонов групп;
+- поддержка старого технического паспорта как геометрической основы;
+- мобильные и веб-публикации.
+
+## 2. Изученные источники и установленный приоритет
+
+Источники прочитаны и обследованы в следующем порядке приоритета:
+
+1. `AGENTS.md` — обязательные правила разработки.
+2. `docs/PRODUCT_SPEC.md` — продуктовые требования.
+3. `docs/ACCEPTANCE_CRITERIA.md` — проверяемая готовность.
+4. `assets/base_plan_new_measurement.svg` — текущая геометрия.
+5. `assets/measurement_plan.pdf` — первичный замер для визуальной сверки.
+6. `legacy/floor_planner_v6_new_base.html` — проверяемый источник поведения и визуальной логики.
+7. Остальные документы в `docs/`, `START_HERE.md` и `CODEX_START_PROMPT.md` — архитектурный и процессный контекст.
+
+Если legacy-поведение расходится со спецификацией, приоритет имеют `PRODUCT_SPEC.md` и `ACCEPTANCE_CRITERIA.md`. Старый технический паспорт не используется для актуальных размеров.
+
+## 3. Результаты обследования исходного состояния
+
+### 3.1 Репозиторий и окружение
+
+- В проекте пока нет каркаса приложения и `package.json`.
+- Git не инициализирован. До первого крупного изменения нужно выполнить `git init` и сохранить исходный пакет отдельным baseline-коммитом; это действие выполняется только после согласования плана.
+- Node.js 22.17.0, pnpm 10.33.2 и npm 10.9.2 доступны.
+- `rustc`, Cargo и `cl.exe` сейчас не обнаружены. До сборки Tauri потребуется Rust MSVC toolchain и компоненты Visual Studio Build Tools для разработки настольных приложений C++.
+
+### 3.2 Базовая геометрия
+
+- SVG имеет `viewBox="0 0 23569.5996 2752.6399"`.
+- Legacy использует `UPM = 377.952755906`, поэтому логический размер плана составляет примерно `62,3612 × 7,2830 м`.
+- SVG содержит 7 952 `path`, 346 групп `.plan-label` и 1 262 `use`. Текст преобразован в векторные глифы, обычных SVG-элементов `<text>` в базовом плане нет.
+- Геометрия и подписи уже разделены на `#basePlanGeometry` и `#basePlanLabels`.
+- У каждой группы подписи есть `data-cx`, `data-cy` и `data-label`; это позволяет компенсировать поворот холста вокруг центра конкретной подписи.
+- Среди меток присутствуют размеры, отметки высот, окна, радиаторы, ступени, перегородки и вентиляция.
+- PDF состоит из одной очень широкой страницы. Его размеры и SVG совпадают с коэффициентом 4:1 по обеим осям, а визуальная структура соответствует: лестница слева, длинная последовательность помещений, окна, радиаторы, перегородки, вентиляция, размерные цепочки и высотные отметки.
+
+### 3.3 Реализованное поведение legacy v6
+
+- Одна страница с боковой панелью и SVG-холстом.
+- 12 шаблонов: `pc1`, `pc2`, `pc5`, диван, кресло, стол, консольная зона, ресепшн, бар, серверная стойка, перегородка и свободная зона.
+- Положение и размеры предметов хранятся в метрах; SVG-координаты вычисляются через `UPM`.
+- X/Y предмета — координаты центра. Положительное направление X — вправо, Y — вниз. Положительный SVG-угол визуально вращает по часовой стрелке.
+- Есть выбор одного предмета, перемещение, восемь маркеров размера, свободное вращение, шаг 15° с Shift, точные поля X/Y/ширины/глубины/угла, ±90°, дублирование и удаление.
+- Есть зум колесом, панорамирование, вписывание плана, поворот холста на 90°, сетка 0,5 м и привязка 0,1 м.
+- Базовый план не принимает pointer events. Подписи плана компенсируют поворот холста; подписи предметов вынесены за внутреннюю группу вращения предмета.
+- История — полные JSON-снимки, максимум 80 состояний. Перетаскивание фиксируется на `pointerup` одной записью.
+- Состояние v6: `{ version, base, canvasAngle, objects }`.
+- Автосохранение выполняется только в `localStorage`, причём ошибки скрываются.
+- JSON сохраняется браузерным download и открывается через `<input type=file>`; есть экспорт SVG.
+
+### 3.4 Разрывы между legacy и требованиями
+
+- Только `selectedId`: нет множественного выделения, общей рамки и групп.
+- Нет слоёв, блокировки предметов и отдельной видимости подписи на уровне объекта.
+- Нет рамочного выделения, `Ctrl+A`, режима группы и групповых трансформаций.
+- История короче требуемых 100 операций и не имеет явной модели транзакций/dirty-state.
+- Нет системных файловых диалогов, атомарной записи, списка недавних файлов, восстановления после сбоя и предупреждения о несохранённых изменениях.
+- Ошибки `localStorage` проглатываются; повреждённый файл обрабатывается только минимально.
+- Настройки сетки, привязки, видимости и контраста не входят в legacy JSON.
+- Нет отключения `F5`, `Ctrl+R`, `Ctrl+P`, браузерного зума, стандартного контекстного меню и боковой навигации мыши.
+- `Пробел + ЛКМ` не реализован.
+- В legacy `Shift + стрелка` двигает на 0,5 м, что противоречит спецификации «точный малый шаг». В новой версии принимается: обычная стрелка — 0,1 м, `Shift + стрелка` — 0,01 м.
+
+## 4. Архитектурные решения
+
+### 4.1 Frontend: React + Vite + TypeScript
+
+Выбирается React поверх Vite, а не полностью vanilla DOM.
+
+Обоснование:
+
+- интерфейс имеет много согласованных состояний: пустое/одиночное/множественное выделение, mixed-поля, режим группы, доступность команд, dirty-state и ошибки файлов;
+- декларативные компоненты уменьшают риск рассинхронизации боковой панели, панели инструментов и холста;
+- React используется только как слой представления; геометрия, модель проекта, команды, миграции и сериализация остаются обычными TypeScript-модулями;
+- тяжёлый базовый SVG загружается один раз и не пересоздаётся React при каждом движении указателя;
+- отдельная библиотека глобального состояния на первом этапе не нужна: достаточно собственного `EditorStore` с чистым reducer/command API и подпиской через `useSyncExternalStore`;
+- Vite официально поддерживается Tauri для SPA, а React входит в официальные шаблоны Tauri.
+
+Зависимости должны быть минимальны и зафиксированы lock-файлом. Плановый набор:
+
+- runtime: React, React DOM, Tauri API и dialog/window-state plugins;
+- runtime-валидация файлов: Zod либо эквивалентный компактный schema validator; окончательная версия фиксируется lock-файлом на этапе 1;
+- development: TypeScript, Vite, ESLint, Vitest, jsdom, Testing Library;
+- desktop E2E на позднем этапе: WebdriverIO с Tauri service.
+
+Не использовать UI-kit и CSS-in-JS в MVP: нативных контролов и локальных CSS-модулей достаточно, а лишний UI-фреймворк усложнит offline bundle и визуальную стабильность.
+
+### 4.2 Слои приложения
+
+```text
+React UI
+  -> Editor application service / EditorStore
+    -> pure project reducer and commands
+      -> model, geometry, selection, grouping, history
+    -> persistence ports
+      -> .clubplan codec and legacy migrator
+      -> Tauri native file adapter
+  -> SVG rendering adapter
+    -> immutable base plan layer
+    -> dynamic object/selection/handle layers
+```
+
+Правило зависимостей: доменные модули не импортируют React, DOM или Tauri. Tauri и DOM доступны только через адаптеры.
+
+### 4.3 Предлагаемая структура
+
+```text
+src/
+  main.tsx
+  app/
+    App.tsx
+    AppShell.tsx
+    shortcuts.ts
+    error-boundary.tsx
+  components/
+    toolbar/
+    object-library/
+    properties-panel/
+    status-bar/
+    dialogs/
+  editor/
+    model/
+      project.ts
+      object.ts
+      group.ts
+      layer.ts
+      invariants.ts
+    geometry/
+      units.ts
+      matrix.ts
+      bounds.ts
+      transforms.ts
+    commands/
+      command.ts
+      history.ts
+      object-commands.ts
+      group-commands.ts
+      canvas-commands.ts
+    selection/
+      selection-model.ts
+      aggregate-properties.ts
+      hit-resolution.ts
+    grouping/
+      group-geometry.ts
+      group-edit-mode.ts
+    persistence/
+      clubplan-schema.ts
+      clubplan-codec.ts
+      legacy-v6-migrator.ts
+      project-file-service.ts
+    rendering/
+      base-plan-loader.ts
+      scene-renderer.tsx
+      object-renderer.tsx
+      overlay-renderer.tsx
+    interaction/
+      pointer-state-machine.ts
+      keyboard-commands.ts
+      camera-controller.ts
+  platform/
+    ports.ts
+    tauri/
+      file-adapter.ts
+      window-adapter.ts
+    browser/
+      mock-adapter.ts
+  styles/
+tests/
+  fixtures/
+  unit/
+  integration/
+scripts/
+src-tauri/
+  capabilities/
+  src/
+    lib.rs
+    project_files.rs
+    autosave.rs
+legacy/
+assets/
+docs/
+```
+
+`assets/base_plan_new_measurement.svg` остаётся единственным исходником базовой геометрии. Vite импортирует его как локальный asset URL; загрузчик читает bundled-файл, проверяет `viewBox`, `basePlanGeometry` и `basePlanLabels`, затем один раз монтирует доверенные SVG-узлы. Копия SVG в JSX или ручное редактирование 7 952 путей не допускаются.
+
+## 5. Модель данных
+
+### 5.1 Постоянное состояние проекта
+
+```ts
+type ObjectId = string;
+type GroupId = string;
+type LayerId = string;
+
+interface ProjectState {
+  projectId: string;
+  basePlan: BasePlanRef;
+  canvas: CanvasSettings;
+  layers: Layer[];
+  objects: PlanObject[];
+  groups: ObjectGroup[];
+}
+
+interface PlanObject {
+  id: ObjectId;
+  type: ObjectType;
+  name: string;
+  xM: number;
+  yM: number;
+  widthM: number;
+  depthM: number;
+  rotationDeg: number;
+  layerId: LayerId;
+  locked: boolean;
+  labelVisible: boolean;
+  style?: { fill?: string };
+  properties?: { seats?: number };
+}
+
+interface ObjectGroup {
+  id: GroupId;
+  name: string;
+  objectIds: ObjectId[];
+  locked: boolean;
+}
+```
+
+Инварианты:
+
+- все ID уникальны и стабильны;
+- один объект входит максимум в одну группу;
+- вложенные группы запрещены форматом v1;
+- группа содержит минимум два существующих объекта;
+- `widthM` и `depthM` конечны и не меньше 0,1 м;
+- координаты конечны, но намеренно не обрезаются по границам плана;
+- углы нормализованы в диапазон `[0, 360)`;
+- порядок массива `objects` задаёт z-order внутри слоя;
+- базовый план — отдельный системный слой и не является `PlanObject`.
+
+X/Y задают центр предмета в неповёрнутой системе базового плана. Это сохраняет legacy-совместимость и делает массовое изменение размеров предсказуемым: размер меняется вокруг центра, если пользователь явно не тянет конкретный маркер.
+
+### 5.2 Временное состояние редактора
+
+Не записываются в `.clubplan`:
+
+- выделение;
+- hover и активный handle;
+- режим текущего pointer-жеста;
+- `groupEditId`;
+- камера: экранный pan и zoom;
+- Undo/Redo stack;
+- dirty/saved revision;
+- открытые панели, фокус и временное значение поля ввода.
+
+```ts
+type SelectionTarget =
+  | { kind: "object"; id: ObjectId }
+  | { kind: "group"; id: GroupId };
+
+interface EditorSessionState {
+  selection: SelectionTarget[];
+  groupEditId: GroupId | null;
+  camera: { panXpx: number; panYpx: number; zoom: number };
+  interaction: InteractionState;
+}
+```
+
+На верхнем уровне клик по участнику группы разрешается в target группы. В режиме редактирования группы тот же клик разрешается в target отдельного объекта. Все команды сначала раскрывают targets в уникальное множество object IDs, поэтому один объект нельзя случайно трансформировать дважды.
+
+### 5.3 Семантика выделения
+
+- ЛКМ: заменить выделение одним target.
+- `Shift + ЛКМ`: toggle target.
+- ЛКМ по пустому месту или `Esc`: очистить выделение; в режиме группы первый `Esc` выходит на уровень группы, следующий снимает выделение.
+- `Ctrl+A`: выбрать все незаблокированные top-level targets на видимых слоях.
+- Рамка: выбрать объекты, чья трансформированная геометрия пересекает рамку; `Shift + рамка` добавляет/toggle согласно отдельным тестам UX.
+- Общая рамка строится по объединению world-space углов всех раскрытых объектов.
+- Перетаскивание любого target в текущей выборке перемещает все раскрытые объекты на один world-space вектор.
+
+### 5.4 Mixed-state и массовые свойства
+
+Агрегатор возвращает для каждого поля один из результатов:
+
+```ts
+type AggregateValue<T> =
+  | { kind: "uniform"; value: T }
+  | { kind: "mixed" }
+  | { kind: "not-applicable" };
+```
+
+Правила:
+
+- ширина/глубина задаются каждому объекту отдельно, центры не меняются;
+- абсолютный угол заменяет угол каждого объекта;
+- ±90° добавляет угол каждому объекту относительно его текущего угла;
+- слой, блокировка и видимость подписи применяются всем выбранным объектам;
+- изменение одного поля для всей выборки — одна команда и одна запись Undo;
+- ввод из mixed-state не должен временно подставлять значение первого объекта.
+
+### 5.5 Группы
+
+- `Shift + ПКМ` по выбранному незаблокированному объекту при выборе минимум двух незагруппированных объектов создаёт группу.
+- `Ctrl+G` и контекстное меню вызывают ту же команду.
+- Если выбор содержит существующую группу, группировка недоступна: вложенные группы в MVP запрещены.
+- Центр поворота группы — центр axis-aligned bounding box всех трансформированных углов участников на момент начала операции.
+- Поворот группы пересчитывает позиции участников вокруг фиксированного pivot и добавляет угол каждому предмету.
+- Перемещение, поворот, дублирование, блокировка и удаление группы атомарны.
+- Дублирование создаёт новые object IDs и новый group ID.
+- Удаление группы удаляет группу и её участников; разгруппировка удаляет только запись группы.
+- Двойной клик или команда «Редактировать группу» входит в режим группы; `Esc` выходит; `Ctrl+Shift+G` разгруппировывает.
+- Группа и порядок `objectIds` сохраняются в `.clubplan`.
+
+## 6. Координаты, камера и подписи
+
+### 6.1 Канонические системы координат
+
+1. **Project/world** — метры, начало в левом верхнем углу исходного плана, Y вниз.
+2. **Plan SVG** — `world × UPM`, где `UPM = 377.952755906`.
+3. **Rotated scene** — plan SVG после поворота холста вокруг `(PLAN_W/2, PLAN_H/2)`.
+4. **Screen** — rotated scene после camera scale и translate.
+
+Все конверсии реализуются чистыми функциями и матрицами. Pointer-координата проходит обратные преобразования в строгом порядке: inverse camera → inverse canvas rotation → деление на UPM. В DOM нельзя размазывать собственные варианты этих формул.
+
+### 6.2 Камера и поворот холста
+
+- Zoom ограничивается проверяемым диапазоном, ориентировочно 1–400% legacy camera scale.
+- Zoom относительно курсора сохраняет world-point под указателем.
+- Панорамирование: средняя кнопка или `Пробел + ЛКМ`; пустой ЛКМ может сохранить legacy-панорамирование, если не начинается рамочное выделение.
+- «Вписать план» использует bounds четырёх углов после поворота 0/90/180/270.
+- Canvas rotation хранится в проекте; camera pan/zoom — только в сессии.
+- Сетка задаётся в метрах: крупная линия 0,5 м, snap 0,1 м.
+
+### 6.3 Вертикальное положение и читаемость подписей
+
+Базовая геометрия и подписи монтируются разными группами. Для каждой `.plan-label` сохраняется исходная трансформация глифов, а поверх неё применяется компенсация `-canvasRotation` вокруг `data-cx/data-cy`. Это возвращает подпись к исходной ориентации при 90/180/270°, не меняя её привязку к плану.
+
+Подпись предмета находится рядом с объектом, но вне группы внутреннего вращения формы. Она компенсирует canvas rotation, поэтому остаётся читаемой при вращении предмета и холста. Отдельно проверяются горизонтальные и исходно вертикальные подписи, чтобы компенсация не меняла смысл их базовой ориентации.
+
+## 7. Undo/Redo и транзакции
+
+История строится на явных `EditorCommand`, а не на DOM-событиях.
+
+```ts
+interface EditorCommand {
+  id: string;
+  label: string;
+  apply(project: ProjectState): ProjectState;
+  revert(project: ProjectState): ProjectState;
+}
+```
+
+Допускается реализация `before/after` patch внутри команды, но базовый SVG никогда не входит в снимки. История ограничивается минимум 100 завершёнными пользовательскими транзакциями.
+
+Правила транзакций:
+
+- pointer move обновляет только preview; одна команда фиксируется на `pointerup`;
+- отменённый pointer gesture ничего не добавляет;
+- move выборки, resize, group rotate, массовое поле, group/ungroup, duplicate и delete — по одной команде;
+- изменение canvas rotation — одна команда;
+- выбор, pan, zoom, hover и вход в group edit mode не входят в историю проекта;
+- новая команда после Undo очищает redo branch;
+- открытие/создание проекта сбрасывает историю и selection;
+- dirty-state сравнивает history revision с saved revision, а не весь JSON;
+- Undo до сохранённой revision снимает признак несохранённых изменений.
+
+## 8. Формат `.clubplan` v1
+
+Файл — UTF-8 JSON с расширением `.clubplan`.
+
+```json
+{
+  "format": "clubplan",
+  "formatVersion": 1,
+  "generator": {
+    "name": "Club Planner",
+    "version": "0.1.0"
+  },
+  "project": {
+    "id": "uuid",
+    "createdAt": "2026-08-10T00:00:00.000Z",
+    "modifiedAt": "2026-08-10T00:00:00.000Z"
+  },
+  "basePlan": {
+    "id": "measurement-2026-08-10",
+    "asset": "base_plan_new_measurement.svg",
+    "widthM": 62.3612322749,
+    "heightM": 7.2830264021,
+    "unitsPerMeter": 377.952755906,
+    "sha256": "computed-at-build-time"
+  },
+  "canvas": {
+    "rotationDeg": 0,
+    "gridVisible": true,
+    "gridStepM": 0.5,
+    "snapEnabled": true,
+    "snapStepM": 0.1,
+    "basePlanVisible": true,
+    "planLabelsVisible": true,
+    "objectLabelsVisible": true,
+    "basePlanOpacity": 0.82
+  },
+  "layers": [
+    { "id": "furniture", "name": "Мебель", "visible": true, "locked": false }
+  ],
+  "objects": [],
+  "groups": []
+}
+```
+
+### В файл не входят
+
+- selection и group edit mode;
+- zoom/pan камеры;
+- Undo/Redo;
+- текущий путь к файлу и recent list;
+- recovery/autosave metadata;
+- временные ошибки и UI-фокус.
+
+### Валидация и загрузка
+
+- Сначала JSON parse и schema validation, затем проверка ссылочной целостности и числовых инвариантов.
+- Неизвестная будущая `formatVersion` не открывается молча: показывается понятная ошибка о более новой версии.
+- Повреждённый файл не заменяет текущий проект: новый state публикуется только после полной успешной проверки.
+- Допускаются предупреждения с безопасной нормализацией углов/legacy IDs, но не скрытая потеря объектов.
+- Round-trip `decode(encode(project))` должен сохранять модель с заданной точностью.
+
+## 9. Миграция legacy JSON v6
+
+Legacy определяется по `version === 6` и массиву `objects`, либо по отсутствию `format` при наличии совместимого списка объектов.
+
+Маппинг:
+
+| Legacy | `.clubplan` v1 |
+|---|---|
+| `canvasAngle` | `canvas.rotationDeg` |
+| `object.id` | `object.id`, с устранением дубликатов |
+| `type` | `type` |
+| `label` | `name` |
+| `x`, `y` | `xM`, `yM` |
+| `w`, `h` | `widthM`, `depthM` |
+| `angle` | `rotationDeg` |
+| `fill` | `style.fill` |
+| `seats` | `properties.seats` |
+| отсутствует | `layerId="furniture"`, `locked=false`, `labelVisible=true` |
+
+Правила:
+
+- известные `type/kind` сопоставляются библиотеке; неизвестный тип сохраняется как безопасный custom object с legacy metadata;
+- non-finite числа отклоняются, размеры меньше 0,1 м нормализуются только с явным предупреждением;
+- legacy `meta.planWidth`, `planHeight` и `unitsPerMeter` используются для диагностики, но не заменяют актуальный base-plan;
+- legacy v6 не содержит групп, поэтому `groups=[]`;
+- исходный JSON не перезаписывается; после импорта предлагается «Сохранить как `.clubplan`»;
+- `localStorage` браузерной версии автоматически не переносится. Пользователь должен экспортировать JSON из legacy, затем импортировать файл в desktop-приложении;
+- ограничения миграции документируются в `docs/LEGACY_IMPORT.md` на этапе 4.
+
+Фикстуры: валидный пустой v6, все 12 типов, неизвестный тип, дублирующиеся ID, отрицательные/нулевые размеры, неверный JSON, отсутствующий `objects`, будущая версия `.clubplan`.
+
+## 10. Файлы, автосохранение и безопасность
+
+### 10.1 Явное сохранение
+
+- `@tauri-apps/plugin-dialog` отвечает только за системный выбор пути.
+- Узкий Rust-адаптер читает UTF-8 проект и пишет его атомарно: временный файл в той же папке → flush/sync → replace/rename.
+- При ошибке текущий файл и открытый проект остаются нетронутыми; пользователю показывается русское сообщение с путём и причиной без внутреннего stack trace.
+- Перед заменой существующего файла можно использовать краткоживущую `.bak` только внутри атомарной операции; остатки обрабатываются при следующем запуске.
+- Tauri capabilities разрешают только нужные диалоги и команды; произвольный shell и сеть не включаются.
+
+### 10.2 Recovery autosave
+
+- Recovery-файл хранится в App Local Data, а не рядом с пользовательским проектом.
+- Autosave создаётся после debounce и только при dirty-state.
+- Autosave не меняет saved revision и не считается явным сохранением.
+- При старте предлагается восстановить более свежий recovery snapshot; отказ не удаляет его до подтверждения.
+- После успешного явного сохранения соответствующий recovery snapshot удаляется.
+- Recent files и window state хранятся отдельно от `.clubplan`.
+
+### 10.3 Offline и CSP
+
+- Все шрифты, стили, SVG и runtime assets входят в bundle.
+- CSP разрешает только локальные источники, необходимые Tauri IPC; внешние `http/https` не нужны основной работе.
+- Не использовать CDN, web-font загрузчики, телеметрию и auto-update в MVP.
+
+## 11. Этапы реализации
+
+Каждый этап должен завершаться запускаемым состоянием, небольшим логическим коммитом, ручной проверкой и полным quality gate из раздела 13. Следующий этап не начинается при красном gate.
+
+### Этап 0 — baseline, Git и toolchain
+
+Результат:
+
+- согласован `PLAN.md`;
+- инициализирован Git, исходный пакет сохранён baseline-коммитом;
+- добавлен `.gitignore` для Node, Rust, Tauri, временных рендеров и сборок;
+- установлены/проверены Rust stable MSVC, Cargo, Visual Studio Build Tools, WebView2 runtime;
+- зафиксированы поддерживаемые Windows 10/11 x64 и package manager pnpm.
+
+Проверка:
+
+- `git status` чистый после baseline-коммита;
+- `node --version`, `pnpm --version`, `rustc --version`, `cargo --version`;
+- компиляция минимального Rust hello-world или Tauri prerequisite check.
+
+Риск-gate: не начинать scaffold, пока Rust MSVC toolchain не подтверждён.
+
+### Этап 1 — минимальный запускаемый каркас Tauri 2
+
+Результат:
+
+- Vite + React + TypeScript + Tauri 2;
+- русское окно «Club Planner» с AppShell, заглушками панели и холста;
+- базовые npm scripts, ESLint, TypeScript strict, Vitest;
+- Tauri capability для одного main window, без лишних permissions;
+- ErrorBoundary и видимая строка статуса;
+- локальные стили, без CDN;
+- минимальный Rust unit test и frontend smoke test.
+
+Ручная проверка:
+
+- `pnpm tauri dev` открывает отдельное окно;
+- закрытие и повторный запуск работают;
+- DevTools/консоль не содержат ошибок;
+- при отключённой сети shell продолжает запускаться.
+
+Контрольный коммит: `chore: scaffold tauri desktop shell`.
+
+### Этап 2 — базовый план, координаты и навигация
+
+Результат:
+
+- asset URL указывает на исходный `assets/base_plan_new_measurement.svg`;
+- loader валидирует размеры, checksum и группы geometry/labels;
+- базовый слой заблокирован и отделён от объектов;
+- камера, wheel zoom, zoom-at-cursor, pan, Space+ЛКМ, MMB, fit view;
+- сетка 0,5 м, snap setting 0,1 м;
+- повороты 0/90/180/270;
+- видимость plan/labels, opacity и HUD масштаба/угла;
+- компенсация подписей на всех четырёх углах;
+- чистые модули координат и матриц покрыты unit-тестами.
+
+Ручная проверка:
+
+- лестница слева и вся длина плана видны после «Вписать»;
+- линии остаются резкими при сильном увеличении;
+- базовый план нельзя выбрать или перетащить;
+- окна, радиаторы, перегородки, вентиляция, ступени и высотные отметки присутствуют;
+- при 180° подписи не вверх ногами;
+- точка под курсором не скачет при zoom.
+
+Контрольный коммит: `feat: render locked measurement base plan`.
+
+### Этап 3 — модель предметов и parity одиночного редактирования
+
+Результат:
+
+- чистые типы Project/Object/Layer и инварианты;
+- 12 legacy-шаблонов с теми же начальными размерами;
+- single selection, drag, точные X/Y/W/H/angle;
+- resize handles с сохранением противоположной стороны, свободный rotate, Shift 15°;
+- ±90°, duplicate, delete, object labels;
+- стрелки 0,1 м, Shift+стрелки 0,01 м;
+- первая версия command history и dirty revision;
+- один gesture = одна транзакция Undo.
+
+Ручная проверка:
+
+- каждый тип добавляется в центр текущего viewport;
+- resize повёрнутого предмета сдвигает центр корректно;
+- duplicate получает новый ID и предсказуемое смещение;
+- Undo/Redo возвращает всю геометрию одного gesture.
+
+Контрольный коммит: `feat: port single object editing`.
+
+### Этап 4 — `.clubplan`, системные файлы и legacy-import
+
+Результат:
+
+- schema/codec `.clubplan` v1;
+- New/Open/Save/Save As через native dialog;
+- атомарная Rust-запись и понятные ошибки;
+- предупреждение о несохранённых изменениях;
+- legacy v6 migrator и документ ограничений;
+- recent files;
+- экспорт SVG без selection/handles;
+- загрузка не меняет текущую работу до полной валидации.
+
+Ручная проверка:
+
+- round-trip сохраняет предметы, размеры, углы, canvas settings и слои;
+- cancel системного диалога ничего не меняет;
+- read-only папка, неверный JSON и повреждённый `.clubplan` дают понятные ошибки;
+- импорт legacy всех 12 типов визуально совпадает;
+- экспортированный SVG открывается без editor overlays.
+
+Контрольный коммит: `feat: add versioned project files and legacy import`.
+
+### Этап 5 — множественное выделение и массовое редактирование
+
+Результат:
+
+- Shift-toggle, click empty, Esc, Ctrl+A;
+- общая рамка и счётчик выбранных объектов;
+- рамочное выделение и Shift+рамка, если не создаёт конфликт с pan;
+- совместное перемещение на одинаковый world-вектор;
+- mixed-state для W/H/angle/layer/locked/labelVisible;
+- массовые width/depth, absolute angle, ±90°, layer, lock, labels, delete, duplicate;
+- каждая массовая операция — одна транзакция.
+
+Ручная проверка:
+
+- два стола 1,20 м после ввода 1,30 м становятся каждый 1,30 м;
+- разные исходные размеры показывают «разные значения»;
+- центры не меняются при массовой ширине;
+- group drag selection сохраняет взаимные расстояния и углы;
+- один Undo возвращает всю выборку.
+
+Контрольный коммит: `feat: add multi-selection and bulk editing`.
+
+### Этап 6 — постоянные группы
+
+Результат:
+
+- Shift+ПКМ, Ctrl+G и context command;
+- top-level selection группы одним кликом;
+- group move/rotate/duplicate/delete/lock;
+- Ctrl+Shift+G;
+- double-click/command group edit mode, Esc на уровень группы;
+- сериализация, загрузка и миграции группы в `.clubplan` v1;
+- проверки ссылочной целостности и запрет вложенности;
+- атомарный Undo/Redo всех group operations.
+
+Ручная проверка:
+
+- группа из двух повёрнутых предметов вращается вокруг общего pivot без изменения расстояний;
+- после Save/Open состав и геометрия совпадают;
+- duplicate создаёт независимую группу;
+- ungroup сохраняет предметы;
+- delete group удаляет участников; Undo полностью восстанавливает.
+
+Контрольный коммит: `feat: add persistent editable groups`.
+
+### Этап 7 — полная история, recovery и desktop shortcuts
+
+Результат:
+
+- история минимум 100 транзакций по всем изменяющим проект командам;
+- recovery autosave и восстановление после искусственного сбоя;
+- сохранённая revision/dirty-state во всех ветках Undo/Redo;
+- Ctrl+S, Ctrl+Shift+S, Ctrl+O, Ctrl+Z, Ctrl+Y, Ctrl+D, Ctrl+G, Ctrl+Shift+G, Delete, Esc, R, Shift+R, arrows;
+- блокировка F5, Ctrl+R, Ctrl+P, browser zoom, стандартного context menu и боковой навигации;
+- window state restore;
+- сообщения об ошибках не скрываются.
+
+Ручная проверка:
+
+- 101-я операция вытесняет только самую старую;
+- новая команда после Undo очищает Redo;
+- Ctrl+R не перезагружает WebView, Ctrl+P не открывает печать;
+- аварийно закрытый dirty-проект предлагается восстановить;
+- autosave не выдаётся за явное сохранение.
+
+Контрольный коммит: `feat: complete desktop history and recovery`.
+
+### Этап 8 — интеграционная стабилизация и Windows-поставка
+
+Результат:
+
+- acceptance matrix полностью автоматизирована там, где практично;
+- WebdriverIO Tauri smoke/E2E для главных desktop-flow;
+- keyboard/focus/accessibility review русского интерфейса;
+- performance-проверка SVG и сцен с большим числом предметов;
+- NSIS x64 installer;
+- отдельная проверка portable executable там, где WebView2 уже установлен;
+- решение по offline WebView2 installer: стандартный небольшой installer и при необходимости второй пакет с `offlineInstaller`;
+- документация установки, сборки, формата и legacy-import.
+
+Ручная проверка:
+
+- clean Windows 10/11 VM: install → launch offline → create/edit/save → restart/open → uninstall;
+- актуальный план и группы не теряются;
+- installer и приложение имеют русские название/иконки/версию;
+- нет внешних сетевых запросов во время основной работы.
+
+Контрольный коммит: `release: prepare club planner desktop mvp`.
+
+## 12. Тестовая стратегия
+
+### 12.1 Unit-тесты TypeScript
+
+- `units/matrix`: world↔SVG↔screen round-trip, zoom-at-point, inverse 0/90/180/270;
+- `bounds`: повёрнутые прямоугольники, общая рамка, group pivot;
+- `selection`: replace/toggle/clear/Ctrl+A, locked/hidden, group target resolution;
+- `aggregate-properties`: uniform/mixed/not-applicable;
+- `bulk edit`: индивидуальная W/H при сохранении центров, absolute и relative angles;
+- `groups`: membership invariants, move, rotate, duplicate ID remap, delete, ungroup;
+- `commands/history`: одна транзакция на gesture, branch after Undo, limit 100, saved revision;
+- `serialization`: `.clubplan` round-trip, schema errors, future version;
+- `legacy migration`: все fixture-классы из раздела 9;
+- `labels`: compensation transforms и сохранение центров при 180°;
+- `snap`: 0,1 м, disabled snap и малый keyboard step 0,01 м.
+
+### 12.2 Component/integration frontend
+
+- свойства single/multi selection;
+- mixed input → commit всем;
+- toolbar availability по selection/group edit/locked;
+- keyboard command routing без срабатывания при вводе в поле;
+- pointer state machine: move/resize/rotate/cancel;
+- ошибочная загрузка не заменяет текущий документ;
+- status/error banners и unsaved prompt;
+- SVG overlay не содержит handles после export clone.
+
+### 12.3 Rust tests
+
+- атомарная запись и замена существующего файла;
+- ошибка записи сохраняет исходный файл;
+- UTF-8 read/write;
+- ограничения размера входного файла;
+- recovery file lifecycle и recent files;
+- нормализация расширения `.clubplan` без повреждения имени.
+
+### 12.4 Desktop E2E
+
+Минимальные сценарии:
+
+1. Запуск отдельного окна и наличие актуального плана.
+2. Добавить предмет → переместить → Undo/Redo.
+3. Выделить два предмета → массовая ширина → Undo.
+4. Сгруппировать → повернуть → Save → Open → Ungroup.
+5. Открыть повреждённый файл и сохранить текущую работу.
+6. Горячие клавиши editor работают, браузерные действия заблокированы.
+
+Native file dialogs в E2E по возможности обходятся через тестовый Tauri command/mock; отдельная ручная проверка подтверждает реальные системные диалоги.
+
+## 13. Команды проверки и сборки
+
+Точные scripts будут добавлены на этапе 1. Плановые команды:
+
+```powershell
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm typecheck
+pnpm test:unit --run
+pnpm test:integration --run
+pnpm build
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml
+pnpm tauri build --debug --no-bundle
+```
+
+Quality gate каждого этапа: lint + typecheck + все существующие unit/integration/Rust tests + frontend build + Tauri debug build. Если этап затрагивает интерактивный UX, обязательна также описанная ручная проверка.
+
+Release gate:
+
+```powershell
+pnpm test:e2e
+pnpm tauri build --bundles nsis
+```
+
+После появления lock-файла обновление зависимостей выполняется отдельной задачей, а не автоматически в функциональных этапах.
+
+## 14. Реестр рисков
+
+| Риск | Последствие | Мера снижения | Gate |
+|---|---|---|---|
+| Смешение метров, SVG units и screen pixels | дрейф объектов и неверный snap | единый `UPM`, branded units, чистые conversion-функции | round-trip unit tests до предметов |
+| Неверный порядок inverse transforms после canvas rotation | pointer не попадает в предмет при 90/180/270 | централизованный matrix pipeline | drag tests на четырёх углах |
+| Поворот текста вместе с холстом | подписи вверх ногами | отдельный labels layer и counter-rotation вокруг `data-cx/cy` | визуальная проверка 180° |
+| Исходно вертикальные SVG-подписи | контрповорот может изменить исходный смысл | сохранять локальную glyph transform, компенсировать только canvas transform | fixture горизонтальной/вертикальной метки |
+| Встраивание 3,75 MB SVG в React tree | медленные rerender/pointer move | mount asset один раз вне динамического object layer | performance profile этапа 2 |
+| Full state snapshots на каждый pointermove | память и потеря FPS | preview вне history, command только на pointerup | 100+ object drag profile |
+| Нечёткая семантика группы и selection | двойные трансформации объектов | SelectionTarget + deduplicated expansion + запрет nesting | group selection unit tests |
+| Group rotate вокруг нестабильного центра | изменение взаимных расстояний | фиксированный pivot на начало команды | distance invariants |
+| Массовая ширина масштабирует selection bbox | нарушение требования | менять `widthM` каждого объекта вокруг его центра | два стола 1,20→1,30 test |
+| Повреждённый/будущий файл | потеря текущей работы | parse/validate во временную модель, publish после успеха | negative load integration tests |
+| Неатомарное сохранение | нулевой/частичный файл | sibling temp + flush + replace | Rust failure tests |
+| Слишком широкие Tauri permissions | ненужный доступ WebView к системе | один main window, узкие dialog/custom commands, CSP | capability review перед release |
+| Browser shortcuts WebView2 | потеря несохранённой работы | capture keydown/context/navigation before default | desktop E2E |
+| Offline installer/WebView2 | приложение не стартует на чистой машине | тест двух installer-профилей, при необходимости offlineInstaller | clean VM install |
+| Legacy поля неизвестного типа | тихая потеря данных | tolerant migrator + warnings + fixtures | import report and tests |
+| Отсутствующий Rust/MSVC toolchain | невозможно проверить Tauri | этап 0 как обязательный gate | `cargo`/Tauri smoke |
+
+## 15. Трассировка критериев приёмки
+
+| Область | Основной этап | Подтверждение |
+|---|---:|---|
+| Отдельное окно/offline/browser keys/installer | 1, 7, 8 | desktop smoke + clean VM |
+| Актуальный заблокированный векторный план | 2 | asset validation + visual QA |
+| Читаемые подписи при 180° | 2 | transform tests + screenshot/manual |
+| Одиночные операции и навигация | 2, 3 | unit + integration regression |
+| Shift-мультивыделение и совместный drag | 5 | selection tests + E2E |
+| Mixed-state и массовые свойства | 5 | component + reducer tests |
+| Shift+ПКМ/Ctrl+G/groups | 6 | group tests + E2E |
+| Save/Open групп | 6 | codec round-trip + E2E |
+| `.clubplan`, errors, legacy import | 4 | codec/migration/Rust tests |
+| Undo/Redo минимум 100 | 3–7 | history transaction tests |
+| Recovery и unsaved warning | 7 | integration + forced crash manual |
+| SVG export | 4 | structural comparison + visual open |
+
+## 16. Формат отчёта после каждого этапа
+
+После завершения каждого этапа отчёт должен содержать:
+
+1. что изменено;
+2. какие файлы и архитектурные решения затронуты;
+3. как проверить вручную;
+4. фактически запущенные команды и их результат;
+5. известные ограничения/риски;
+6. hash или название контрольного коммита;
+7. следующий этап.
+
+Этап нельзя называть завершённым, если соответствующая сборка, тесты или ручной сценарий не были выполнены.
+
+## 17. Условия начала реализации
+
+Реализация начинается только после проверки и согласования этого `PLAN.md`. Первое разрешённое действие после согласования — этап 0: инициализация Git и проверка/установка toolchain. Массовый перенос legacy-кода или изменение исходного SVG до работающего Tauri-каркаса не допускаются.
+
+## 18. Актуальные технические ссылки
+
+- Tauri 2, создание проекта: https://v2.tauri.app/start/create-project/
+- Tauri + Vite: https://v2.tauri.app/start/frontend/vite/
+- Tauri dialog plugin: https://v2.tauri.app/plugin/dialog/
+- Tauri capabilities: https://v2.tauri.app/security/capabilities/
+- Tauri desktop tests: https://v2.tauri.app/develop/tests/
+- Tauri Windows installer: https://v2.tauri.app/distribute/windows-installer/
+- React state architecture: https://react.dev/learn/managing-state
+- Vitest: https://vitest.dev/guide/
