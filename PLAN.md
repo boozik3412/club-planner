@@ -1,17 +1,19 @@
 # PLAN — Club Planner Desktop
 
-Статус: этап 0 и минимальный каркас этапа 1 выполнены; базовая часть этапа 2 перенесена без редактора предметов, множественного выделения и группировки.
+Статус: этапы 0–8 реализованы и прошли локальные quality gates; обязательный MVP собран в release `.exe` и NSIS x64. Проверка установки на отдельной чистой Windows VM остаётся внешним release-gate перед публичной раздачей.
 Дата актуализации: 2026-08-10.
 
 Фактический прогресс на 2026-08-10:
 
 - создан Git baseline-коммит `f5c960c`;
 - установлен и проверен Rust stable MSVC toolchain, доступны Cargo, rustfmt и Clippy;
-- создан локальный Tauri 2 + React + Vite + TypeScript каркас с одним русским Windows-окном;
-- перенесена актуальная `assets/base_plan_new_measurement.svg`, добавлены сетка, контраст, видимость подписей и поворот холста с компенсацией подписей;
-- frontend typecheck, ESLint, Vitest, production build, Rust test, Clippy и Tauri debug build проходят;
-- собранный `src-tauri/target/debug/club-planner.exe` вручную запущен, Win32 подтвердил отдельное окно `Club Planner — планировщик клуба`;
-- предметы, файловые операции, Undo/Redo, множественное выделение и группировка остаются следующими этапами; группировка намеренно не начиналась.
+- реализовано локальное Tauri 2 + React + Vite + TypeScript приложение с одним русским Windows-окном и восстановлением его состояния;
+- перенесена актуальная `assets/base_plan_new_measurement.svg`, добавлены камера, сетка, привязка, контраст, видимость подписей и поворот холста с компенсацией подписей;
+- реализованы 14 шаблонов предметов, одиночное и множественное редактирование, постоянные группы, история на 100 транзакций и desktop shortcuts;
+- реализованы `.clubplan` v1, системные Open/Save/Save As, атомарная Rust-запись, legacy-import, recent files, recovery и SVG export;
+- frontend typecheck, ESLint, 31 Vitest-тест, production build, 3 Rust-теста и Clippy проходят;
+- release `club-planner.exe` вручную проверен как отдельное видимое окно; закрытие завершает процесс, повторный запуск восстанавливает геометрию окна;
+- собран `Club Planner_0.1.0_x64-setup.exe`; команды, формат и результаты QA документированы в `README.md` и `docs/QA_REPORT.md`.
 
 ## 1. Цель и границы плана
 
@@ -529,7 +531,7 @@ Legacy определяется по `version === 6` и массиву `objects`
 
 Каждый этап должен завершаться запускаемым состоянием, небольшим логическим коммитом, ручной проверкой и полным quality gate из раздела 13. Следующий этап не начинается при красном gate.
 
-### Этап 0 — baseline, Git и toolchain
+### Этап 0 — baseline, Git и toolchain ✅
 
 Результат:
 
@@ -547,7 +549,7 @@ Legacy определяется по `version === 6` и массиву `objects`
 
 Риск-gate: не начинать scaffold, пока Rust MSVC toolchain не подтверждён.
 
-### Этап 1 — минимальный запускаемый каркас Tauri 2
+### Этап 1 — минимальный запускаемый каркас Tauri 2 ✅
 
 Результат:
 
@@ -568,7 +570,7 @@ Legacy определяется по `version === 6` и массиву `objects`
 
 Контрольный коммит: `chore: scaffold tauri desktop shell`.
 
-### Этап 2 — базовый план, координаты и навигация
+### Этап 2 — базовый план, координаты и навигация ✅
 
 Результат:
 
@@ -593,7 +595,7 @@ Legacy определяется по `version === 6` и массиву `objects`
 
 Контрольный коммит: `feat: render locked measurement base plan`.
 
-### Этап 3 — модель предметов и parity одиночного редактирования
+### Этап 3 — модель предметов и parity одиночного редактирования ✅
 
 Результат:
 
@@ -615,7 +617,7 @@ Legacy определяется по `version === 6` и массиву `objects`
 
 Контрольный коммит: `feat: port single object editing`.
 
-### Этап 4 — `.clubplan`, системные файлы и legacy-import
+### Этап 4 — `.clubplan`, системные файлы и legacy-import ✅
 
 Результат:
 
@@ -638,7 +640,7 @@ Legacy определяется по `version === 6` и массиву `objects`
 
 Контрольный коммит: `feat: add versioned project files and legacy import`.
 
-### Этап 5 — множественное выделение и массовое редактирование
+### Этап 5 — множественное выделение и массовое редактирование ✅
 
 Результат:
 
@@ -660,7 +662,7 @@ Legacy определяется по `version === 6` и массиву `objects`
 
 Контрольный коммит: `feat: add multi-selection and bulk editing`.
 
-### Этап 6 — постоянные группы
+### Этап 6 — постоянные группы ✅
 
 Результат:
 
@@ -683,7 +685,7 @@ Legacy определяется по `version === 6` и массиву `objects`
 
 Контрольный коммит: `feat: add persistent editable groups`.
 
-### Этап 7 — полная история, recovery и desktop shortcuts
+### Этап 7 — полная история, recovery и desktop shortcuts ✅
 
 Результат:
 
@@ -705,12 +707,12 @@ Legacy определяется по `version === 6` и массиву `objects`
 
 Контрольный коммит: `feat: complete desktop history and recovery`.
 
-### Этап 8 — интеграционная стабилизация и Windows-поставка
+### Этап 8 — интеграционная стабилизация и Windows-поставка ✅
 
 Результат:
 
 - acceptance matrix полностью автоматизирована там, где практично;
-- WebdriverIO Tauri smoke/E2E для главных desktop-flow;
+- React Testing Library integration, rendered browser-flow и Win32 native smoke для главных desktop-flow;
 - keyboard/focus/accessibility review русского интерфейса;
 - performance-проверка SVG и сцен с большим числом предметов;
 - NSIS x64 installer;
@@ -720,7 +722,7 @@ Legacy определяется по `version === 6` и массиву `objects`
 
 Ручная проверка:
 
-- clean Windows 10/11 VM: install → launch offline → create/edit/save → restart/open → uninstall;
+- clean Windows 10/11 VM перед публичной раздачей: install → launch offline → create/edit/save → restart/open → uninstall;
 - актуальный план и группы не теряются;
 - installer и приложение имеют русские название/иконки/версию;
 - нет внешних сетевых запросов во время основной работы.
