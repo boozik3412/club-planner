@@ -6,6 +6,7 @@ coverage/
 
 # Tauri / Rust
 src-tauri/target/
+src-tauri/gen/schemas/
 
 # Editors and OS
 .idea/
@@ -19,4 +20,3 @@ Thumbs.db
 tmp/
 playwright-report/
 test-results/
-
