@@ -31,6 +31,19 @@ describe(".clubplan serialization", () => {
     expect(decoded.project.objects.every((object) => object.locked)).toBe(true);
   });
 
+  it("keeps v1 files compatible when new wall snap settings are absent", () => {
+    const source = JSON.parse(encodeProject(createEmptyProject()));
+    delete source.canvas.wallSnapOffsetM;
+    delete source.canvas.autoRotateFurnitureToWall;
+    delete source.canvas.autoRotatePartitionsToWall;
+    const decoded = decodeProject(JSON.stringify(source));
+    expect(decoded.project.canvas).toMatchObject({
+      wallSnapOffsetM: 0,
+      autoRotateFurnitureToWall: false,
+      autoRotatePartitionsToWall: true,
+    });
+  });
+
   it("round-trips custom shapes and their physical height", () => {
     const project = updateProject(createEmptyProject(), (draft) => {
       draft.objects = [

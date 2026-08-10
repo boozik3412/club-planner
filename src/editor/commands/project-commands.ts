@@ -82,12 +82,26 @@ export function moveObjectsSnappedCommand(
   deltaYM: number,
 ): ProjectState {
   const selected = new Set(objectIds);
-  const replacements = startObjects.flatMap((object) => {
-      if (!selected.has(object.id) || object.locked) return [];
-      const xM = snapMeters(object.xM + deltaXM, project.canvas.snapEnabled, project.canvas.snapStepM);
-      const yM = snapMeters(object.yM + deltaYM, project.canvas.snapEnabled, project.canvas.snapStepM);
-      return xM === object.xM && yM === object.yM ? [] : [{ ...object, xM, yM }];
-    });
+  const movable = startObjects.filter((object) => selected.has(object.id) && !object.locked);
+  const bounds = getObjectsBounds(movable);
+  if (!bounds) return project;
+  const targetX = snapMeters(
+    bounds.centerXM + deltaXM,
+    project.canvas.snapEnabled,
+    project.canvas.snapStepM,
+  );
+  const targetY = snapMeters(
+    bounds.centerYM + deltaYM,
+    project.canvas.snapEnabled,
+    project.canvas.snapStepM,
+  );
+  const sharedDeltaXM = targetX - bounds.centerXM;
+  const sharedDeltaYM = targetY - bounds.centerYM;
+  const replacements = movable.flatMap((object) =>
+    sharedDeltaXM === 0 && sharedDeltaYM === 0
+      ? []
+      : [{ ...object, xM: object.xM + sharedDeltaXM, yM: object.yM + sharedDeltaYM }],
+  );
   if (replacements.length === 0) return project;
   return replaceObjectsCommand(project, replacements);
 }

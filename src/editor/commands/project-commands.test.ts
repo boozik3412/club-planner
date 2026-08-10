@@ -65,6 +65,21 @@ describe("project commands", () => {
     expect(moveObjectsSnappedCommand(project, ["first"], [project.objects[0]], 0.01, 0.01)).toBe(project);
   });
 
+  it("snaps a selection by one shared delta without changing spacing", () => {
+    const project = projectWithTwoTables();
+    project.objects[0].xM = 1.03;
+    project.objects[1].xM = 3.27;
+    const initialDistance = project.objects[1].xM - project.objects[0].xM;
+    const moved = moveObjectsSnappedCommand(
+      project,
+      ["first", "second"],
+      project.objects,
+      0.06,
+      0,
+    );
+    expect(moved.objects[1].xM - moved.objects[0].xM).toBeCloseTo(initialDistance);
+  });
+
   it("groups, rotates around the shared center and ungroups", () => {
     const grouped = groupObjectsCommand(projectWithTwoTables(), ["first", "second"]);
     expect(grouped).not.toBeNull();

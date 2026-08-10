@@ -12,7 +12,11 @@ const desktopMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("./components/BasePlanCanvas", () => ({
-  BasePlanCanvas: () => <main aria-label="Рабочая область плана" />,
+  BasePlanCanvas: ({ betweenRequest }: { betweenRequest: { mode: string } | null }) => (
+    <main aria-label="Рабочая область плана">
+      {betweenRequest ? `Режим между перегородками: ${betweenRequest.mode}` : null}
+    </main>
+  ),
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -108,6 +112,23 @@ describe("App integration", () => {
     expect(screen.getByRole("spinbutton", { name: "Ширина, м" })).toHaveValue(1.8);
     expect(screen.getByRole("spinbutton", { name: "Глубина, м" })).toHaveValue(1.1);
     expect(screen.getByText(/3 предметов · 0 групп/)).toBeInTheDocument();
+  });
+
+  it("starts centering and distribution between partitions from the selection panel", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Стол$/ }));
+    await user.click(screen.getByRole("button", { name: "По центру между" }));
+    expect(screen.getByText("Режим между перегородками: center")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Заполнить проём" }));
+    expect(screen.getByText("Режим между перегородками: fill")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Стол$/ }));
+    await user.keyboard("{Control>}a{/Control}");
+    await user.click(screen.getByRole("button", { name: "Равные промежутки" }));
+    expect(screen.getByText("Режим между перегородками: distribute")).toBeInTheDocument();
   });
 
   it("blocks browser-only desktop shortcuts", () => {

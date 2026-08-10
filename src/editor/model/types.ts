@@ -66,6 +66,9 @@ export interface CanvasSettings {
   gridStepM: number;
   snapEnabled: boolean;
   snapStepM: number;
+  wallSnapOffsetM: number;
+  autoRotateFurnitureToWall: boolean;
+  autoRotatePartitionsToWall: boolean;
   basePlanVisible: boolean;
   planLabelsVisible: boolean;
   objectLabelsVisible: boolean;

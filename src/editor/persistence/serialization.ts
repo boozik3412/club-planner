@@ -132,6 +132,17 @@ function parseClubplan(root: Record<string, unknown>): DecodeResult {
     gridStepM: Math.max(0.01, asFiniteNumber(canvas.gridStepM, "canvas.gridStepM")),
     snapEnabled: asBoolean(canvas.snapEnabled, "canvas.snapEnabled"),
     snapStepM: Math.max(0.001, asFiniteNumber(canvas.snapStepM, "canvas.snapStepM")),
+    wallSnapOffsetM: canvas.wallSnapOffsetM === undefined
+      ? next.canvas.wallSnapOffsetM
+      : Math.max(0, asFiniteNumber(canvas.wallSnapOffsetM, "canvas.wallSnapOffsetM")),
+    autoRotateFurnitureToWall: optionalBoolean(
+      canvas.autoRotateFurnitureToWall,
+      next.canvas.autoRotateFurnitureToWall,
+    ),
+    autoRotatePartitionsToWall: optionalBoolean(
+      canvas.autoRotatePartitionsToWall,
+      next.canvas.autoRotatePartitionsToWall,
+    ),
     basePlanVisible: asBoolean(canvas.basePlanVisible, "canvas.basePlanVisible"),
     planLabelsVisible: asBoolean(canvas.planLabelsVisible, "canvas.planLabelsVisible"),
     objectLabelsVisible: asBoolean(canvas.objectLabelsVisible, "canvas.objectLabelsVisible"),

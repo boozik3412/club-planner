@@ -50,6 +50,10 @@ import {
   encodeProject,
 } from "./editor/persistence/serialization";
 import { getSelectedObjects, pruneSelection, selectAllEditable } from "./editor/selection/selection";
+import type {
+  BetweenBoundariesMode,
+  BetweenBoundariesRequest,
+} from "./editor/snapping/types";
 
 const RECENT_KEY = "club-planner.recent-projects.v1";
 
@@ -74,6 +78,7 @@ export default function App() {
   const [selection, setSelection] = useState<SelectionState>(EMPTY_SELECTION);
   const [camera, setCamera] = useState<CameraState>({ x: 20, y: 20, zoom: 0.05 });
   const [fitRequest, setFitRequest] = useState(0);
+  const [betweenRequest, setBetweenRequest] = useState<BetweenBoundariesRequest | null>(null);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [recentPaths, setRecentPaths] = useState(readRecentPaths);
   const [status, setStatus] = useState("Готово · локальный режим");
@@ -100,6 +105,7 @@ export default function App() {
   const commitProject = useCallback((nextProject: ProjectState, label: string) => {
     setHistory((current) => commitHistory(current, nextProject, label));
     setPreviewProject(null);
+    setBetweenRequest(null);
     setSelection((current) => pruneSelection(nextProject, current));
     showStatus(label);
   }, [showStatus]);
@@ -119,6 +125,7 @@ export default function App() {
     const decoded = decodeProject(payload.contents);
     setHistory(createHistory(decoded.project, true));
     setPreviewProject(null);
+    setBetweenRequest(null);
     setSelection(EMPTY_SELECTION);
     const projectPath = decoded.legacy ? null : payload.path;
     setCurrentPath(projectPath);
@@ -136,6 +143,7 @@ export default function App() {
     const next = createEmptyProject();
     setHistory(createHistory(next));
     setPreviewProject(null);
+    setBetweenRequest(null);
     setSelection(EMPTY_SELECTION);
     setCurrentPath(null);
     setFitRequest((value) => value + 1);
@@ -199,6 +207,7 @@ export default function App() {
     if (next === history) return;
     setHistory(next);
     setPreviewProject(null);
+    setBetweenRequest(null);
     setSelection((current) => pruneSelection(next.present.project, current));
     showStatus(`Отменено: ${history.present.label}`);
   }, [history, showStatus]);
@@ -208,6 +217,7 @@ export default function App() {
     if (next === history) return;
     setHistory(next);
     setPreviewProject(null);
+    setBetweenRequest(null);
     setSelection((current) => pruneSelection(next.present.project, current));
     showStatus(`Повторено: ${next.present.label}`);
   }, [history, showStatus]);
@@ -242,6 +252,20 @@ export default function App() {
   const handleRotateSelection = useCallback((deltaDeg: number) => {
     commitProject(rotateSelectionCommand(history.present.project, selection, deltaDeg), `Поворот на ${deltaDeg > 0 ? "+" : ""}${deltaDeg}°`);
   }, [commitProject, history.present.project, selection]);
+
+  const handleAlignBetween = useCallback((mode: BetweenBoundariesMode) => {
+    if (selection.objectIds.length === 0) {
+      showStatus("Сначала выберите предметы");
+      return;
+    }
+    if (selectedObjects.every((object) => object.locked)) {
+      showStatus("Все выбранные предметы заблокированы");
+      return;
+    }
+    setPreviewProject(null);
+    setBetweenRequest((current) => ({ id: (current?.id ?? 0) + 1, mode }));
+    showStatus("Укажите первую перегородку на плане");
+  }, [selectedObjects, selection.objectIds.length, showStatus]);
 
   const handleDelete = useCallback(() => {
     if (selection.objectIds.length === 0) return;
@@ -459,6 +483,7 @@ export default function App() {
         onDelete={handleDelete}
         onGroup={handleGroup}
         onUngroup={handleUngroup}
+        onAlignBetween={handleAlignBetween}
         onEnterGroup={() => handleEnterGroup()}
         onExitGroup={handleExitGroup}
       />
@@ -468,6 +493,7 @@ export default function App() {
           selection={selection}
           camera={camera}
           fitRequest={fitRequest}
+          betweenRequest={betweenRequest}
           onCameraChange={setCamera}
           onSelectionChange={setSelection}
           onPreviewProject={setPreviewProject}
@@ -476,6 +502,7 @@ export default function App() {
           onUngroupSelection={handleUngroup}
           onDeleteSelection={handleDelete}
           onEnterGroup={handleEnterGroup}
+          onBetweenMessage={showStatus}
           onReady={(count) => showStatus(`Базовый план готов · ${count} подписей`)}
           onError={(message) => showStatus(`Ошибка базового плана: ${message}`)}
         />

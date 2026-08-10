@@ -1,0 +1,35 @@
+{
+  "basePlanId": "measurement-2026-08-10",
+  "basePlanSha256": "b3aa3f1edfe4ff58bd10afcb95138cd6f661d537e93d51e751577540841d42d5",
+  "boundaries": [
+    { "id": "wall-main-top", "kind": "wall", "start": { "xM": 6.82498, "yM": 0.91694 }, "end": { "xM": 60.54344, "yM": 0.91694 }, "thicknessM": 0 },
+    { "id": "wall-main-bottom", "kind": "wall", "start": { "xM": 6.17474, "yM": 6.53542 }, "end": { "xM": 62.1538, "yM": 6.53542 }, "thicknessM": 0 },
+    { "id": "wall-main-left", "kind": "wall", "start": { "xM": 6.82498, "yM": 0.91694 }, "end": { "xM": 6.82498, "yM": 6.53542 }, "thicknessM": 0 },
+    { "id": "wall-main-right", "kind": "wall", "start": { "xM": 62.1538, "yM": 0.91694 }, "end": { "xM": 62.1538, "yM": 6.53542 }, "thicknessM": 0 },
+
+    { "id": "partition-1-top", "kind": "partition", "start": { "xM": 12.68349, "yM": 0.91694 }, "end": { "xM": 12.68349, "yM": 2.97688 }, "thicknessM": 0.09906 },
+    { "id": "partition-1-bottom", "kind": "partition", "start": { "xM": 12.68349, "yM": 4.47548 }, "end": { "xM": 12.68349, "yM": 6.53542 }, "thicknessM": 0.09906 },
+    { "id": "partition-2-top", "kind": "partition", "start": { "xM": 15.78483, "yM": 0.91694 }, "end": { "xM": 15.78483, "yM": 2.97688 }, "thicknessM": 0.09906 },
+    { "id": "partition-2-bottom", "kind": "partition", "start": { "xM": 15.78483, "yM": 4.47548 }, "end": { "xM": 15.78483, "yM": 6.53542 }, "thicknessM": 0.09906 },
+    { "id": "partition-3-top", "kind": "partition", "start": { "xM": 23.93442, "yM": 0.91694 }, "end": { "xM": 23.93442, "yM": 2.97688 }, "thicknessM": 0.1016 },
+    { "id": "partition-3-bottom", "kind": "partition", "start": { "xM": 23.93442, "yM": 4.47548 }, "end": { "xM": 23.93442, "yM": 6.53542 }, "thicknessM": 0.1016 },
+
+    { "id": "wall-mid-left", "kind": "wall", "start": { "xM": 30.62478, "yM": 0.91694 }, "end": { "xM": 30.62478, "yM": 5.03682 }, "thicknessM": 0.32004 },
+    { "id": "wall-mid-horizontal", "kind": "wall", "start": { "xM": 30.46476, "yM": 5.03682 }, "end": { "xM": 42.75328, "yM": 5.03682 }, "thicknessM": 0 },
+    { "id": "wall-room-a-left", "kind": "wall", "start": { "xM": 34.17443, "yM": 0.91694 }, "end": { "xM": 34.17443, "yM": 4.80568 }, "thicknessM": 0.1397 },
+    { "id": "wall-room-a-right", "kind": "wall", "start": { "xM": 37.32403, "yM": 0.91694 }, "end": { "xM": 37.32403, "yM": 4.80568 }, "thicknessM": 0.16002 },
+    { "id": "wall-room-a-bottom", "kind": "wall", "start": { "xM": 34.24428, "yM": 4.80568 }, "end": { "xM": 42.75328, "yM": 4.80568 }, "thicknessM": 0 },
+    { "id": "wall-room-b-left", "kind": "wall", "start": { "xM": 40.85463, "yM": 0.91694 }, "end": { "xM": 40.85463, "yM": 2.72542 }, "thicknessM": 0.11938 },
+    { "id": "wall-room-b-top", "kind": "wall", "start": { "xM": 40.91432, "yM": 2.63652 }, "end": { "xM": 42.75328, "yM": 2.63652 }, "thicknessM": 0 },
+    { "id": "wall-room-b-bottom", "kind": "wall", "start": { "xM": 40.91432, "yM": 2.72542 }, "end": { "xM": 42.75328, "yM": 2.72542 }, "thicknessM": 0 },
+    { "id": "wall-mid-right", "kind": "wall", "start": { "xM": 42.75328, "yM": 0.91694 }, "end": { "xM": 42.75328, "yM": 6.53542 }, "thicknessM": 0 },
+
+    { "id": "wall-right-left", "kind": "wall", "start": { "xM": 51.25339, "yM": 0.91694 }, "end": { "xM": 51.25339, "yM": 6.53542 }, "thicknessM": 0.11938 },
+    { "id": "wall-right-horizontal", "kind": "wall", "start": { "xM": 51.31308, "yM": 5.03682 }, "end": { "xM": 62.1538, "yM": 5.03682 }, "thicknessM": 0 },
+    { "id": "wall-right-a", "kind": "wall", "start": { "xM": 54.90337, "yM": 0.91694 }, "end": { "xM": 54.90337, "yM": 4.80568 }, "thicknessM": 0.11938 },
+    { "id": "wall-right-b", "kind": "wall", "start": { "xM": 58.57367, "yM": 0.91694 }, "end": { "xM": 58.57367, "yM": 4.80568 }, "thicknessM": 0.11938 },
+    { "id": "wall-right-c", "kind": "wall", "start": { "xM": 60.62853, "yM": 0.91694 }, "end": { "xM": 60.62853, "yM": 4.80568 }, "thicknessM": 0.17018 },
+    { "id": "wall-right-room-top", "kind": "wall", "start": { "xM": 60.71362, "yM": 2.83718 }, "end": { "xM": 62.1538, "yM": 2.83718 }, "thicknessM": 0 },
+    { "id": "wall-right-room-bottom", "kind": "wall", "start": { "xM": 60.71362, "yM": 4.80568 }, "end": { "xM": 62.1538, "yM": 4.80568 }, "thicknessM": 0 }
+  ]
+}

@@ -6,7 +6,6 @@ import {
   type ViewportSize,
 } from "../editor/camera/camera";
 import {
-  moveObjectsSnappedCommand,
   replaceObjectsCommand,
   rotateSelectionCommand,
   updateObjectsCommand,
@@ -14,6 +13,7 @@ import {
 import {
   getObjectsBounds,
   isObjectInsideBounds,
+  moveObjects,
   resizeObjectFromHandle,
   type ResizeHandle,
 } from "../editor/geometry/geometry";
@@ -33,6 +33,15 @@ import {
   getSelectionBounds,
   selectTarget,
 } from "../editor/selection/selection";
+import { alignObjectsBetweenBoundaries } from "../editor/snapping/between-boundaries";
+import { getPlanBoundaries } from "../editor/snapping/boundaries";
+import { resolveMoveSnap } from "../editor/snapping/snap-resolver";
+import type {
+  BetweenBoundariesMode,
+  BetweenBoundariesRequest,
+  PlanBoundary,
+  SnapGuide,
+} from "../editor/snapping/types";
 import { ObjectShape } from "./ObjectShape";
 
 interface BasePlanCanvasProps {
@@ -40,6 +49,7 @@ interface BasePlanCanvasProps {
   selection: SelectionState;
   camera: CameraState;
   fitRequest: number;
+  betweenRequest: BetweenBoundariesRequest | null;
   onCameraChange: (camera: CameraState) => void;
   onSelectionChange: (selection: SelectionState) => void;
   onPreviewProject: (project: ProjectState | null) => void;
@@ -48,6 +58,7 @@ interface BasePlanCanvasProps {
   onUngroupSelection: () => void;
   onDeleteSelection: () => void;
   onEnterGroup: (groupId: string) => void;
+  onBetweenMessage: (message: string) => void;
   onReady: (labelCount: number) => void;
   onError: (message: string) => void;
 }
@@ -60,9 +71,24 @@ interface ScreenPoint {
 type Gesture =
   | { mode: "pan"; pointerId: number; start: ScreenPoint; camera: CameraState }
   | { mode: "marquee"; pointerId: number; start: ScreenPoint; current: ScreenPoint; additive: boolean }
-  | { mode: "move"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; objectIds: ObjectId[]; startObjects: PlanObject[]; preview: ProjectState | null }
+  | { mode: "move"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; startObjects: PlanObject[]; boundaries: PlanBoundary[]; preview: ProjectState | null; activeBoundaryId: string | null; candidateIndex: number; lastPlan: ScreenPoint | null; snappingDisabled: boolean }
   | { mode: "resize"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; object: PlanObject; handle: ResizeHandle; preview: ProjectState | null }
   | { mode: "rotate"; pointerId: number; center: ScreenPoint; startAngle: number; baseProject: ProjectState; objectId: ObjectId | null; groupId: string | null; startObjectAngle: number; preview: ProjectState | null };
+
+type MoveGesture = Extract<Gesture, { mode: "move" }>;
+
+interface BetweenSession {
+  requestId: number;
+  mode: BetweenBoundariesMode;
+  baseProject: ProjectState;
+  objectIds: ObjectId[];
+  firstBoundaryId: string | null;
+  secondBoundaryId: string | null;
+  preview: ProjectState | null;
+  availableM: number | null;
+  gapM: number | null;
+  error: string | null;
+}
 
 const BasePlanLayer = memo(function BasePlanLayer({
   plan,
@@ -101,6 +127,7 @@ export function BasePlanCanvas({
   selection,
   camera,
   fitRequest,
+  betweenRequest,
   onCameraChange,
   onSelectionChange,
   onPreviewProject,
@@ -109,6 +136,7 @@ export function BasePlanCanvas({
   onUngroupSelection,
   onDeleteSelection,
   onEnterGroup,
+  onBetweenMessage,
   onReady,
   onError,
 }: BasePlanCanvasProps) {
@@ -116,11 +144,15 @@ export function BasePlanCanvas({
   const [viewport, setViewport] = useState<ViewportSize>({ width: 1, height: 1 });
   const [marquee, setMarquee] = useState<{ start: ScreenPoint; current: ScreenPoint } | null>(null);
   const [contextMenu, setContextMenu] = useState<ScreenPoint | null>(null);
+  const [snapGuide, setSnapGuide] = useState<SnapGuide | null>(null);
+  const [movePreviewActive, setMovePreviewActive] = useState(false);
+  const [betweenSession, setBetweenSession] = useState<BetweenSession | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const gestureRef = useRef<Gesture | null>(null);
   const spacePressedRef = useRef(false);
   const lastFitKeyRef = useRef("");
+  const lastBetweenRequestRef = useRef(0);
   const selectedSet = useMemo(() => new Set(selection.objectIds), [selection.objectIds]);
   const selectedObjects = useMemo(() => getSelectedObjects(project, selection), [project, selection]);
   const selectionBounds = useMemo(() => getSelectionBounds(project, selection), [project, selection]);
@@ -132,6 +164,12 @@ export function BasePlanCanvas({
   const visibleLayers = useMemo(
     () => new Set(project.layers.filter((layer) => layer.visible).map((layer) => layer.id)),
     [project.layers],
+  );
+  const betweenBoundaries = useMemo(
+    () => betweenSession
+      ? getPlanBoundaries(betweenSession.baseProject).filter((boundary) => boundary.kind === "partition")
+      : [],
+    [betweenSession],
   );
 
   useEffect(() => {
@@ -193,6 +231,110 @@ export function BasePlanCanvas({
     try { svgRef.current?.setPointerCapture(pointerId); } catch { /* pointer capture is best-effort */ }
   };
 
+  useEffect(() => {
+    if (!betweenRequest || lastBetweenRequestRef.current === betweenRequest.id) return;
+    lastBetweenRequestRef.current = betweenRequest.id;
+    onPreviewProject(null);
+    setSnapGuide(null);
+    setBetweenSession({
+      requestId: betweenRequest.id,
+      mode: betweenRequest.mode,
+      baseProject: project,
+      objectIds: [...selection.objectIds],
+      firstBoundaryId: null,
+      secondBoundaryId: null,
+      preview: null,
+      availableM: null,
+      gapM: null,
+      error: null,
+    });
+  }, [betweenRequest, onPreviewProject, project, selection.objectIds]);
+
+  useEffect(() => {
+    if (betweenRequest || !betweenSession) return;
+    onPreviewProject(null);
+    setBetweenSession(null);
+  }, [betweenRequest, betweenSession, onPreviewProject]);
+
+  const cancelBetween = useCallback(() => {
+    onPreviewProject(null);
+    setBetweenSession(null);
+    onBetweenMessage("Выравнивание отменено");
+  }, [onBetweenMessage, onPreviewProject]);
+
+  const applyBetween = useCallback(() => {
+    if (!betweenSession?.preview) return;
+    onCommitProject(betweenSession.preview, "Выравнивание между перегородками");
+    setBetweenSession(null);
+  }, [betweenSession, onCommitProject]);
+
+  const selectBetweenBoundary = useCallback((boundaryId: string) => {
+    const current = betweenSession;
+    if (!current) return;
+    if (current.firstBoundaryId === boundaryId) {
+      onBetweenMessage("Выберите другую перегородку");
+      return;
+    }
+    if (!current.firstBoundaryId) {
+      onBetweenMessage("Укажите вторую перегородку");
+      setBetweenSession({ ...current, firstBoundaryId: boundaryId, error: null });
+      return;
+    }
+    const first = betweenBoundaries.find((boundary) => boundary.id === current.firstBoundaryId);
+    const second = betweenBoundaries.find((boundary) => boundary.id === boundaryId);
+    if (!first || !second) {
+      setBetweenSession({ ...current, error: "Перегородка недоступна" });
+      return;
+    }
+    const targets = current.baseProject.objects.filter(
+      (object) => current.objectIds.includes(object.id) && !object.locked,
+    );
+    const result = alignObjectsBetweenBoundaries(
+      targets,
+      first,
+      second,
+      current.mode,
+      current.baseProject.canvas.wallSnapOffsetM,
+    );
+    if (!result.ok) {
+      onPreviewProject(null);
+      onBetweenMessage(result.message);
+      setBetweenSession({
+        ...current,
+        secondBoundaryId: boundaryId,
+        preview: null,
+        availableM: null,
+        gapM: null,
+        error: result.message,
+      });
+      return;
+    }
+    const preview = replaceObjectsCommand(current.baseProject, result.objects);
+    onPreviewProject(preview);
+    onBetweenMessage("Проверьте результат и нажмите «Применить»");
+    setBetweenSession({
+      ...current,
+      secondBoundaryId: boundaryId,
+      preview,
+      availableM: result.availableM,
+      gapM: result.gapM,
+      error: null,
+    });
+  }, [betweenBoundaries, betweenSession, onBetweenMessage, onPreviewProject]);
+
+  useEffect(() => {
+    if (!betweenSession) return;
+    const onBetweenKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" && event.key !== "Enter") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (event.key === "Escape") cancelBetween();
+      else applyBetween();
+    };
+    window.addEventListener("keydown", onBetweenKeyDown, true);
+    return () => window.removeEventListener("keydown", onBetweenKeyDown, true);
+  }, [applyBetween, betweenSession, cancelBetween]);
+
   const onPointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
     setContextMenu(null);
     if (event.button !== 0 && event.button !== 1) return;
@@ -200,6 +342,15 @@ export function BasePlanCanvas({
     const target = event.target as Element;
     const handleElement = target.closest<SVGElement>("[data-handle]");
     const objectElement = target.closest<SVGElement>("[data-object-id]");
+    const boundaryElement = target.closest<SVGElement>("[data-boundary-id]");
+
+    if (betweenSession) {
+      event.preventDefault();
+      const boundaryId = boundaryElement?.dataset.boundaryId;
+      if (boundaryId) selectBetweenBoundary(boundaryId);
+      else onBetweenMessage("Укажите перегородку на плане");
+      return;
+    }
 
     if (event.button === 1 || (event.button === 0 && spacePressedRef.current)) {
       event.preventDefault();
@@ -258,14 +409,19 @@ export function BasePlanCanvas({
       if (!nextSelection.objectIds.includes(objectId)) return;
       const startPlan = planPoint(screen);
       const startObjects = project.objects.filter((object) => nextSelection.objectIds.includes(object.id));
+      const boundaries = getPlanBoundaries(project, new Set(nextSelection.objectIds));
       gestureRef.current = {
         mode: "move",
         pointerId: event.pointerId,
         startPlan,
         baseProject: project,
-        objectIds: nextSelection.objectIds,
         startObjects,
+        boundaries,
         preview: null,
+        activeBoundaryId: null,
+        candidateIndex: 0,
+        lastPlan: null,
+        snappingDisabled: false,
       };
       capture(event.pointerId);
       return;
@@ -276,6 +432,44 @@ export function BasePlanCanvas({
     setMarquee({ start: screen, current: screen });
     capture(event.pointerId);
   };
+
+  const previewMoveGesture = useCallback((
+    gesture: MoveGesture,
+    currentPlan: ScreenPoint,
+    snappingDisabled: boolean,
+  ) => {
+    const movable = gesture.startObjects.filter((object) => !object.locked);
+    const resolution = resolveMoveSnap({
+      objects: movable,
+      rawDeltaXM: currentPlan.x - gesture.startPlan.x,
+      rawDeltaYM: currentPlan.y - gesture.startPlan.y,
+      boundaries: gesture.boundaries,
+      snapEnabled: gesture.baseProject.canvas.snapEnabled,
+      snapStepM: gesture.baseProject.canvas.snapStepM,
+      wallOffsetM: gesture.baseProject.canvas.wallSnapOffsetM,
+      autoRotateFurniture: gesture.baseProject.canvas.autoRotateFurnitureToWall,
+      autoRotatePartitions: gesture.baseProject.canvas.autoRotatePartitionsToWall,
+      unitsPerMeter: gesture.baseProject.basePlan.unitsPerMeter,
+      zoom: camera.zoom,
+      candidateIndex: gesture.candidateIndex,
+      activeBoundaryId: gesture.activeBoundaryId,
+      snappingDisabled,
+    });
+    gesture.activeBoundaryId = resolution.activeBoundaryId;
+    gesture.lastPlan = currentPlan;
+    gesture.snappingDisabled = snappingDisabled;
+    setSnapGuide(resolution.guide);
+    setMovePreviewActive(true);
+    const oriented = movable.map((object) => resolution.rotations[object.id] === undefined
+      ? object
+      : { ...object, rotationDeg: resolution.rotations[object.id] });
+    const preview = replaceObjectsCommand(
+      gesture.baseProject,
+      moveObjects(oriented, resolution.deltaXM, resolution.deltaYM),
+    );
+    gesture.preview = preview;
+    onPreviewProject(preview);
+  }, [camera.zoom, onPreviewProject]);
 
   const onPointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
     const gesture = gestureRef.current;
@@ -292,15 +486,7 @@ export function BasePlanCanvas({
     }
     const currentPlan = planPoint(screen);
     if (gesture.mode === "move") {
-      const preview = moveObjectsSnappedCommand(
-        gesture.baseProject,
-        gesture.objectIds,
-        gesture.startObjects,
-        currentPlan.x - gesture.startPlan.x,
-        currentPlan.y - gesture.startPlan.y,
-      );
-      gesture.preview = preview;
-      onPreviewProject(preview);
+      previewMoveGesture(gesture, currentPlan, event.altKey);
       return;
     }
     if (gesture.mode === "resize") {
@@ -330,6 +516,19 @@ export function BasePlanCanvas({
     gesture.preview = preview;
     onPreviewProject(preview);
   };
+
+  useEffect(() => {
+    const onSnapKeyDown = (event: KeyboardEvent) => {
+      const gesture = gestureRef.current;
+      if (event.key !== "Tab" || gesture?.mode !== "move" || !gesture.lastPlan) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      gesture.candidateIndex += event.shiftKey ? -1 : 1;
+      previewMoveGesture(gesture, gesture.lastPlan, gesture.snappingDisabled);
+    };
+    window.addEventListener("keydown", onSnapKeyDown, true);
+    return () => window.removeEventListener("keydown", onSnapKeyDown, true);
+  }, [previewMoveGesture]);
 
   const finishGesture = (event: React.PointerEvent<SVGSVGElement>) => {
     const gesture = gestureRef.current;
@@ -370,6 +569,8 @@ export function BasePlanCanvas({
       return;
     }
     if (gesture.mode === "move" || gesture.mode === "resize" || gesture.mode === "rotate") {
+      setSnapGuide(null);
+      setMovePreviewActive(false);
       if (gesture.preview) onCommitProject(gesture.preview, gesture.mode === "move" ? "Перемещение выборки" : gesture.mode === "resize" ? "Изменение размера" : "Поворот");
       else onPreviewProject(null);
     }
@@ -413,7 +614,7 @@ export function BasePlanCanvas({
         <g transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
           <g transform={`rotate(${project.canvas.rotationDeg} ${project.basePlan.widthM * project.basePlan.unitsPerMeter / 2} ${project.basePlan.heightM * project.basePlan.unitsPerMeter / 2})`}>
             {plan ? <BasePlanLayer plan={plan} project={project} /> : null}
-            <g className="objects-layer">
+            <g className={`objects-layer${movePreviewActive || betweenSession?.preview ? " is-previewing" : ""}`}>
               {project.objects.filter((object) => visibleLayers.has(object.layerId)).map((object) => (
                 <ObjectShape
                   key={object.id}
@@ -444,12 +645,115 @@ export function BasePlanCanvas({
                 </g>
               ) : null}
             </g>
+            {snapGuide ? (
+              <g className="snap-guide" pointerEvents="none">
+                <line
+                  className="snap-guide__boundary"
+                  x1={snapGuide.boundary.start.xM * project.basePlan.unitsPerMeter}
+                  y1={snapGuide.boundary.start.yM * project.basePlan.unitsPerMeter}
+                  x2={snapGuide.boundary.end.xM * project.basePlan.unitsPerMeter}
+                  y2={snapGuide.boundary.end.yM * project.basePlan.unitsPerMeter}
+                  vectorEffect="non-scaling-stroke"
+                />
+                <line
+                  className="snap-guide__distance"
+                  x1={snapGuide.from.xM * project.basePlan.unitsPerMeter}
+                  y1={snapGuide.from.yM * project.basePlan.unitsPerMeter}
+                  x2={snapGuide.to.xM * project.basePlan.unitsPerMeter}
+                  y2={snapGuide.to.yM * project.basePlan.unitsPerMeter}
+                  vectorEffect="non-scaling-stroke"
+                />
+                <circle
+                  className="snap-guide__point"
+                  cx={snapGuide.to.xM * project.basePlan.unitsPerMeter}
+                  cy={snapGuide.to.yM * project.basePlan.unitsPerMeter}
+                  r={5 / camera.zoom}
+                  vectorEffect="non-scaling-stroke"
+                />
+              </g>
+            ) : null}
+            {betweenSession ? (
+              <g className="between-boundaries-layer">
+                {betweenBoundaries.map((boundary) => {
+                  const active = boundary.id === betweenSession.firstBoundaryId
+                    || boundary.id === betweenSession.secondBoundaryId;
+                  const startX = boundary.start.xM * project.basePlan.unitsPerMeter;
+                  const startY = boundary.start.yM * project.basePlan.unitsPerMeter;
+                  const endX = boundary.end.xM * project.basePlan.unitsPerMeter;
+                  const endY = boundary.end.yM * project.basePlan.unitsPerMeter;
+                  const hitLength = Math.hypot(endX - startX, endY - startY);
+                  const hitAngle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI;
+                  const hitSize = 18 / camera.zoom;
+                  return (
+                    <g key={boundary.id}>
+                      <line
+                        className={`between-boundary${active ? " is-active" : ""}`}
+                        x1={startX}
+                        y1={startY}
+                        x2={endX}
+                        y2={endY}
+                        vectorEffect="non-scaling-stroke"
+                        pointerEvents="none"
+                      />
+                      <rect
+                        className="between-boundary-hit"
+                        data-boundary-id={boundary.id}
+                        role="button"
+                        aria-label="Перегородка для выравнивания"
+                        x="0"
+                        y={-hitSize / 2}
+                        width={hitLength}
+                        height={hitSize}
+                        transform={`translate(${startX} ${startY}) rotate(${hitAngle})`}
+                      />
+                    </g>
+                  );
+                })}
+              </g>
+            ) : null}
           </g>
         </g>
       </svg>
 
       {plan ? null : <div className="canvas-loading" role="status">Загружаем точный векторный план…</div>}
       {marquee ? <div className="selection-marquee" style={{ left: Math.min(marquee.start.x, marquee.current.x), top: Math.min(marquee.start.y, marquee.current.y), width: Math.abs(marquee.current.x - marquee.start.x), height: Math.abs(marquee.current.y - marquee.start.y) }} /> : null}
+      {snapGuide ? (
+        <div className="snap-guide-badge">
+          {{
+            wall: "К стене",
+            center: "Центр",
+            corner: "Угол",
+            parallel: "Параллельно",
+          }[snapGuide.snapType]}
+          {` · отступ ${snapGuide.distanceM.toFixed(2)} м`}
+          {snapGuide.candidateCount > 1
+            ? ` · ${snapGuide.candidateIndex + 1}/${snapGuide.candidateCount} · Tab — вариант`
+            : ""}
+          {" · Alt — отключить"}
+        </div>
+      ) : null}
+      {betweenSession ? (
+        <div className="between-toolbar" role="dialog" aria-label="Выравнивание между перегородками">
+          <strong>{betweenSession.mode === "center"
+            ? "По центру между перегородками"
+            : betweenSession.mode === "distribute"
+              ? "Равные промежутки"
+              : "Заполнить проём"}</strong>
+          <span>
+            {!betweenSession.firstBoundaryId
+              ? "Укажите первую перегородку"
+              : !betweenSession.secondBoundaryId
+                ? "Укажите вторую перегородку"
+                : betweenSession.error ?? (betweenSession.availableM !== null && betweenSession.gapM !== null
+                  ? `Свободно ${betweenSession.availableM.toFixed(2)} м · ${betweenSession.mode === "distribute" ? "промежуток" : "отступ"} ${betweenSession.gapM.toFixed(2)} м`
+                  : "Проверьте результат")}
+          </span>
+          <div className="between-toolbar__actions">
+            <button type="button" className="button--primary" disabled={!betweenSession.preview} onClick={applyBetween}>Применить</button>
+            <button type="button" onClick={cancelBetween}>Отмена</button>
+          </div>
+        </div>
+      ) : null}
       <div className="canvas-zoom-hud">{zoomPercent}% · {project.canvas.rotationDeg}°</div>
       {selection.groupEditId ? <div className="group-edit-badge">Редактирование группы · Esc — выйти</div> : null}
       {contextMenu ? (

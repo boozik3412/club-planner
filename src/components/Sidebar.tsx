@@ -10,6 +10,7 @@ import type {
   SelectionState,
 } from "../editor/model/types";
 import type { MassObjectPatch } from "../editor/commands/project-commands";
+import type { BetweenBoundariesMode } from "../editor/snapping/types";
 
 interface SidebarProps {
   project: ProjectState;
@@ -38,6 +39,7 @@ interface SidebarProps {
   onDelete: () => void;
   onGroup: () => void;
   onUngroup: () => void;
+  onAlignBetween: (mode: BetweenBoundariesMode) => void;
   onEnterGroup: () => void;
   onExitGroup: () => void;
 }
@@ -147,6 +149,7 @@ export function Sidebar({
   onDelete,
   onGroup,
   onUngroup,
+  onAlignBetween,
   onEnterGroup,
   onExitGroup,
 }: SidebarProps) {
@@ -159,6 +162,10 @@ export function Sidebar({
   const layer = getMixedValue(selectedObjects, "layerId");
   const locked = getMixedValue(selectedObjects, "locked");
   const labelVisible = getMixedValue(selectedObjects, "labelVisible");
+  const canFillOpening = single !== null
+    && single.kind !== "custom-circle"
+    && single.kind !== "custom-oval"
+    && !single.locked;
 
   return (
     <aside className="sidebar">
@@ -206,7 +213,10 @@ export function Sidebar({
           <label className="check-row"><input type="checkbox" checked={project.canvas.snapEnabled} onChange={(event) => onCanvasChange({ snapEnabled: event.target.checked }, "Привязка")} />Привязка 0,1 м</label>
           <label className="check-row"><input type="checkbox" checked={project.canvas.planLabelsVisible} onChange={(event) => onCanvasChange({ planLabelsVisible: event.target.checked }, "Надписи плана")} />Надписи плана</label>
           <label className="check-row"><input type="checkbox" checked={project.canvas.objectLabelsVisible} onChange={(event) => onCanvasChange({ objectLabelsVisible: event.target.checked }, "Подписи предметов")} />Подписи предметов</label>
+          <label className="check-row"><input type="checkbox" checked={project.canvas.autoRotateFurnitureToWall} onChange={(event) => onCanvasChange({ autoRotateFurnitureToWall: event.target.checked }, "Автоповорот мебели")} />Поворот мебели по стене</label>
+          <label className="check-row"><input type="checkbox" checked={project.canvas.autoRotatePartitionsToWall} onChange={(event) => onCanvasChange({ autoRotatePartitionsToWall: event.target.checked }, "Автоповорот перегородок")} />Поворот перегородок</label>
         </div>
+        <NumberField label="Отступ от стены, м" value={project.canvas.wallSnapOffsetM} min={0} onCommit={(value) => onCanvasChange({ wallSnapOffsetM: Math.max(0, value) }, "Отступ от стены")} />
         <label className="field-label">Контраст базового чертежа · {Math.round(project.canvas.basePlanOpacity * 100)}%</label>
         <CommitRange value={project.canvas.basePlanOpacity} onCommit={(value) => onCanvasChange({ basePlanOpacity: value }, "Контраст базового плана")} />
         <p className="hint">Колесо — масштаб · средняя кнопка или Пробел+ЛКМ — панорама · ЛКМ по фону — рамка.</p>
@@ -245,6 +255,11 @@ export function Sidebar({
             <div className="button-grid button-grid--three"><button type="button" onClick={() => onRotateSelection(-90)}>↺ 90°</button><button type="button" onClick={() => onMassPatch({ rotationDeg: 0 }, "Сброс угла")}>0°</button><button type="button" onClick={() => onRotateSelection(90)}>90° ↻</button></div>
             <div className="button-grid button-grid--two action-row"><button type="button" onClick={onDuplicate}>Дублировать</button><button className="button--danger" type="button" onClick={onDelete}>Удалить</button></div>
             <div className="button-grid button-grid--two action-row"><button type="button" onClick={onGroup} disabled={selectedObjects.length < 2 || selection.groupIds.length > 0}>Сгруппировать</button><button type="button" onClick={onUngroup} disabled={selection.groupIds.length === 0}>Разгруппировать</button></div>
+            <div className={`button-grid action-row${selectedObjects.length > 1 || canFillOpening ? " button-grid--two" : ""}`}>
+              <button type="button" onClick={() => onAlignBetween("center")} disabled={!selectedObjects.some((object) => !object.locked)}>По центру между</button>
+              {selectedObjects.length > 1 ? <button type="button" onClick={() => onAlignBetween("distribute")} disabled={!selectedObjects.some((object) => !object.locked)}>Равные промежутки</button> : null}
+              {canFillOpening ? <button type="button" onClick={() => onAlignBetween("fill")}>Заполнить проём</button> : null}
+            </div>
             {selection.groupIds.length === 1 && !selection.groupEditId ? <button className="button button--wide" type="button" onClick={onEnterGroup}>Редактировать элементы группы</button> : null}
           </div>
         )}
