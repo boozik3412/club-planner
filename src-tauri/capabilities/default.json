@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Минимальные разрешения главного окна Club Planner",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:default", "window-state:default"]
 }

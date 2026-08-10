@@ -10,6 +10,7 @@ export interface LoadedPlanLabel {
 }
 
 export interface LoadedBasePlan {
+  source: string;
   defsMarkup: string;
   geometryMarkup: string;
   labels: LoadedPlanLabel[];
@@ -59,6 +60,7 @@ async function fetchAndParseBasePlan(): Promise<LoadedBasePlan> {
   }));
 
   return {
+    source,
     defsMarkup: defs.innerHTML,
     geometryMarkup: geometry.innerHTML,
     labels,
