@@ -17,7 +17,7 @@
 | `pnpm tauri build` | пройден; актуальные release `.exe` и NSIS x64 собраны |
 | Portable smoke | `.exe` открыл отвечающее окно и завершил процесс после закрытия |
 | NSIS smoke | silent install → launch → close → silent uninstall пройдены во временной папке |
-| Release workflow | [GitHub Actions run 31590022787](https://github.com/boozik3412/club-planner/actions/runs/31590022787) пройден; quality gates, Tauri build и публикация Release успешны |
+| Release workflow | [GitHub Actions run 31605366784](https://github.com/boozik3412/club-planner/actions/runs/31605366784) пройден; quality gates, подписанная Tauri build и публикация Release `v0.1.2` успешны |
 
 Production frontend собран с отдельным ленивым chunk `Plan3DView` размером 907,65 kB (245,44 kB gzip). Начальный 2D JavaScript bundle составляет 337,87 kB (102,91 kB gzip); предупреждение Vite о размере относится только к загружаемому по запросу 3D chunk и зафиксировано как допустимое для текущей локальной схематичной сцены.
 
@@ -71,10 +71,11 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 - геометрия окна `1100×680` в позиции `(180, 200)` восстановлена при следующем запуске;
 - `.window-state.json` содержит состояние main window;
 - системные диалоги подключены официальным Tauri Dialog plugin, а чтение/запись выполняются Rust-командами;
-- опубликованный portable binary: 9 762 304 байта, SHA-256 `242D3F8F9BFE47D6E83992F49A2E071A8F7E6DC01D2C5F5CB60B2D3B9CBA24BE`;
-- опубликованный NSIS installer: 2 427 977 байт, SHA-256 `BFD773ED7292AED0A3A99A2A78A4AA8A6728CF87BC6D5DF58226D4BCA44CEEBA`;
-- оба файла повторно скачаны из [Release v0.1.0](https://github.com/boozik3412/club-planner/releases/tag/v0.1.0), их хеши совпали с опубликованным `SHA256SUMS.txt`;
-- скачанный portable открыл отвечающее окно; скачанный installer прошёл silent install → launch → close → silent uninstall.
+- опубликованный portable `v0.1.2`: 13 222 912 байт, SHA-256 `F918007DA831FFCBE255E872B5A53251421568CEADBD6D257A3C56D1813CB456`;
+- опубликованный NSIS installer `v0.1.2`: 3 494 457 байт, SHA-256 `F55544764BEBBFA54A56A67DE64CA97D9DC34ACB040B5171F996CBFA3F4F2AFB`; `.sig` — 424 байта;
+- все пять файлов повторно скачаны из [Release v0.1.2](https://github.com/boozik3412/club-planner/releases/tag/v0.1.2); хеши обоих `.exe` совпали с `SHA256SUMS.txt` и digest GitHub;
+- `latest.json` содержит версию `0.1.2`, платформы `windows-x86_64`/`windows-x86_64-nsis`, непустую подпись и URL installer; запрос с заголовком `Accept: application/octet-stream`, который автоматически ставит Tauri Updater, вернул PE-файл с опубликованным SHA-256;
+- скачанный portable открыл отвечающий процесс; скачанный installer прошёл silent install → launch → close → silent uninstall.
 
 ## Границы проверки
 
