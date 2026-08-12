@@ -114,8 +114,18 @@ export default function App() {
 
   const showStatus = useCallback((message: string) => {
     setStatus(message);
-    if (statusTimerRef.current) window.clearTimeout(statusTimerRef.current);
-    statusTimerRef.current = window.setTimeout(() => setStatus("Готово · локальный режим"), 4_000);
+    if (statusTimerRef.current !== null) window.clearTimeout(statusTimerRef.current);
+    statusTimerRef.current = window.setTimeout(() => {
+      statusTimerRef.current = null;
+      setStatus("Готово · локальный режим");
+    }, 4_000);
+  }, []);
+
+  useEffect(() => () => {
+    if (statusTimerRef.current !== null) {
+      window.clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = null;
+    }
   }, []);
 
   const rememberPath = useCallback((path: string) => {
