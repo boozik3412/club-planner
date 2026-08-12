@@ -15,6 +15,9 @@
 | `cargo clippy --all-targets -- -D warnings` | пройден; локализованное сообщение MSVC linker не является Clippy warning |
 | `pnpm tauri build --debug --no-bundle` | пройден; создан `src-tauri/target/debug/club-planner.exe`, 14 132 736 байт |
 | `pnpm tauri build` | пройден; актуальные release `.exe` и NSIS x64 собраны |
+| Portable smoke | `.exe` открыл отвечающее окно и завершил процесс после закрытия |
+| NSIS smoke | silent install → launch → close → silent uninstall пройдены во временной папке |
+| Release workflow | YAML разобран, контракт Tauri Action сверён, имена assets и SHA-256 воспроизведены локально |
 
 Production frontend собран с отдельным ленивым chunk `Plan3DView` размером 907,65 kB (245,44 kB gzip). Начальный 2D JavaScript bundle остаётся 329,10 kB (100,41 kB gzip); предупреждение Vite о размере относится только к загружаемому по запросу 3D chunk и зафиксировано как допустимое для текущей локальной схематичной сцены.
 
