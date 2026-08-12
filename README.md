@@ -6,8 +6,8 @@
 
 Готовые `.exe` находятся на странице [последнего релиза](https://github.com/boozik3412/club-planner/releases/latest):
 
-- [Club-Planner_0.1.1_x64-setup.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.1.1_x64-setup.exe) — рекомендуемый установщик;
-- [Club-Planner_0.1.1_x64-portable.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.1.1_x64-portable.exe) — запуск без установки;
+- [Club-Planner_0.1.2_x64-setup.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.1.2_x64-setup.exe) — рекомендуемый установщик с автообновлением;
+- [Club-Planner_0.1.2_x64-portable.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.1.2_x64-portable.exe) — запуск без установки;
 - [SHA256SUMS.txt](https://github.com/boozik3412/club-planner/releases/latest/download/SHA256SUMS.txt) — контрольные суммы загрузок.
 
 См. [инструкцию по установке и проверке файла](docs/INSTALLATION.md). Сборка пока не подписана коммерческим сертификатом, поэтому Windows SmartScreen может показать предупреждение издателя.
@@ -20,12 +20,13 @@
 - 19 шаблонов предметов, включая произвольные прямоугольник, круг и овал, дверь и окно; точные размеры, физическая высота и отметка установки в метрах, drag/resize/rotate, подписи, слои и блокировка;
 - Shift-мультивыделение, рамка, массовые свойства и совместное перемещение;
 - центрирование, равномерное распределение и явное заполнение проёма между двумя перегородками с предпросмотром;
-- постоянные размеры, зоны открывания дверей, предупреждения о пересечениях и настраиваемой минимальной ширине проходов;
+- постоянные выбираемые размеры с постоянно видимой длиной, зоны открывания дверей, предупреждения о пересечениях и настраиваемой минимальной ширине проходов;
 - ряды/массивы объектов, проектные составные шаблоны и сводка по местам, зонам, плотности и предупреждениям;
 - постоянные группы, редактирование элементов группы, дублирование, поворот, блокировка и разгруппировка;
 - история на 100 транзакций, recovery-autosave и предупреждение о несохранённых изменениях;
 - системные Open/Save/Save As, `.clubplan` v2 с миграцией v1, legacy JSON v6 и экспорт SVG;
 - восстановление размера и позиции окна между запусками.
+- проверка подписанных обновлений при запуске и вручную, явная установка с прогрессом и безопасным recovery несохранённого проекта.
 
 ## Требования для разработки
 
@@ -67,7 +68,7 @@ pnpm tauri build
 Артефакты создаются в:
 
 - `src-tauri/target/release/club-planner.exe`;
-- `src-tauri/target/release/bundle/nsis/Club Planner_0.1.1_x64-setup.exe`.
+- `src-tauri/target/release/bundle/nsis/Club Planner_0.1.2_x64-setup.exe`.
 
 ## Основные сочетания клавиш
 
@@ -77,6 +78,7 @@ pnpm tauri build
 | Undo / Redo | `Ctrl+Z` / `Ctrl+Y` |
 | Выбрать все редактируемые | `Ctrl+A` |
 | Дублировать / удалить | `Ctrl+D` / `Delete` |
+| Удалить выбранный постоянный размер | `Delete` |
 | Копировать / вставить выборку | `Ctrl+C` / `Ctrl+V` |
 | Группа / разгруппировать | `Ctrl+G` / `Ctrl+Shift+G` |
 | Повернуть выбранное | `R` / `Shift+R` |
@@ -91,6 +93,7 @@ pnpm tauri build
 
 - [Формат проекта](docs/FILE_FORMAT.md)
 - [Установка на Windows](docs/INSTALLATION.md)
+- [Примечания к версии 0.1.2](docs/RELEASE_NOTES_0.1.2.md)
 - [Примечания к версии 0.1.1](docs/RELEASE_NOTES_0.1.1.md)
 - [Примечания к версии 0.1.0](docs/RELEASE_NOTES_0.1.0.md)
 - [Архитектурные высоты и 3D](docs/THREE_D_ARCHITECTURE.md)

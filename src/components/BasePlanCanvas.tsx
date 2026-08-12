@@ -56,6 +56,7 @@ interface BasePlanCanvasProps {
   fitRequest: number;
   betweenRequest: BetweenBoundariesRequest | null;
   measureRequest: number | null;
+  selectedDimensionId: string | null;
   onCameraChange: (camera: CameraState) => void;
   onVisibleCenterChange: (center: PointM) => void;
   onSelectionChange: (selection: SelectionState) => void;
@@ -67,6 +68,7 @@ interface BasePlanCanvasProps {
   onEnterGroup: (groupId: string) => void;
   onBetweenMessage: (message: string) => void;
   onAddDimension: (start: PointM, end: PointM) => void;
+  onDimensionSelect: (dimensionId: string | null) => void;
   onMeasurementMessage: (message: string) => void;
   onReady: (labelCount: number) => void;
   onError: (message: string) => void;
@@ -161,6 +163,7 @@ export function BasePlanCanvas({
   fitRequest,
   betweenRequest,
   measureRequest,
+  selectedDimensionId,
   onCameraChange,
   onVisibleCenterChange,
   onSelectionChange,
@@ -172,6 +175,7 @@ export function BasePlanCanvas({
   onEnterGroup,
   onBetweenMessage,
   onAddDimension,
+  onDimensionSelect,
   onMeasurementMessage,
   onReady,
   onError,
@@ -446,6 +450,7 @@ export function BasePlanCanvas({
     const handleElement = target.closest<SVGElement>("[data-handle]");
     const objectElement = target.closest<SVGElement>("[data-object-id]");
     const boundaryElement = target.closest<SVGElement>("[data-boundary-id]");
+    const dimensionElement = target.closest<SVGElement>("[data-dimension-id]");
 
     if (measurementSession && event.button === 0) {
       event.preventDefault();
@@ -481,8 +486,15 @@ export function BasePlanCanvas({
       return;
     }
 
+    if (dimensionElement && event.button === 0) {
+      event.preventDefault();
+      onDimensionSelect(dimensionElement.dataset.dimensionId ?? null);
+      return;
+    }
+
     if (handleElement) {
       event.preventDefault();
+      onDimensionSelect(null);
       const handle = handleElement.dataset.handle;
       const objectId = handleElement.dataset.objectId ?? null;
       const groupId = handleElement.dataset.groupId ?? null;
@@ -516,6 +528,7 @@ export function BasePlanCanvas({
 
     if (objectElement) {
       event.preventDefault();
+      onDimensionSelect(null);
       const objectId = objectElement.dataset.objectId;
       if (!objectId) return;
       const group = getGroupForObject(project, objectId);
@@ -552,7 +565,10 @@ export function BasePlanCanvas({
       return;
     }
 
-    if (!event.shiftKey) onSelectionChange({ objectIds: [], groupIds: [], groupEditId: selection.groupEditId });
+    if (!event.shiftKey) {
+      onSelectionChange({ objectIds: [], groupIds: [], groupEditId: selection.groupEditId });
+      onDimensionSelect(null);
+    }
     gestureRef.current = { mode: "marquee", pointerId: event.pointerId, start: screen, current: screen, additive: event.shiftKey };
     setMarquee({ start: screen, current: screen });
     capture(event.pointerId);
@@ -841,31 +857,46 @@ export function BasePlanCanvas({
                 </g>
               ) : null}
             </g>
-            <g className="dimensions-layer" pointerEvents="none">
+            <g className="dimensions-layer">
               {project.dimensions.map((dimension) => {
                 const midX = (dimension.start.xM + dimension.end.xM) / 2 * unitsPerMeter;
                 const midY = (dimension.start.yM + dimension.end.yM) / 2 * unitsPerMeter;
+                const length = formatMeters(distanceMeters(dimension.start, dimension.end));
+                const selected = selectedDimensionId === dimension.id;
                 return (
-                  <g key={dimension.id}>
+                  <g
+                    key={dimension.id}
+                    className={`dimension-mark${selected ? " is-selected" : ""}`}
+                    data-dimension-id={dimension.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${dimension.name} · ${length}`}
+                    aria-pressed={selected}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      onDimensionSelect(dimension.id);
+                    }}
+                  >
+                    <line className="dimension-hit-line" x1={dimension.start.xM * unitsPerMeter} y1={dimension.start.yM * unitsPerMeter} x2={dimension.end.xM * unitsPerMeter} y2={dimension.end.yM * unitsPerMeter} vectorEffect="non-scaling-stroke" />
                     <line className="dimension-line" x1={dimension.start.xM * unitsPerMeter} y1={dimension.start.yM * unitsPerMeter} x2={dimension.end.xM * unitsPerMeter} y2={dimension.end.yM * unitsPerMeter} vectorEffect="non-scaling-stroke" />
-                    <circle className="dimension-point" cx={dimension.start.xM * unitsPerMeter} cy={dimension.start.yM * unitsPerMeter} r={3.5 / camera.zoom} vectorEffect="non-scaling-stroke" />
-                    <circle className="dimension-point" cx={dimension.end.xM * unitsPerMeter} cy={dimension.end.yM * unitsPerMeter} r={3.5 / camera.zoom} vectorEffect="non-scaling-stroke" />
-                    {dimension.labelVisible ? (
-                      <text
-                        className="dimension-label"
-                        x={midX}
-                        y={midY - 8 / camera.zoom}
-                        fontSize={13 / camera.zoom}
-                        transform={`rotate(${-project.canvas.rotationDeg} ${midX} ${midY})`}
-                      >
-                        {dimension.name || formatMeters(distanceMeters(dimension.start, dimension.end))}
-                      </text>
-                    ) : null}
+                    <circle className="dimension-point" pointerEvents="none" cx={dimension.start.xM * unitsPerMeter} cy={dimension.start.yM * unitsPerMeter} r={3.5 / camera.zoom} vectorEffect="non-scaling-stroke" />
+                    <circle className="dimension-point" pointerEvents="none" cx={dimension.end.xM * unitsPerMeter} cy={dimension.end.yM * unitsPerMeter} r={3.5 / camera.zoom} vectorEffect="non-scaling-stroke" />
+                    <text
+                      className="dimension-label"
+                      pointerEvents="none"
+                      x={midX}
+                      y={midY - 8 / camera.zoom}
+                      fontSize={13 / camera.zoom}
+                      transform={`rotate(${-project.canvas.rotationDeg} ${midX} ${midY})`}
+                    >
+                      {length}
+                    </text>
                   </g>
                 );
               })}
               {measurementSession?.start && measurementSession.current ? (
-                <g className="measurement-preview">
+                <g className="measurement-preview" pointerEvents="none">
                   <line className="dimension-line" x1={measurementSession.start.xM * unitsPerMeter} y1={measurementSession.start.yM * unitsPerMeter} x2={measurementSession.current.xM * unitsPerMeter} y2={measurementSession.current.yM * unitsPerMeter} vectorEffect="non-scaling-stroke" />
                   <circle className="dimension-point" cx={measurementSession.start.xM * unitsPerMeter} cy={measurementSession.start.yM * unitsPerMeter} r={4 / camera.zoom} vectorEffect="non-scaling-stroke" />
                   <text className="dimension-label" x={(measurementSession.start.xM + measurementSession.current.xM) / 2 * unitsPerMeter} y={(measurementSession.start.yM + measurementSession.current.yM) / 2 * unitsPerMeter - 8 / camera.zoom} fontSize={13 / camera.zoom}>

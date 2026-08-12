@@ -8,7 +8,19 @@ import App from "./App";
 
 const desktopMocks = vi.hoisted(() => ({
   chooseAndOpenProject: vi.fn(),
+  confirmAction: vi.fn().mockResolvedValue(true),
+  isTauriRuntime: vi.fn().mockReturnValue(false),
   showError: vi.fn(),
+  writeRecovery: vi.fn().mockResolvedValue(undefined),
+}));
+
+const updaterMocks = vi.hoisted(() => ({
+  checkForAppUpdate: vi.fn(),
+}));
+
+const windowMocks = vi.hoisted(() => ({
+  onCloseRequested: vi.fn().mockResolvedValue(() => undefined),
+  setTitle: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("./components/BasePlanCanvas", () => ({
@@ -36,27 +48,35 @@ vi.mock("./components/Plan3DView", () => ({
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: vi.fn(),
+  getCurrentWindow: vi.fn(() => windowMocks),
 }));
+
+vi.mock("./editor/updater/app-updater", async (importOriginal) => {
+  const original = await importOriginal<typeof import("./editor/updater/app-updater")>();
+  return { ...original, checkForAppUpdate: updaterMocks.checkForAppUpdate };
+});
 
 vi.mock("./editor/persistence/desktop-files", () => ({
   chooseAndOpenProject: desktopMocks.chooseAndOpenProject,
   clearRecovery: vi.fn().mockResolvedValue(undefined),
-  confirmAction: vi.fn().mockResolvedValue(true),
+  confirmAction: desktopMocks.confirmAction,
   exitApplication: vi.fn().mockResolvedValue(undefined),
-  isTauriRuntime: vi.fn().mockReturnValue(false),
+  isTauriRuntime: desktopMocks.isTauriRuntime,
   openProjectAtPath: vi.fn(),
   readRecovery: vi.fn().mockResolvedValue(null),
   saveProjectContents: vi.fn().mockResolvedValue(null),
   saveSvgContents: vi.fn().mockResolvedValue(null),
   showError: desktopMocks.showError.mockResolvedValue(undefined),
-  writeRecovery: vi.fn().mockResolvedValue(undefined),
+  writeRecovery: desktopMocks.writeRecovery,
 }));
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
   vi.clearAllMocks();
+  desktopMocks.isTauriRuntime.mockReturnValue(false);
+  desktopMocks.confirmAction.mockResolvedValue(true);
+  updaterMocks.checkForAppUpdate.mockResolvedValue(null);
 });
 
 describe("App integration", () => {
@@ -240,5 +260,72 @@ describe("App integration", () => {
     await user.type(passage, "1.2");
     await user.tab();
     expect(screen.getByRole("spinbutton", { name: "Минимальный проход, м" })).toHaveValue(1.2);
+  });
+
+  it("selects an existing persistent dimension and deletes it with Delete", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Линейка · постоянный размер" }));
+    await user.click(screen.getByRole("button", { name: "Создать тестовый размер" }));
+
+    const dimension = screen.getByRole("button", { name: /^Размер 1/ });
+    expect(dimension).toHaveTextContent("3.00 м");
+    await user.keyboard("{Escape}");
+    expect(dimension).toHaveAttribute("aria-pressed", "false");
+    await user.click(dimension);
+    expect(dimension).toHaveAttribute("aria-pressed", "true");
+
+    await user.keyboard("{Delete}");
+    expect(screen.queryByRole("button", { name: /^Размер 1/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Создайте размер инструментом «Линейка»." )).toBeInTheDocument();
+  });
+
+  it("checks for a signed update, preserves dirty work and installs only after confirmation", async () => {
+    desktopMocks.isTauriRuntime.mockReturnValue(true);
+    const candidate = {
+      info: {
+        currentVersion: "0.1.2",
+        version: "0.1.3",
+        notes: "Исправления редактора",
+        date: "2026-08-13T10:00:00Z",
+      },
+      downloadAndInstall: vi.fn(async (onProgress: (progress: { downloadedBytes: number; totalBytes: number; finished: boolean }) => void) => {
+        onProgress({ downloadedBytes: 5, totalBytes: 10, finished: false });
+        onProgress({ downloadedBytes: 10, totalBytes: 10, finished: true });
+      }),
+      relaunch: vi.fn().mockResolvedValue(undefined),
+      dispose: vi.fn().mockResolvedValue(undefined),
+    };
+    updaterMocks.checkForAppUpdate.mockResolvedValue(candidate);
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByText("Доступна v0.1.3")).toBeInTheDocument();
+    expect(screen.getByText("Исправления редактора")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Стол$/ }));
+    await user.click(screen.getByRole("button", { name: "Установить и перезапустить" }));
+
+    expect(desktopMocks.confirmAction).toHaveBeenCalledWith(
+      expect.stringContaining("Несохранённый проект будет помещён в автосохранение"),
+      "Обновление Club Planner",
+    );
+    expect(desktopMocks.writeRecovery).toHaveBeenCalledOnce();
+    expect(candidate.downloadAndInstall).toHaveBeenCalledOnce();
+    expect(candidate.relaunch).toHaveBeenCalledOnce();
+  });
+
+  it("keeps an update-server failure non-blocking and offers a manual retry", async () => {
+    desktopMocks.isTauriRuntime.mockReturnValue(true);
+    updaterMocks.checkForAppUpdate.mockRejectedValue(new Error("network unavailable"));
+    const user = userEvent.setup();
+    render(<App />);
+
+    const retry = await screen.findByRole("button", { name: "Проверить обновления" });
+    expect(screen.queryByText(/Не удалось связаться/)).not.toBeInTheDocument();
+    await user.click(retry);
+
+    expect(await screen.findByText("Не удалось связаться с сервером обновлений. Проверьте интернет и повторите попытку.")).toBeInTheDocument();
+    expect(screen.getAllByRole("main", { name: "Рабочая область плана" })).not.toHaveLength(0);
   });
 });

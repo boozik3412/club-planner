@@ -123,6 +123,55 @@ button:disabled {
   grid-column: span 1;
 }
 
+.updater-panel {
+  display: grid;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 10px;
+  border: 1px solid #38414b;
+  border-radius: 9px;
+  color: var(--muted);
+  background: #101318;
+  font-size: 11px;
+}
+
+.updater-panel--available {
+  border-color: rgba(126, 215, 166, 0.52);
+  background: rgba(31, 75, 53, 0.28);
+}
+
+.updater-panel--error {
+  border-color: rgba(196, 94, 108, 0.55);
+}
+
+.updater-panel__heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.updater-panel__heading strong {
+  color: var(--text);
+}
+
+.updater-panel__notes {
+  max-height: 66px;
+  margin: 0;
+  overflow: auto;
+  color: #d7dde3;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.updater-panel__error {
+  color: #ffb9c3;
+}
+
+.updater-panel progress {
+  width: 100%;
+  accent-color: var(--success);
+}
+
 .recent-projects {
   margin-top: 8px;
   color: var(--muted);
@@ -410,6 +459,24 @@ button:disabled {
   border: 1px solid #343b45;
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.02);
+}
+
+.managed-list__row.is-selected {
+  border-color: #d8759e;
+  background: rgba(157, 53, 97, 0.16);
+}
+
+.managed-list__select {
+  display: grid;
+  min-width: 0;
+  text-align: left;
+  border-color: transparent;
+  background: transparent;
+}
+
+.managed-list__select:hover:not(:disabled) {
+  border-color: #596270;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .managed-list__row span {
@@ -933,6 +1000,29 @@ button:disabled {
   stroke: #9d3561;
   stroke-width: 1.7;
   stroke-dasharray: 7 4;
+}
+
+.dimension-hit-line {
+  stroke: transparent;
+  stroke-width: 16;
+  cursor: pointer;
+}
+
+.dimension-mark.is-selected .dimension-line {
+  stroke: #e4528d;
+  stroke-width: 2.7;
+  stroke-dasharray: none;
+}
+
+.dimension-mark.is-selected .dimension-point {
+  fill: #fff3f8;
+  stroke: #e4528d;
+  stroke-width: 2.2;
+}
+
+.dimension-mark.is-selected .dimension-label {
+  fill: #9d164f;
+  font-weight: 700;
 }
 
 .dimension-point {

@@ -8,6 +8,7 @@ import {
   type PlanObject,
   type ProjectState,
 } from "./types";
+import { APP_VERSION } from "../../app-version";
 import { createStableId } from "./templates";
 
 export const PLAN_UNITS_PER_METER = 377.952755906;
@@ -34,7 +35,7 @@ export function createEmptyProject(
   return {
     format: CLUBPLAN_FORMAT,
     formatVersion: CLUBPLAN_FORMAT_VERSION,
-    generator: { name: "Club Planner", version: "0.1.1" },
+    generator: { name: "Club Planner", version: APP_VERSION },
     project: { id: projectId, createdAt: now, modifiedAt: now },
     basePlan: {
       id: BASE_PLAN_ID,
