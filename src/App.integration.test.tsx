@@ -57,6 +57,24 @@ afterEach(() => {
 });
 
 describe("App integration", () => {
+  it("clears the pending status timer when the application view closes", async () => {
+    const setTimeoutSpy = vi.spyOn(window, "setTimeout");
+    const clearTimeoutSpy = vi.spyOn(window, "clearTimeout");
+    const user = userEvent.setup();
+    const view = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Стол$/ }));
+    const statusTimerCallIndex = setTimeoutSpy.mock.calls.findIndex(([, delay]) => delay === 4_000);
+    expect(statusTimerCallIndex).toBeGreaterThanOrEqual(0);
+    const statusTimerId = setTimeoutSpy.mock.results[statusTimerCallIndex]?.value;
+
+    view.unmount();
+
+    expect(clearTimeoutSpy).toHaveBeenCalledWith(statusTimerId);
+    setTimeoutSpy.mockRestore();
+    clearTimeoutSpy.mockRestore();
+  });
+
   it("edits a base wall as one undoable transaction and opens the lazy 3D view", async () => {
     const user = userEvent.setup();
     render(<App />);
