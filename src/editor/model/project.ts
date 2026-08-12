@@ -34,7 +34,7 @@ export function createEmptyProject(
   return {
     format: CLUBPLAN_FORMAT,
     formatVersion: CLUBPLAN_FORMAT_VERSION,
-    generator: { name: "Club Planner", version: "0.1.0" },
+    generator: { name: "Club Planner", version: "0.1.1" },
     project: { id: projectId, createdAt: now, modifiedAt: now },
     basePlan: {
       id: BASE_PLAN_ID,
