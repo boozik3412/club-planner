@@ -8,7 +8,7 @@
 {
   "format": "clubplan",
   "formatVersion": 2,
-  "generator": { "name": "Club Planner", "version": "0.1.0" },
+  "generator": { "name": "Club Planner", "version": "0.1.1" },
   "project": {
     "id": "project-uuid",
     "createdAt": "2026-08-10T00:00:00.000Z",

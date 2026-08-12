@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { PLAN_CENTER_X, PLAN_CENTER_Y } from "../base-plan";
-import { fitCamera, screenToPlanUnits, zoomCameraAtPoint } from "./camera";
+import {
+  fitCamera,
+  screenToPlanUnits,
+  viewportCenterToPlanMeters,
+  zoomCameraAtPoint,
+} from "./camera";
 
 describe("camera", () => {
   it("fits horizontal and vertical plan rotations", () => {
@@ -21,5 +26,17 @@ describe("camera", () => {
     const point = screenToPlanUnits(PLAN_CENTER_X, PLAN_CENTER_Y + 100, camera, 90);
     expect(point.x).toBeCloseTo(PLAN_CENTER_X + 100);
     expect(point.y).toBeCloseTo(PLAN_CENTER_Y);
+  });
+
+  it("converts the visible viewport center to plan meters after pan, zoom and rotation", () => {
+    const unitsPerMeter = 100;
+    const viewport = { width: 800, height: 600 };
+    const camera = { x: -200, y: 100, zoom: 2 };
+
+    const center = viewportCenterToPlanMeters(viewport, camera, 90, unitsPerMeter);
+    const expectedUnits = screenToPlanUnits(400, 300, camera, 90);
+
+    expect(center.xM).toBeCloseTo(expectedUnits.x / unitsPerMeter);
+    expect(center.yM).toBeCloseTo(expectedUnits.y / unitsPerMeter);
   });
 });

@@ -263,7 +263,7 @@ export function Sidebar({
         <button className="button button--wide" type="button" onClick={onStartMeasure}>Линейка · постоянный размер</button>
         <label className="field-label">Контраст базового чертежа · {Math.round(project.canvas.basePlanOpacity * 100)}%</label>
         <CommitRange value={project.canvas.basePlanOpacity} onCommit={(value) => onCanvasChange({ basePlanOpacity: value }, "Контраст базового плана")} />
-        <p className="hint">Колесо — масштаб · средняя кнопка или Пробел+ЛКМ — панорама · ЛКМ по фону — рамка. Проверка проходов информационная и не подтверждает соответствие нормам.</p>
+        <p className="hint">Колесо — масштаб · ПКМ, средняя кнопка или Пробел+ЛКМ — панорама · ЛКМ по фону — рамка · Ctrl+C / Ctrl+V — копировать / вставить. Проверка проходов информационная и не подтверждает соответствие нормам.</p>
       </section>
 
       <section className="panel-section architecture-panel">

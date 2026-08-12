@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fitCamera,
   screenToPlanUnits,
+  viewportCenterToPlanMeters,
   zoomCameraAtPoint,
   type ViewportSize,
 } from "../editor/camera/camera";
@@ -56,6 +57,7 @@ interface BasePlanCanvasProps {
   betweenRequest: BetweenBoundariesRequest | null;
   measureRequest: number | null;
   onCameraChange: (camera: CameraState) => void;
+  onVisibleCenterChange: (center: PointM) => void;
   onSelectionChange: (selection: SelectionState) => void;
   onPreviewProject: (project: ProjectState | null) => void;
   onCommitProject: (project: ProjectState, label: string) => void;
@@ -76,7 +78,7 @@ interface ScreenPoint {
 }
 
 type Gesture =
-  | { mode: "pan"; pointerId: number; start: ScreenPoint; camera: CameraState }
+  | { mode: "pan"; pointerId: number; start: ScreenPoint; camera: CameraState; rightButton: boolean }
   | { mode: "marquee"; pointerId: number; start: ScreenPoint; current: ScreenPoint; additive: boolean }
   | { mode: "move"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; startObjects: PlanObject[]; otherObjects: PlanObject[]; boundaries: PlanBoundary[]; preview: ProjectState | null; activeBoundaryId: string | null; candidateIndex: number; lastPlan: ScreenPoint | null; snappingDisabled: boolean }
   | { mode: "resize"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; object: PlanObject; handle: ResizeHandle; preview: ProjectState | null }
@@ -160,6 +162,7 @@ export function BasePlanCanvas({
   betweenRequest,
   measureRequest,
   onCameraChange,
+  onVisibleCenterChange,
   onSelectionChange,
   onPreviewProject,
   onCommitProject,
@@ -185,6 +188,7 @@ export function BasePlanCanvas({
   const svgRef = useRef<SVGSVGElement>(null);
   const gestureRef = useRef<Gesture | null>(null);
   const spacePressedRef = useRef(false);
+  const suppressContextMenuRef = useRef(false);
   const lastFitKeyRef = useRef("");
   const lastBetweenRequestRef = useRef(0);
   const lastMeasureRequestRef = useRef(0);
@@ -243,6 +247,22 @@ export function BasePlanCanvas({
     lastFitKeyRef.current = fitKey;
     onCameraChange(fitCamera(viewport, project.canvas.rotationDeg));
   }, [fitRequest, onCameraChange, project.canvas.rotationDeg, viewport]);
+
+  useEffect(() => {
+    if (viewport.width <= 1 || viewport.height <= 1) return;
+    onVisibleCenterChange(viewportCenterToPlanMeters(
+      viewport,
+      camera,
+      project.canvas.rotationDeg,
+      project.basePlan.unitsPerMeter,
+    ));
+  }, [
+    camera,
+    onVisibleCenterChange,
+    project.basePlan.unitsPerMeter,
+    project.canvas.rotationDeg,
+    viewport,
+  ]);
 
   useEffect(() => {
     const keyDown = (event: KeyboardEvent) => {
@@ -407,8 +427,21 @@ export function BasePlanCanvas({
 
   const onPointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
     setContextMenu(null);
-    if (event.button !== 0 && event.button !== 1) return;
     const screen = localPoint(event.clientX, event.clientY);
+    if (event.button === 2 && !event.shiftKey) {
+      event.preventDefault();
+      suppressContextMenuRef.current = false;
+      gestureRef.current = {
+        mode: "pan",
+        pointerId: event.pointerId,
+        start: screen,
+        camera,
+        rightButton: true,
+      };
+      capture(event.pointerId);
+      return;
+    }
+    if (event.button !== 0 && event.button !== 1) return;
     const target = event.target as Element;
     const handleElement = target.closest<SVGElement>("[data-handle]");
     const objectElement = target.closest<SVGElement>("[data-object-id]");
@@ -443,7 +476,7 @@ export function BasePlanCanvas({
 
     if (event.button === 1 || (event.button === 0 && spacePressedRef.current)) {
       event.preventDefault();
-      gestureRef.current = { mode: "pan", pointerId: event.pointerId, start: screen, camera };
+      gestureRef.current = { mode: "pan", pointerId: event.pointerId, start: screen, camera, rightButton: false };
       capture(event.pointerId);
       return;
     }
@@ -580,6 +613,9 @@ export function BasePlanCanvas({
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     if (gesture.mode === "pan") {
+      if (Math.hypot(screen.x - gesture.start.x, screen.y - gesture.start.y) >= 3) {
+        if (gesture.rightButton) suppressContextMenuRef.current = true;
+      }
       onCameraChange({ ...gesture.camera, x: gesture.camera.x + screen.x - gesture.start.x, y: gesture.camera.y + screen.y - gesture.start.y });
       return;
     }
@@ -690,6 +726,10 @@ export function BasePlanCanvas({
     event.preventDefault();
     if (event.shiftKey && selection.objectIds.length >= 2) {
       onGroupSelection();
+      return;
+    }
+    if (suppressContextMenuRef.current) {
+      suppressContextMenuRef.current = false;
       return;
     }
     setContextMenu(localPoint(event.clientX, event.clientY));

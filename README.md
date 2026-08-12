@@ -6,8 +6,8 @@
 
 Готовые `.exe` находятся на странице [последнего релиза](https://github.com/boozik3412/club-planner/releases/latest):
 
-- [Club-Planner_0.1.0_x64-setup.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.1.0_x64-setup.exe) — рекомендуемый установщик;
-- [Club-Planner_0.1.0_x64-portable.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.1.0_x64-portable.exe) — запуск без установки;
+- [Club-Planner_0.1.1_x64-setup.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.1.1_x64-setup.exe) — рекомендуемый установщик;
+- [Club-Planner_0.1.1_x64-portable.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.1.1_x64-portable.exe) — запуск без установки;
 - [SHA256SUMS.txt](https://github.com/boozik3412/club-planner/releases/latest/download/SHA256SUMS.txt) — контрольные суммы загрузок.
 
 См. [инструкцию по установке и проверке файла](docs/INSTALLATION.md). Сборка пока не подписана коммерческим сертификатом, поэтому Windows SmartScreen может показать предупреждение издателя.
@@ -67,7 +67,7 @@ pnpm tauri build
 Артефакты создаются в:
 
 - `src-tauri/target/release/club-planner.exe`;
-- `src-tauri/target/release/bundle/nsis/Club Planner_0.1.0_x64-setup.exe`.
+- `src-tauri/target/release/bundle/nsis/Club Planner_0.1.1_x64-setup.exe`.
 
 ## Основные сочетания клавиш
 
@@ -77,12 +77,13 @@ pnpm tauri build
 | Undo / Redo | `Ctrl+Z` / `Ctrl+Y` |
 | Выбрать все редактируемые | `Ctrl+A` |
 | Дублировать / удалить | `Ctrl+D` / `Delete` |
+| Копировать / вставить выборку | `Ctrl+C` / `Ctrl+V` |
 | Группа / разгруппировать | `Ctrl+G` / `Ctrl+Shift+G` |
 | Повернуть выбранное | `R` / `Shift+R` |
 | Переместить | стрелки; `Shift` — шаг 0,01 м |
 | Выйти из группы / снять выделение | `Esc` |
 
-Колесо меняет масштаб; средняя кнопка или `Пробел+ЛКМ` панорамирует; `Shift+ЛКМ` переключает предмет в выборке; `Shift+ПКМ` группирует выбранные предметы. Во время перетаскивания `Alt` временно отключает привязки к сетке, стенам и объектам, `Tab`/`Shift+Tab` перебирает близкие кандидаты. Отступ, автоповорот мебели/перегородок и минимальная ширина прохода настраиваются в панели холста. Диагностика проходов помогает сравнивать варианты, но не является нормативным заключением.
+Колесо меняет масштаб; удержание `ПКМ`, средняя кнопка или `Пробел+ЛКМ` панорамирует; `Shift+ЛКМ` переключает предмет в выборке; `Shift+ПКМ` группирует выбранные предметы. Новые предметы и составные шаблоны появляются в центре текущей видимой области. Во время перетаскивания `Alt` временно отключает привязки к сетке, стенам и объектам, `Tab`/`Shift+Tab` перебирает близкие кандидаты. Отступ, автоповорот мебели/перегородок и минимальная ширина прохода настраиваются в панели холста. Диагностика проходов помогает сравнивать варианты, но не является нормативным заключением.
 
 В 3D: ЛКМ выбирает предмет или стену, `Shift+ЛКМ` дополняет выборку, колесо меняет масштаб, ЛКМ вращает камеру, ПКМ панорамирует. Потолок по умолчанию скрыт; ползунок «Сечение» опускает видимую высоту стен. 3D является схемой по данным плана и не заменяет BIM/архитектурную модель или отсутствующие разрезы здания.
 
@@ -90,6 +91,7 @@ pnpm tauri build
 
 - [Формат проекта](docs/FILE_FORMAT.md)
 - [Установка на Windows](docs/INSTALLATION.md)
+- [Примечания к версии 0.1.1](docs/RELEASE_NOTES_0.1.1.md)
 - [Примечания к версии 0.1.0](docs/RELEASE_NOTES_0.1.0.md)
 - [Архитектурные высоты и 3D](docs/THREE_D_ARCHITECTURE.md)
 - [Импорт legacy JSON](docs/LEGACY_IMPORT.md)

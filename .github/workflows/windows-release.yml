@@ -72,12 +72,12 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Club Planner ${{ github.ref_name }}
           releaseBody: |
-            Рекомендуемая загрузка — `Club-Planner_0.1.0_x64-setup.exe`.
+            Рекомендуемая загрузка — файл с окончанием `_x64-setup.exe`.
 
-            Переносимый вариант `Club-Planner_0.1.0_x64-portable.exe` не требует установки.
+            Переносимый вариант с окончанием `_x64-portable.exe` не требует установки.
             Для проверки целостности скачайте `SHA256SUMS.txt`.
 
-            Возможности, проверки и ограничение SmartScreen описаны в [примечаниях к версии](https://github.com/boozik3412/club-planner/blob/main/docs/RELEASE_NOTES_0.1.0.md).
+            Возможности, проверки и ограничение SmartScreen описаны на [странице проекта](https://github.com/boozik3412/club-planner#readme).
           releaseDraft: false
           prerelease: false
           generateReleaseNotes: true
