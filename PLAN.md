@@ -1,7 +1,7 @@
 # PLAN — Club Planner Desktop
 
-Статус: этапы 0–11 реализованы и прошли локальные frontend, Rust, Tauri и rendered UI quality gates. Архитектурные высоты, `.clubplan` v2 и схематичная 3D-визуализация включены в актуальные release `.exe` и NSIS x64. Проверка установки инсталлятора на отдельной чистой Windows VM остаётся внешним release-gate перед публичной раздачей.
-Дата актуализации: 2026-08-11.
+Статус: этапы 0–11 реализованы и прошли локальные frontend, Rust, Tauri и rendered UI quality gates. Этап 12 — публичная Windows-раздача через GitHub Releases — подготовлен локально и ожидает публикации workflow/тега. Архитектурные высоты, `.clubplan` v2 и схематичная 3D-визуализация включены в актуальные release `.exe` и NSIS x64. Проверка установки на отдельной чистой Windows VM остаётся внешним release-gate.
+Дата актуализации: 2026-08-12.
 
 Фактический прогресс на 2026-08-11:
 
@@ -879,6 +879,32 @@ src/components/scene/
 - integration: изменение default и выбранной стены как одна Undo-транзакция; редактирование высоты/отметки предмета; переход 2D/3D/split и синхронизация выделения;
 - rendered QA: загрузка без overlay, console health, камера и cutaway controls, выбор предмета в 3D, desktop viewport;
 - quality gates: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, `cargo fmt --check`, `cargo test`, `cargo clippy --all-targets -- -D warnings`, `pnpm tauri build --debug --no-bundle`.
+
+### Этап 12 — публичная Windows-раздача через GitHub Releases 🚧
+
+Цель этапа — дать пользователю стабильную страницу загрузки, с которой приложение можно установить или запустить переносимым `.exe` без среды разработки.
+
+Результат:
+
+- публичный GitHub Release `v0.1.0` с NSIS installer и переносимым Windows x64 executable;
+- понятные имена файлов без пробелов и кириллицы;
+- `SHA256SUMS.txt` для проверки целостности загрузки;
+- русскоязычная инструкция по установке, portable-запуску, WebView2 и предупреждению SmartScreen для неподписанной сборки;
+- workflow `.github/workflows/windows-release.yml`, который на теге `v*` запускает frontend/Rust gates, собирает Tauri на `windows-latest`, создаёт Release и загружает артефакты;
+- минимальные права workflow: только `contents: write`; сторонние ресурсы приложению во время основной работы не требуются.
+
+Риски и проверки:
+
+| Риск | Мера | Gate |
+|---|---|---|
+| пользователь скачивает не тот файл | installer помечен как рекомендуемый, portable — как альтернативный | инструкция и release notes |
+| повреждение загрузки | SHA-256 рядом с артефактами | локальная и опубликованная сверка |
+| несовпадение версии тега и приложения | workflow проверяет `v<package.version>` | release workflow |
+| отсутствие WebView2 | инструкция и стандартный bootstrap Tauri/NSIS | чистая Windows 10/11 VM перед широкой раздачей |
+| SmartScreen для unsigned binary | честное предупреждение и план подписи EV/OV-сертификатом | внешний signing gate |
+| workflow публикует непроверенную сборку | `pnpm check`, Rust fmt/test/Clippy перед `tauri build` | GitHub Actions |
+
+Локальная проверка 2026-08-12: portable executable открыл отдельное отвечающее окно и штатно завершился; NSIS успешно выполнил silent install → launch → close → silent uninstall во временную папку; итоговые имена файлов и `SHA256SUMS.txt` сформированы по тому же скрипту, что используется workflow.
 
 ## 12. Тестовая стратегия
 
