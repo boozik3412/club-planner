@@ -68,6 +68,12 @@ import type {
   BetweenBoundariesMode,
   BetweenBoundariesRequest,
 } from "./editor/snapping/types";
+import {
+  checkForAppUpdate,
+  EMPTY_DOWNLOAD_PROGRESS,
+  type AppUpdateCandidate,
+  type UpdaterViewState,
+} from "./editor/updater/app-updater";
 
 const RECENT_KEY = "club-planner.recent-projects.v1";
 const LazyPlan3DView = lazy(() => import("./components/Plan3DView").then((module) => ({ default: module.Plan3DView })));
@@ -98,9 +104,13 @@ export default function App() {
   const [measureRequest, setMeasureRequest] = useState<number | null>(null);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("2d");
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
+  const [selectedDimensionId, setSelectedDimensionId] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [recentPaths, setRecentPaths] = useState(readRecentPaths);
   const [status, setStatus] = useState("Готово · локальный режим");
+  const [updaterState, setUpdaterState] = useState<UpdaterViewState>(
+    () => isTauriRuntime() ? { phase: "idle" } : { phase: "unavailable" },
+  );
   const statusTimerRef = useRef<number | null>(null);
   const visiblePlanCenterRef = useRef<PointM>({
     xM: history.present.project.basePlan.widthM / 2,
@@ -109,6 +119,9 @@ export default function App() {
   const objectClipboardRef = useRef<{ contents: ObjectClipboard; pasteCount: number } | null>(null);
   const recoveryCheckedRef = useRef(false);
   const measureSequenceRef = useRef(0);
+  const updaterCandidateRef = useRef<AppUpdateCandidate | null>(null);
+  const updaterBusyRef = useRef(false);
+  const automaticUpdateCheckStartedRef = useRef(false);
   const project = previewProject ?? history.present.project;
   const dirty = isHistoryDirty(history);
   const selectedObjects = useMemo(() => getSelectedObjects(project, selection), [project, selection]);
@@ -129,11 +142,44 @@ export default function App() {
     }, 4_000);
   }, []);
 
+  const checkForUpdates = useCallback(async (manual: boolean) => {
+    if (!isTauriRuntime() || updaterBusyRef.current) return;
+    updaterBusyRef.current = true;
+    setUpdaterState({ phase: "checking" });
+    try {
+      const previous = updaterCandidateRef.current;
+      updaterCandidateRef.current = null;
+      if (previous) await previous.dispose();
+      const candidate = await checkForAppUpdate();
+      updaterCandidateRef.current = candidate;
+      setUpdaterState(candidate
+        ? { phase: "available", info: candidate.info }
+        : manual ? { phase: "current" } : { phase: "idle" });
+    } catch {
+      if (manual) setUpdaterState({ phase: "error", message: "Не удалось связаться с сервером обновлений. Проверьте интернет и повторите попытку." });
+      else setUpdaterState({ phase: "idle" });
+    } finally {
+      updaterBusyRef.current = false;
+    }
+  }, []);
+
   useEffect(() => () => {
     if (statusTimerRef.current !== null) {
       window.clearTimeout(statusTimerRef.current);
       statusTimerRef.current = null;
     }
+  }, []);
+
+  useEffect(() => {
+    if (!isTauriRuntime() || automaticUpdateCheckStartedRef.current) return;
+    automaticUpdateCheckStartedRef.current = true;
+    void checkForUpdates(false);
+  }, [checkForUpdates]);
+
+  useEffect(() => () => {
+    const candidate = updaterCandidateRef.current;
+    updaterCandidateRef.current = null;
+    if (candidate) void candidate.dispose();
   }, []);
 
   const rememberPath = useCallback((path: string) => {
@@ -368,6 +414,7 @@ export default function App() {
   const handleStartMeasure = useCallback(() => {
     setPreviewProject(null);
     setBetweenRequest(null);
+    setSelectedDimensionId(null);
     measureSequenceRef.current += 1;
     setMeasureRequest(measureSequenceRef.current);
     showStatus("Укажите первую точку размера");
@@ -381,11 +428,47 @@ export default function App() {
       return;
     }
     commitProject(next, "Добавление размера");
+    setSelectedDimensionId(next.dimensions[next.dimensions.length - 1]?.id ?? null);
   }, [commitProject, history.present.project, showStatus]);
 
   const handleDeleteDimension = useCallback((dimensionId: string) => {
     commitProject(deleteDimensionCommand(history.present.project, dimensionId), "Удаление размера");
+    setSelectedDimensionId((current) => current === dimensionId ? null : current);
   }, [commitProject, history.present.project]);
+
+  const handleSelectDimension = useCallback((dimensionId: string | null) => {
+    setSelectedDimensionId(dimensionId);
+    if (!dimensionId) return;
+    setSelection(EMPTY_SELECTION);
+    setSelectedWallId(null);
+    const dimension = project.dimensions.find((candidate) => candidate.id === dimensionId);
+    if (dimension) showStatus(`${dimension.name} выбран`);
+  }, [project.dimensions, showStatus]);
+
+  const handleInstallUpdate = useCallback(async () => {
+    const candidate = updaterCandidateRef.current;
+    if (!candidate || updaterBusyRef.current) return;
+    const confirmed = await confirmAction(
+      `Установить Club Planner ${candidate.info.version} и перезапустить приложение?${dirty ? " Несохранённый проект будет помещён в автосохранение." : ""}`,
+      "Обновление Club Planner",
+    );
+    if (!confirmed) return;
+
+    updaterBusyRef.current = true;
+    try {
+      if (dirty) await writeRecovery(createRecoveryEnvelope(history.present.project, currentPath));
+      setUpdaterState({ phase: "installing", info: candidate.info, progress: EMPTY_DOWNLOAD_PROGRESS });
+      await candidate.downloadAndInstall((progress) => {
+        setUpdaterState({ phase: "installing", info: candidate.info, progress });
+      });
+      setUpdaterState({ phase: "restarting", info: candidate.info });
+      await candidate.relaunch();
+    } catch {
+      setUpdaterState({ phase: "error", message: "Не удалось загрузить или установить обновление. Повторите попытку — проект сохранён в recovery." });
+    } finally {
+      updaterBusyRef.current = false;
+    }
+  }, [currentPath, dirty, history.present.project]);
 
   const handleCreateArray = useCallback((count: number, stepM: number, direction: "horizontal" | "vertical") => {
     const result = createObjectArrayCommand(history.present.project, selection, count, stepM, direction);
@@ -541,10 +624,12 @@ export default function App() {
         setSelection(selectAllEditable(history.present.project));
       } else if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
-        handleDelete();
+        if (selectedDimensionId) handleDeleteDimension(selectedDimensionId);
+        else handleDelete();
       } else if (event.key === "Escape") {
         event.preventDefault();
-        if (selection.groupEditId) handleExitGroup();
+        if (selectedDimensionId) setSelectedDimensionId(null);
+        else if (selection.groupEditId) handleExitGroup();
         else setSelection(EMPTY_SELECTION);
       } else if (key === "r") {
         event.preventDefault();
@@ -569,7 +654,17 @@ export default function App() {
       window.removeEventListener("contextmenu", blockContextMenu);
       window.removeEventListener("auxclick", blockAuxNavigation);
     };
-  }, [commitProject, handleCopy, handleDelete, handleDuplicate, handleExitGroup, handleGroup, handleOpen, handlePaste, handleRedo, handleRotateSelection, handleUndo, handleUngroup, history.present.project, saveProject, selection]);
+  }, [commitProject, handleCopy, handleDelete, handleDeleteDimension, handleDuplicate, handleExitGroup, handleGroup, handleOpen, handlePaste, handleRedo, handleRotateSelection, handleUndo, handleUngroup, history.present.project, saveProject, selectedDimensionId, selection]);
+
+  useEffect(() => {
+    if (selection.objectIds.length > 0 || selection.groupIds.length > 0) setSelectedDimensionId(null);
+  }, [selection.groupIds.length, selection.objectIds.length]);
+
+  useEffect(() => {
+    if (selectedDimensionId && !project.dimensions.some((dimension) => dimension.id === selectedDimensionId)) {
+      setSelectedDimensionId(null);
+    }
+  }, [project.dimensions, selectedDimensionId]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -661,6 +756,8 @@ export default function App() {
         workspaceMode={workspaceMode}
         architectureWalls={architecture.walls}
         selectedWall={selectedWall}
+        selectedDimensionId={selectedDimensionId}
+        updaterState={updaterState}
         onNew={() => { void handleNew(); }}
         onOpen={() => { void handleOpen(); }}
         onOpenRecent={(path) => { void handleOpenRecent(path); }}
@@ -676,6 +773,9 @@ export default function App() {
         onArchitectureDefaultsChange={handleArchitectureDefaultsChange}
         onWallOverrideChange={handleWallOverrideChange}
         onResetWallOverride={handleResetWallOverride}
+        onSelectDimension={handleSelectDimension}
+        onCheckForUpdates={() => { void checkForUpdates(true); }}
+        onInstallUpdate={() => { void handleInstallUpdate(); }}
         onAddObject={handleAddObject}
         onMassPatch={handleMassPatch}
         onRotateSelection={handleRotateSelection}
@@ -710,6 +810,7 @@ export default function App() {
                 fitRequest={fitRequest}
                 betweenRequest={betweenRequest}
                 measureRequest={measureRequest}
+                selectedDimensionId={selectedDimensionId}
                 onCameraChange={setCamera}
                 onVisibleCenterChange={handleVisibleCenterChange}
                 onSelectionChange={(next) => { setSelectedWallId(null); setSelection(next); }}
@@ -721,6 +822,7 @@ export default function App() {
                 onEnterGroup={handleEnterGroup}
                 onBetweenMessage={showStatus}
                 onAddDimension={handleAddDimension}
+                onDimensionSelect={handleSelectDimension}
                 onMeasurementMessage={showStatus}
                 onReady={(count) => showStatus(`Базовый план готов · ${count} подписей`)}
                 onError={(message) => showStatus(`Ошибка базового плана: ${message}`)}

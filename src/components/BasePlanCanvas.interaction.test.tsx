@@ -40,6 +40,7 @@ function renderCanvas(overrides: Record<string, unknown> = {}) {
       fitRequest={0}
       betweenRequest={null}
       measureRequest={null}
+      selectedDimensionId={null}
       onCameraChange={onCameraChange}
       onVisibleCenterChange={vi.fn()}
       onSelectionChange={vi.fn()}
@@ -51,6 +52,7 @@ function renderCanvas(overrides: Record<string, unknown> = {}) {
       onEnterGroup={vi.fn()}
       onBetweenMessage={vi.fn()}
       onAddDimension={vi.fn()}
+      onDimensionSelect={vi.fn()}
       onMeasurementMessage={vi.fn()}
       onReady={vi.fn()}
       onError={vi.fn()}
@@ -86,5 +88,25 @@ describe("BasePlanCanvas pointer navigation", () => {
     fireEvent.contextMenu(canvas, { button: 2, shiftKey: true, clientX: 100, clientY: 120 });
 
     expect(onGroupSelection).toHaveBeenCalledOnce();
+  });
+
+  it("selects a persistent dimension by its line and always shows its length", () => {
+    const project = createEmptyProject();
+    project.dimensions = [{
+      id: "dimension-1",
+      name: "Размер 1",
+      start: { xM: 1, yM: 1 },
+      end: { xM: 4, yM: 5 },
+      labelVisible: false,
+    }];
+    const onDimensionSelect = vi.fn();
+    renderCanvas({ project, onDimensionSelect, selectedDimensionId: "dimension-1" });
+
+    const dimension = screen.getByRole("button", { name: "Размер 1 · 5.00 м" });
+    expect(dimension).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("5.00 м")).toBeInTheDocument();
+
+    fireEvent.pointerDown(dimension, { button: 0, pointerId: 9, clientX: 120, clientY: 120 });
+    expect(onDimensionSelect).toHaveBeenCalledWith("dimension-1");
   });
 });

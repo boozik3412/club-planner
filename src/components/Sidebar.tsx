@@ -15,6 +15,8 @@ import type {
 } from "../editor/model/types";
 import type { MassObjectPatch } from "../editor/commands/project-commands";
 import type { BetweenBoundariesMode } from "../editor/snapping/types";
+import { APP_VERSION } from "../app-version";
+import { formatDownloadProgress, type UpdaterViewState } from "../editor/updater/app-updater";
 
 interface SidebarProps {
   project: ProjectState;
@@ -31,6 +33,8 @@ interface SidebarProps {
   workspaceMode: "2d" | "3d" | "split";
   architectureWalls: ResolvedArchitecturalWall[];
   selectedWall: ResolvedArchitecturalWall | null;
+  selectedDimensionId: string | null;
+  updaterState: UpdaterViewState;
   onNew: () => void;
   onOpen: () => void;
   onOpenRecent: (path: string) => void;
@@ -46,6 +50,9 @@ interface SidebarProps {
   onArchitectureDefaultsChange: (patch: Partial<ProjectState["architecture"]>, label: string) => void;
   onWallOverrideChange: (wallId: string, patch: { heightM?: number; thicknessM?: number; baseElevationM?: number }, label: string) => void;
   onResetWallOverride: (wallId: string) => void;
+  onSelectDimension: (dimensionId: string | null) => void;
+  onCheckForUpdates: () => void;
+  onInstallUpdate: () => void;
   onAddObject: (type: ObjectType) => void;
   onMassPatch: (patch: MassObjectPatch, label: string) => void;
   onRotateSelection: (deltaDeg: number) => void;
@@ -142,6 +149,54 @@ function shortPath(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
+function UpdaterPanel({
+  state,
+  onCheck,
+  onInstall,
+}: {
+  state: UpdaterViewState;
+  onCheck: () => void;
+  onInstall: () => void;
+}) {
+  if (state.phase === "unavailable") return null;
+  const busy = state.phase === "checking" || state.phase === "installing" || state.phase === "restarting";
+  return (
+    <section className={`updater-panel updater-panel--${state.phase}`} aria-live="polite">
+      <div className="updater-panel__heading">
+        <strong>Обновления</strong>
+        {state.phase === "available" || state.phase === "installing" || state.phase === "restarting"
+          ? <span>Доступна v{state.info.version}</span>
+          : <span>Версия {APP_VERSION}</span>}
+      </div>
+      {state.phase === "available" ? (
+        <>
+          {state.info.notes ? <p className="updater-panel__notes">{state.info.notes}</p> : null}
+          <button className="button--primary button--wide" type="button" onClick={onInstall}>
+            Установить и перезапустить
+          </button>
+        </>
+      ) : null}
+      {state.phase === "installing" ? (
+        <>
+          <progress
+            max={state.progress.totalBytes ?? undefined}
+            value={state.progress.totalBytes ? state.progress.downloadedBytes : undefined}
+            aria-label="Загрузка обновления"
+          />
+          <span>{formatDownloadProgress(state.progress)}</span>
+        </>
+      ) : null}
+      {state.phase === "restarting" ? <span>Обновление установлено · перезапуск…</span> : null}
+      {state.phase === "checking" ? <span>Проверяем GitHub Releases…</span> : null}
+      {state.phase === "current" ? <span>Установлена актуальная версия.</span> : null}
+      {state.phase === "error" ? <span className="updater-panel__error">{state.message}</span> : null}
+      {state.phase === "idle" || state.phase === "current" || state.phase === "error" ? (
+        <button type="button" disabled={busy} onClick={onCheck}>Проверить обновления</button>
+      ) : null}
+    </section>
+  );
+}
+
 export function Sidebar({
   project,
   selection,
@@ -157,6 +212,8 @@ export function Sidebar({
   workspaceMode,
   architectureWalls,
   selectedWall,
+  selectedDimensionId,
+  updaterState,
   onNew,
   onOpen,
   onOpenRecent,
@@ -172,6 +229,9 @@ export function Sidebar({
   onArchitectureDefaultsChange,
   onWallOverrideChange,
   onResetWallOverride,
+  onSelectDimension,
+  onCheckForUpdates,
+  onInstallUpdate,
   onAddObject,
   onMassPatch,
   onRotateSelection,
@@ -214,7 +274,7 @@ export function Sidebar({
           <h1>Планировщик клуба</h1>
           <p title={currentPath ?? undefined}>{currentPath ? shortPath(currentPath) : "Новый проект"}{dirty ? " •" : ""}</p>
         </div>
-        <span className="version-tag">Tauri 2</span>
+        <span className="version-tag">v{APP_VERSION}</span>
       </header>
 
       <nav className="file-toolbar" aria-label="Файл и история">
@@ -225,6 +285,8 @@ export function Sidebar({
         <button type="button" onClick={onUndo} disabled={!canUndo} title="Отменить · Ctrl+Z">↶</button>
         <button type="button" onClick={onRedo} disabled={!canRedo} title="Повторить · Ctrl+Y">↷</button>
       </nav>
+
+      <UpdaterPanel state={updaterState} onCheck={onCheckForUpdates} onInstall={onInstallUpdate} />
 
       {recentPaths.length > 0 ? (
         <details className="recent-projects">
@@ -383,8 +445,15 @@ export function Sidebar({
         {project.dimensions.length > 0 ? (
           <div className="managed-list">
             {project.dimensions.map((dimension) => (
-              <div className="managed-list__row" key={dimension.id}>
-                <span><strong>{dimension.name}</strong><small>{formatMeters(distanceMeters(dimension.start, dimension.end))}</small></span>
+              <div className={`managed-list__row${selectedDimensionId === dimension.id ? " is-selected" : ""}`} key={dimension.id}>
+                <button
+                  className="managed-list__select"
+                  type="button"
+                  aria-pressed={selectedDimensionId === dimension.id}
+                  onClick={() => onSelectDimension(selectedDimensionId === dimension.id ? null : dimension.id)}
+                >
+                  <strong>{dimension.name}</strong><small>{formatMeters(distanceMeters(dimension.start, dimension.end))}</small>
+                </button>
                 <button className="button--danger" type="button" onClick={() => onDeleteDimension(dimension.id)} aria-label={`Удалить ${dimension.name}`}>Удалить</button>
               </div>
             ))}
