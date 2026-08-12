@@ -16,12 +16,15 @@ vi.mock("./components/BasePlanCanvas", () => ({
     betweenRequest,
     measureRequest,
     onAddDimension,
+    onVisibleCenterChange,
   }: {
     betweenRequest: { mode: string } | null;
     measureRequest: number | null;
     onAddDimension: (start: { xM: number; yM: number }, end: { xM: number; yM: number }) => void;
+    onVisibleCenterChange: (center: { xM: number; yM: number }) => void;
   }) => (
     <main aria-label="Рабочая область плана">
+      <button type="button" onClick={() => onVisibleCenterChange({ xM: 12.3, yM: 4.5 })}>Сместить видимую область</button>
       {betweenRequest ? `Режим между перегородками: ${betweenRequest.mode}` : null}
       {measureRequest ? <button type="button" onClick={() => onAddDimension({ xM: 1, yM: 1 }, { xM: 4, yM: 1 })}>Создать тестовый размер</button> : null}
     </main>
@@ -57,6 +60,29 @@ afterEach(() => {
 });
 
 describe("App integration", () => {
+  it("adds a new object at the center of the currently visible plan area", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Сместить видимую область" }));
+    await user.click(screen.getByRole("button", { name: /^Стол$/ }));
+
+    expect(screen.getByRole("spinbutton", { name: "X, м" })).toHaveValue(12.3);
+    expect(screen.getByRole("spinbutton", { name: "Y, м" })).toHaveValue(4.5);
+  });
+
+  it("copies and pastes selected objects with Ctrl+C and Ctrl+V", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /^Стол$/ }));
+    await user.keyboard("{Control>}c{/Control}{Control>}v{/Control}");
+
+    expect(screen.getByText(/2 предметов · 0 групп/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Выбрано: 1" })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: "X, м" })).toHaveValue(31.55);
+  });
+
   it("clears the pending status timer when the application view closes", async () => {
     const setTimeoutSpy = vi.spyOn(window, "setTimeout");
     const clearTimeoutSpy = vi.spyOn(window, "clearTimeout");

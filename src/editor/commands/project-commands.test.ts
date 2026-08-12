@@ -4,11 +4,13 @@ import { createObjectFromTemplate } from "../model/templates";
 import { EMPTY_SELECTION } from "../model/types";
 import {
   addObjectCommand,
+  copySelectionToClipboard,
   deleteSelectionCommand,
   duplicateSelectionCommand,
   groupObjectsCommand,
   moveObjectsCommand,
   moveObjectsSnappedCommand,
+  pasteObjectClipboardCommand,
   rotateSelectionCommand,
   setGroupsLockedCommand,
   ungroupObjectsCommand,
@@ -122,5 +124,22 @@ describe("project commands", () => {
     const deleted = deleteSelectionCommand(locked, duplicated?.selection as typeof selection);
     expect(deleted.objects).toHaveLength(2);
     expect(deleted.groups.map((group) => group.id)).toEqual([groupId]);
+  });
+
+  it("copies a selection snapshot and pastes it after the originals are deleted", () => {
+    const grouped = groupObjectsCommand(projectWithTwoTables(), ["first", "second"]);
+    const groupId = grouped?.groupId as string;
+    const source = grouped?.project as ReturnType<typeof projectWithTwoTables>;
+    const selection = { ...EMPTY_SELECTION, objectIds: ["first", "second"], groupIds: [groupId] };
+    const clipboard = copySelectionToClipboard(source, selection);
+    expect(clipboard?.objects).toHaveLength(2);
+    expect(clipboard?.groups).toHaveLength(1);
+
+    const withoutOriginals = deleteSelectionCommand(source, selection);
+    const pasted = pasteObjectClipboardCommand(withoutOriginals, clipboard as NonNullable<typeof clipboard>);
+
+    expect(pasted?.project.objects).toHaveLength(2);
+    expect(pasted?.project.groups).toHaveLength(1);
+    expect(pasted?.selection.objectIds).toHaveLength(2);
   });
 });

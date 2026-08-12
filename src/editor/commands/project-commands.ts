@@ -4,12 +4,18 @@ import { createObjectFromTemplate, createStableId } from "../model/templates";
 import type {
   GroupId,
   LayerId,
+  ObjectGroup,
   ObjectId,
   ObjectType,
   PlanObject,
   ProjectState,
   SelectionState,
 } from "../model/types";
+
+export interface ObjectClipboard {
+  objects: PlanObject[];
+  groups: ObjectGroup[];
+}
 
 export function replaceObjectsCommand(
   project: ProjectState,
@@ -245,18 +251,40 @@ export function duplicateSelectionCommand(
   selection: SelectionState,
   offsetM = 0.35,
 ): { project: ProjectState; selection: SelectionState } | null {
+  const clipboard = copySelectionToClipboard(project, selection);
+  return clipboard ? pasteObjectClipboardCommand(project, clipboard, offsetM) : null;
+}
+
+export function copySelectionToClipboard(
+  project: ProjectState,
+  selection: SelectionState,
+): ObjectClipboard | null {
   const selectedIds = new Set(selection.objectIds);
   const originals = project.objects.filter((object) => selectedIds.has(object.id));
   if (originals.length === 0) return null;
 
+  return {
+    objects: structuredClone(originals),
+    groups: structuredClone(project.groups.filter((group) =>
+      group.objectIds.every((id) => selectedIds.has(id)),
+    )),
+  };
+}
+
+export function pasteObjectClipboardCommand(
+  project: ProjectState,
+  clipboard: ObjectClipboard,
+  offsetM = 0.35,
+): { project: ProjectState; selection: SelectionState } | null {
+  if (clipboard.objects.length === 0) return null;
+
   const idMap = new Map<ObjectId, ObjectId>();
-  const copies = originals.map((object) => {
+  const copies = clipboard.objects.map((object) => {
     const id = createStableId("object");
     idMap.set(object.id, id);
     return { ...structuredClone(object), id, xM: object.xM + offsetM, yM: object.yM + offsetM };
   });
-  const copiedGroups = project.groups
-    .filter((group) => group.objectIds.every((id) => selectedIds.has(id)))
+  const copiedGroups = clipboard.groups
     .map((group) => ({
       ...structuredClone(group),
       id: createStableId("group"),

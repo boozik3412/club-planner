@@ -15,16 +15,19 @@ import {
 } from "./editor/commands/advanced-commands";
 import {
   addObjectCommand,
+  copySelectionToClipboard,
   deleteSelectionCommand,
   duplicateSelectionCommand,
   groupObjectsCommand,
   moveObjectsCommand,
+  pasteObjectClipboardCommand,
   rotateSelectionCommand,
   rotateGroupToAngleCommand,
   setGroupsLockedCommand,
   ungroupObjectsCommand,
   updateObjectsCommand,
   type MassObjectPatch,
+  type ObjectClipboard,
 } from "./editor/commands/project-commands";
 import {
   canRedo,
@@ -99,6 +102,11 @@ export default function App() {
   const [recentPaths, setRecentPaths] = useState(readRecentPaths);
   const [status, setStatus] = useState("Готово · локальный режим");
   const statusTimerRef = useRef<number | null>(null);
+  const visiblePlanCenterRef = useRef<PointM>({
+    xM: history.present.project.basePlan.widthM / 2,
+    yM: history.present.project.basePlan.heightM / 2,
+  });
+  const objectClipboardRef = useRef<{ contents: ObjectClipboard; pasteCount: number } | null>(null);
   const recoveryCheckedRef = useRef(false);
   const measureSequenceRef = useRef(0);
   const project = previewProject ?? history.present.project;
@@ -314,10 +322,14 @@ export default function App() {
     setSelectedWallId(null);
   }, []);
 
+  const handleVisibleCenterChange = useCallback((center: PointM) => {
+    visiblePlanCenterRef.current = center;
+  }, []);
+
   const handleAddObject = useCallback((type: ObjectType) => {
     const base = history.present.project;
-    const offset = (base.objects.length % 8) * 0.15;
-    const result = addObjectCommand(base, type, base.basePlan.widthM / 2 + offset, base.basePlan.heightM / 2 + offset);
+    const { xM, yM } = visiblePlanCenterRef.current;
+    const result = addObjectCommand(base, type, xM, yM);
     setHistory((current) => commitHistory(current, result.project, "Добавление предмета"));
     setSelection({ objectIds: [result.objectId], groupIds: [], groupEditId: null });
     showStatus("Предмет добавлен");
@@ -396,11 +408,12 @@ export default function App() {
 
   const handleInstantiateCompositeTemplate = useCallback((templateId: string) => {
     const base = history.present.project;
+    const { xM, yM } = visiblePlanCenterRef.current;
     const result = instantiateCompositeTemplateCommand(
       base,
       templateId,
-      base.basePlan.widthM / 2,
-      base.basePlan.heightM / 2,
+      xM,
+      yM,
     );
     if (!result) return;
     commitProject(result.project, "Добавление составного шаблона");
@@ -423,6 +436,33 @@ export default function App() {
     commitProject(duplicated.project, "Дублирование выборки");
     setSelection(duplicated.selection);
   }, [commitProject, history.present.project, selection]);
+
+  const handleCopy = useCallback(() => {
+    const contents = copySelectionToClipboard(history.present.project, selection);
+    if (!contents) {
+      showStatus("Сначала выберите предметы");
+      return;
+    }
+    objectClipboardRef.current = { contents, pasteCount: 0 };
+    showStatus(`Скопировано: ${contents.objects.length}`);
+  }, [history.present.project, selection, showStatus]);
+
+  const handlePaste = useCallback(() => {
+    const clipboard = objectClipboardRef.current;
+    if (!clipboard) {
+      showStatus("Буфер предметов пуст");
+      return;
+    }
+    clipboard.pasteCount += 1;
+    const pasted = pasteObjectClipboardCommand(
+      history.present.project,
+      clipboard.contents,
+      0.35 * clipboard.pasteCount,
+    );
+    if (!pasted) return;
+    commitProject(pasted.project, "Вставка копии");
+    setSelection(pasted.selection);
+  }, [commitProject, history.present.project, showStatus]);
 
   const handleGroup = useCallback(() => {
     const grouped = groupObjectsCommand(history.present.project, selection.objectIds);
@@ -486,6 +526,12 @@ export default function App() {
       } else if (control && key === "d") {
         event.preventDefault();
         handleDuplicate();
+      } else if (control && key === "c") {
+        event.preventDefault();
+        handleCopy();
+      } else if (control && key === "v") {
+        event.preventDefault();
+        handlePaste();
       } else if (control && key === "g") {
         event.preventDefault();
         if (event.shiftKey) handleUngroup();
@@ -523,7 +569,7 @@ export default function App() {
       window.removeEventListener("contextmenu", blockContextMenu);
       window.removeEventListener("auxclick", blockAuxNavigation);
     };
-  }, [commitProject, handleDelete, handleDuplicate, handleExitGroup, handleGroup, handleOpen, handleRedo, handleRotateSelection, handleUndo, handleUngroup, history.present.project, saveProject, selection]);
+  }, [commitProject, handleCopy, handleDelete, handleDuplicate, handleExitGroup, handleGroup, handleOpen, handlePaste, handleRedo, handleRotateSelection, handleUndo, handleUngroup, history.present.project, saveProject, selection]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -665,6 +711,7 @@ export default function App() {
                 betweenRequest={betweenRequest}
                 measureRequest={measureRequest}
                 onCameraChange={setCamera}
+                onVisibleCenterChange={handleVisibleCenterChange}
                 onSelectionChange={(next) => { setSelectedWallId(null); setSelection(next); }}
                 onPreviewProject={setPreviewProject}
                 onCommitProject={commitProject}

@@ -4,7 +4,7 @@ import {
   PLAN_HEIGHT_UNITS,
   PLAN_WIDTH_UNITS,
 } from "../base-plan";
-import type { CameraState } from "../model/types";
+import type { CameraState, PointM } from "../model/types";
 
 export interface ViewportSize {
   width: number;
@@ -76,5 +76,23 @@ export function screenToPlanUnits(
   return {
     x: PLAN_CENTER_X + dx * Math.cos(radians) - dy * Math.sin(radians),
     y: PLAN_CENTER_Y + dx * Math.sin(radians) + dy * Math.cos(radians),
+  };
+}
+
+export function viewportCenterToPlanMeters(
+  viewport: ViewportSize,
+  camera: CameraState,
+  rotationDeg: number,
+  unitsPerMeter: number,
+): PointM {
+  const center = screenToPlanUnits(
+    viewport.width / 2,
+    viewport.height / 2,
+    camera,
+    rotationDeg,
+  );
+  return {
+    xM: center.x / unitsPerMeter,
+    yM: center.y / unitsPerMeter,
   };
 }
