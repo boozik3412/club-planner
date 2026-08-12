@@ -8,7 +8,7 @@
 |---|---|
 | `pnpm typecheck` | пройден |
 | `pnpm lint` | пройден без предупреждений |
-| `pnpm test` | 21 файл, 84 теста пройдено |
+| `pnpm test` | 21 файл, 85 тестов пройдено |
 | `pnpm build` | production bundle собран |
 | `cargo fmt --check` | пройден |
 | `cargo test` | 3 Rust-теста пройдены |
@@ -17,7 +17,7 @@
 | `pnpm tauri build` | пройден; актуальные release `.exe` и NSIS x64 собраны |
 | Portable smoke | `.exe` открыл отвечающее окно и завершил процесс после закрытия |
 | NSIS smoke | silent install → launch → close → silent uninstall пройдены во временной папке |
-| Release workflow | YAML разобран, контракт Tauri Action сверён, имена assets и SHA-256 воспроизведены локально |
+| Release workflow | [GitHub Actions run 31590022787](https://github.com/boozik3412/club-planner/actions/runs/31590022787) пройден; quality gates, Tauri build и публикация Release успешны |
 
 Production frontend собран с отдельным ленивым chunk `Plan3DView` размером 907,65 kB (245,44 kB gzip). Начальный 2D JavaScript bundle остаётся 329,10 kB (100,41 kB gzip); предупреждение Vite о размере относится только к загружаемому по запросу 3D chunk и зафиксировано как допустимое для текущей локальной схематичной сцены.
 
@@ -63,9 +63,11 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 - геометрия окна `1100×680` в позиции `(180, 200)` восстановлена при следующем запуске;
 - `.window-state.json` содержит состояние main window;
 - системные диалоги подключены официальным Tauri Dialog plugin, а чтение/запись выполняются Rust-командами;
-- release binary: 9 759 744 байта, SHA-256 `A535C837DE7E9432858378B2474A0284D76B23FFFE9997465FFE4DAD949BB769`;
-- NSIS installer: 2 428 350 байт, SHA-256 `48A70DBACCACC2E1D786B6F39DC9144CF256BCF2F6ECBA3F63B8354BE8BAA55B`.
+- опубликованный portable binary: 9 762 304 байта, SHA-256 `242D3F8F9BFE47D6E83992F49A2E071A8F7E6DC01D2C5F5CB60B2D3B9CBA24BE`;
+- опубликованный NSIS installer: 2 427 977 байт, SHA-256 `BFD773ED7292AED0A3A99A2A78A4AA8A6728CF87BC6D5DF58226D4BCA44CEEBA`;
+- оба файла повторно скачаны из [Release v0.1.0](https://github.com/boozik3412/club-planner/releases/tag/v0.1.0), их хеши совпали с опубликованным `SHA256SUMS.txt`;
+- скачанный portable открыл отвечающее окно; скачанный installer прошёл silent install → launch → close → silent uninstall.
 
 ## Границы проверки
 
-Сборка и запуск проверены на текущей Windows-машине. Отдельная clean Windows 10/11 VM в этой среде недоступна; перед публичной раздачей установщик следует дополнительно прогнать на чистой VM: install → offline launch → create/edit/save → restart/open → uninstall.
+Сборка, загрузка из публичного GitHub Release, запуск portable и полный цикл installer проверены на текущей Windows-машине. Отдельная clean Windows 10/11 VM в этой среде недоступна; её прогон остаётся дополнительной проверкой перед широкой пользовательской раздачей: install → offline launch → create/edit/save → restart/open → uninstall.
