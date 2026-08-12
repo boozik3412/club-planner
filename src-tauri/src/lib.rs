@@ -6,8 +6,8 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 fn exit_application(app: tauri::AppHandle) -> Result<(), String> {
     app.save_window_state(StateFlags::all())
         .map_err(|error| format!("не удалось сохранить состояние окна: {error}"))?;
-    app.exit(0);
-    Ok(())
+    app.cleanup_before_exit();
+    std::process::exit(0)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

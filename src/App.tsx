@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BasePlanCanvas } from "./components/BasePlanCanvas";
 import { Sidebar } from "./components/Sidebar";
 import { analyzeLayout } from "./editor/analysis/layout-analysis";
+import { resolveArchitecture } from "./editor/architecture/resolve-architecture";
 import { summarizeProject } from "./editor/analysis/project-summary";
 import {
   addDimensionCommand,
@@ -59,13 +60,15 @@ import {
   decodeRecoveryEnvelope,
   encodeProject,
 } from "./editor/persistence/serialization";
-import { getSelectedObjects, pruneSelection, selectAllEditable } from "./editor/selection/selection";
+import { getSelectedObjects, pruneSelection, selectAllEditable, selectTarget } from "./editor/selection/selection";
 import type {
   BetweenBoundariesMode,
   BetweenBoundariesRequest,
 } from "./editor/snapping/types";
 
 const RECENT_KEY = "club-planner.recent-projects.v1";
+const LazyPlan3DView = lazy(() => import("./components/Plan3DView").then((module) => ({ default: module.Plan3DView })));
+type WorkspaceMode = "2d" | "3d" | "split";
 
 function readRecentPaths(): string[] {
   try {
@@ -90,6 +93,8 @@ export default function App() {
   const [fitRequest, setFitRequest] = useState(0);
   const [betweenRequest, setBetweenRequest] = useState<BetweenBoundariesRequest | null>(null);
   const [measureRequest, setMeasureRequest] = useState<number | null>(null);
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("2d");
+  const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [recentPaths, setRecentPaths] = useState(readRecentPaths);
   const [status, setStatus] = useState("Готово · локальный режим");
@@ -101,6 +106,11 @@ export default function App() {
   const selectedObjects = useMemo(() => getSelectedObjects(project, selection), [project, selection]);
   const layoutWarnings = useMemo(() => analyzeLayout(project), [project]);
   const projectSummary = useMemo(() => summarizeProject(project, layoutWarnings), [layoutWarnings, project]);
+  const architecture = useMemo(() => resolveArchitecture(project), [project]);
+  const selectedWall = useMemo(
+    () => architecture.walls.find((wall) => wall.id === selectedWallId) ?? null,
+    [architecture.walls, selectedWallId],
+  );
 
   const showStatus = useCallback((message: string) => {
     setStatus(message);
@@ -247,6 +257,52 @@ export default function App() {
       draft.canvas.rotationDeg = normalizeAngle(draft.canvas.rotationDeg);
     });
   }, [commitMutation]);
+
+  const handleArchitectureDefaultsChange = useCallback((
+    patch: Partial<ProjectState["architecture"]>,
+    label: string,
+  ) => {
+    commitMutation(label, (draft) => {
+      draft.architecture = { ...draft.architecture, ...patch };
+    });
+  }, [commitMutation]);
+
+  const handleWallOverrideChange = useCallback((
+    wallId: string,
+    patch: { heightM?: number; thicknessM?: number; baseElevationM?: number },
+    label: string,
+  ) => {
+    commitMutation(label, (draft) => {
+      const current = draft.architecture.wallOverrides[wallId] ?? {};
+      draft.architecture.wallOverrides[wallId] = { ...current, ...patch };
+    });
+  }, [commitMutation]);
+
+  const handleResetWallOverride = useCallback((wallId: string) => {
+    commitMutation("Сброс параметров стены", (draft) => {
+      delete draft.architecture.wallOverrides[wallId];
+    });
+  }, [commitMutation]);
+
+  const handle3DObjectSelect = useCallback((objectId: string, additive: boolean) => {
+    setSelectedWallId(null);
+    setSelection((current) => selectTarget(project, current, objectId, additive));
+  }, [project]);
+
+  const handle3DWallSelect = useCallback((wallId: string, sourceObjectId?: string) => {
+    if (sourceObjectId) {
+      setSelectedWallId(null);
+      setSelection((current) => selectTarget(project, current, sourceObjectId, false));
+      return;
+    }
+    setSelection(EMPTY_SELECTION);
+    setSelectedWallId(wallId);
+  }, [project]);
+
+  const handleClear3DSelection = useCallback(() => {
+    setSelection(EMPTY_SELECTION);
+    setSelectedWallId(null);
+  }, []);
 
   const handleAddObject = useCallback((type: ObjectType) => {
     const base = history.present.project;
@@ -546,6 +602,9 @@ export default function App() {
         status={status}
         layoutWarnings={layoutWarnings}
         projectSummary={projectSummary}
+        workspaceMode={workspaceMode}
+        architectureWalls={architecture.walls}
+        selectedWall={selectedWall}
         onNew={() => { void handleNew(); }}
         onOpen={() => { void handleOpen(); }}
         onOpenRecent={(path) => { void handleOpenRecent(path); }}
@@ -556,6 +615,11 @@ export default function App() {
         onRedo={handleRedo}
         onFit={() => setFitRequest((value) => value + 1)}
         onCanvasChange={handleCanvasChange}
+        onWorkspaceModeChange={setWorkspaceMode}
+        onSelectedWallChange={setSelectedWallId}
+        onArchitectureDefaultsChange={handleArchitectureDefaultsChange}
+        onWallOverrideChange={handleWallOverrideChange}
+        onResetWallOverride={handleResetWallOverride}
         onAddObject={handleAddObject}
         onMassPatch={handleMassPatch}
         onRotateSelection={handleRotateSelection}
@@ -574,27 +638,54 @@ export default function App() {
         onExitGroup={handleExitGroup}
       />
       <main className="workspace" aria-label="Рабочая область плана">
-        <BasePlanCanvas
-          project={project}
-          selection={selection}
-          camera={camera}
-          fitRequest={fitRequest}
-          betweenRequest={betweenRequest}
-          measureRequest={measureRequest}
-          onCameraChange={setCamera}
-          onSelectionChange={setSelection}
-          onPreviewProject={setPreviewProject}
-          onCommitProject={commitProject}
-          onGroupSelection={handleGroup}
-          onUngroupSelection={handleUngroup}
-          onDeleteSelection={handleDelete}
-          onEnterGroup={handleEnterGroup}
-          onBetweenMessage={showStatus}
-          onAddDimension={handleAddDimension}
-          onMeasurementMessage={showStatus}
-          onReady={(count) => showStatus(`Базовый план готов · ${count} подписей`)}
-          onError={(message) => showStatus(`Ошибка базового плана: ${message}`)}
-        />
+        <div className="workspace-mode-toolbar" aria-label="Режим рабочей области">
+          <button type="button" className={workspaceMode === "2d" ? "is-active" : ""} onClick={() => setWorkspaceMode("2d")}>2D</button>
+          <button type="button" className={workspaceMode === "3d" ? "is-active" : ""} onClick={() => setWorkspaceMode("3d")}>3D</button>
+          <button type="button" className={workspaceMode === "split" ? "is-active" : ""} onClick={() => setWorkspaceMode("split")}>2D + 3D</button>
+          <span>Высоты из обмера · схема, не BIM-модель</span>
+        </div>
+        <div className={`workspace-content workspace-content--${workspaceMode}`}>
+          {workspaceMode !== "3d" ? (
+            <div className="workspace-pane workspace-pane--2d">
+              <BasePlanCanvas
+                project={project}
+                selection={selection}
+                camera={camera}
+                fitRequest={fitRequest}
+                betweenRequest={betweenRequest}
+                measureRequest={measureRequest}
+                onCameraChange={setCamera}
+                onSelectionChange={(next) => { setSelectedWallId(null); setSelection(next); }}
+                onPreviewProject={setPreviewProject}
+                onCommitProject={commitProject}
+                onGroupSelection={handleGroup}
+                onUngroupSelection={handleUngroup}
+                onDeleteSelection={handleDelete}
+                onEnterGroup={handleEnterGroup}
+                onBetweenMessage={showStatus}
+                onAddDimension={handleAddDimension}
+                onMeasurementMessage={showStatus}
+                onReady={(count) => showStatus(`Базовый план готов · ${count} подписей`)}
+                onError={(message) => showStatus(`Ошибка базового плана: ${message}`)}
+              />
+            </div>
+          ) : null}
+          {workspaceMode !== "2d" ? (
+            <div className="workspace-pane workspace-pane--3d">
+              <Suspense fallback={<div className="three-loading">Загрузка локального 3D-модуля…</div>}>
+                <LazyPlan3DView
+                  project={project}
+                  selection={selection}
+                  selectedWallId={selectedWallId}
+                  layoutWarnings={layoutWarnings}
+                  onObjectSelect={handle3DObjectSelect}
+                  onWallSelect={handle3DWallSelect}
+                  onClearSelection={handleClear3DSelection}
+                />
+              </Suspense>
+            </div>
+          ) : null}
+        </div>
         <div className="workspace-hud" aria-live="polite">
           <strong>{dirty ? "Есть несохранённые изменения" : "Проект сохранён"}</strong>
           <span>{project.objects.length} предметов · {project.groups.length} групп · выбрано {selection.objectIds.length}</span>

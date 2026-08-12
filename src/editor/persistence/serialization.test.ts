@@ -3,7 +3,12 @@ import { groupObjectsCommand } from "../commands/project-commands";
 import { addDimensionCommand, saveCompositeTemplateCommand } from "../commands/advanced-commands";
 import { createEmptyProject, updateProject } from "../model/project";
 import { createObjectFromTemplate } from "../model/templates";
-import { decodeProject, encodeProject } from "./serialization";
+import {
+  createRecoveryEnvelope,
+  decodeProject,
+  decodeRecoveryEnvelope,
+  encodeProject,
+} from "./serialization";
 
 describe(".clubplan serialization", () => {
   it("round-trips objects and permanent groups", () => {
@@ -34,6 +39,8 @@ describe(".clubplan serialization", () => {
 
   it("keeps v1 files compatible when new wall snap settings are absent", () => {
     const source = JSON.parse(encodeProject(createEmptyProject()));
+    source.formatVersion = 1;
+    delete source.architecture;
     delete source.canvas.wallSnapOffsetM;
     delete source.canvas.autoRotateFurnitureToWall;
     delete source.canvas.autoRotatePartitionsToWall;
@@ -42,7 +49,13 @@ describe(".clubplan serialization", () => {
     delete source.canvas.minimumPassageWidthM;
     delete source.dimensions;
     delete source.customTemplates;
+    const legacyV1Object = createObjectFromTemplate("table", 2, 3, "v1-table") as unknown as Record<string, unknown>;
+    delete legacyV1Object.heightM;
+    delete legacyV1Object.elevationM;
+    source.objects = [legacyV1Object];
     const decoded = decodeProject(JSON.stringify(source));
+    expect(decoded.warnings).toContain("Проект автоматически обновлён из формата v1 в v2");
+    expect(decoded.project.formatVersion).toBe(2);
     expect(decoded.project.canvas).toMatchObject({
       wallSnapOffsetM: 0,
       autoRotateFurnitureToWall: false,
@@ -53,6 +66,44 @@ describe(".clubplan serialization", () => {
     });
     expect(decoded.project.dimensions).toEqual([]);
     expect(decoded.project.customTemplates).toEqual([]);
+    expect(decoded.project.architecture).toMatchObject({ defaultWallHeightM: 3.04, defaultWallThicknessM: 0.15 });
+    expect(decoded.project.objects[0]).toMatchObject({ heightM: 0.75, elevationM: 0 });
+  });
+
+  it("round-trips v2 architectural overrides and object elevations", () => {
+    const project = createEmptyProject();
+    project.architecture.defaultWallHeightM = 3.2;
+    project.architecture.wallOverrides["wall-main-top"] = {
+      heightM: 2.75,
+      thicknessM: 0.2,
+      baseElevationM: 0.1,
+    };
+    project.objects = [{
+      ...createObjectFromTemplate("table", 2, 3, "raised-table"),
+      elevationM: 0.25,
+    }];
+
+    const decoded = decodeProject(encodeProject(project));
+    expect(decoded.project.architecture).toEqual(project.architecture);
+    expect(decoded.project.objects[0]).toMatchObject({ heightM: 0.75, elevationM: 0.25 });
+  });
+
+  it("keeps v2 architecture in the recovery envelope", () => {
+    const project = createEmptyProject();
+    project.architecture.defaultWallHeightM = 3.4;
+    project.architecture.wallOverrides["wall-main-top"] = { heightM: 2.9 };
+
+    const recovered = decodeRecoveryEnvelope(createRecoveryEnvelope(project, "C:\\plans\\club.clubplan"));
+
+    expect(recovered.sourcePath).toBe("C:\\plans\\club.clubplan");
+    expect(recovered.project.architecture).toEqual(project.architecture);
+  });
+
+  it("rejects projects from a future format version", () => {
+    const source = JSON.parse(encodeProject(createEmptyProject()));
+    source.formatVersion = 3;
+
+    expect(() => decodeProject(JSON.stringify(source))).toThrow(/более новой версией/);
   });
 
   it("round-trips custom shapes and their physical height", () => {

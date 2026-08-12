@@ -29,6 +29,7 @@ export function replaceObjectsCommand(
       && replacement.widthM === object.widthM
       && replacement.depthM === object.depthM
       && replacement.heightM === object.heightM
+      && replacement.elevationM === object.elevationM
       && replacement.rotationDeg === object.rotationDeg
       && replacement.layerId === object.layerId
       && replacement.locked === object.locked
@@ -54,6 +55,7 @@ export function addObjectCommand(
   const snappedX = snapMeters(xM, project.canvas.snapEnabled, project.canvas.snapStepM);
   const snappedY = snapMeters(yM, project.canvas.snapEnabled, project.canvas.snapStepM);
   const object = createObjectFromTemplate(type, snappedX, snappedY);
+  if (object.kind === "partition") object.heightM = project.architecture.defaultWallHeightM;
   return {
     objectId: object.id,
     project: updateProject(project, (draft) => {
@@ -115,6 +117,7 @@ export type MassObjectPatch = Partial<
     | "widthM"
     | "depthM"
     | "heightM"
+    | "elevationM"
     | "rotationDeg"
     | "layerId"
     | "locked"
@@ -132,6 +135,7 @@ export function updateObjectsCommand(
   if (safePatch.widthM !== undefined) safePatch.widthM = Math.max(0.1, safePatch.widthM);
   if (safePatch.depthM !== undefined) safePatch.depthM = Math.max(0.1, safePatch.depthM);
   if (safePatch.heightM !== undefined) safePatch.heightM = Math.max(0.1, safePatch.heightM);
+  if (safePatch.elevationM !== undefined) safePatch.elevationM = Math.max(0, safePatch.elevationM);
   if (safePatch.rotationDeg !== undefined) safePatch.rotationDeg = normalizeAngle(safePatch.rotationDeg);
   const replacements = project.objects.flatMap((object) => {
       if (!selected.has(object.id)) return [];

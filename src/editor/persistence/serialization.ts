@@ -9,6 +9,7 @@ import type {
   PlanObject,
   ProjectDimension,
   ProjectState,
+  WallArchitectureOverride,
 } from "../model/types";
 
 function toTemplateObject(source: PlanObject): CompositeTemplateItem["object"] {
@@ -19,6 +20,7 @@ function toTemplateObject(source: PlanObject): CompositeTemplateItem["object"] {
     widthM: source.widthM,
     depthM: source.depthM,
     heightM: source.heightM,
+    elevationM: source.elevationM,
     rotationDeg: source.rotationDeg,
     layerId: source.layerId,
     labelVisible: source.labelVisible,
@@ -96,7 +98,10 @@ function parseObject(
   const heightM = record.heightM === undefined
     ? template.heightM
     : asFiniteNumber(record.heightM, `objects[${index}].heightM`);
-  if (widthM < 0.1 || depthM < 0.1 || (heightM !== undefined && heightM < 0.1)) {
+  const elevationM = record.elevationM === undefined
+    ? template.elevationM ?? 0
+    : asFiniteNumber(record.elevationM, `objects[${index}].elevationM`);
+  if (widthM < 0.1 || depthM < 0.1 || heightM < 0.1 || elevationM < 0) {
     throw new Error(`Предмет ${id} имеет размер меньше 0,1 м`);
   }
   if (type === "custom-circle" && depthM !== widthM) {
@@ -130,6 +135,7 @@ function parseObject(
     widthM,
     depthM,
     heightM,
+    elevationM,
     rotationDeg: normalizedAngle,
     layerId,
     locked: asBoolean(record.locked, `objects[${index}].locked`),
@@ -146,10 +152,11 @@ function parseObject(
 function parseClubplan(root: Record<string, unknown>): DecodeResult {
   if (root.format !== "clubplan") throw new Error("Файл не является проектом Club Planner");
   const version = asFiniteNumber(root.formatVersion, "formatVersion");
-  if (version > 1) throw new Error(`Файл создан более новой версией Club Planner (${version})`);
-  if (version !== 1) throw new Error(`Неподдерживаемая версия формата: ${version}`);
+  if (version > 2) throw new Error(`Файл создан более новой версией Club Planner (${version})`);
+  if (version !== 1 && version !== 2) throw new Error(`Неподдерживаемая версия формата: ${version}`);
 
   const warnings: string[] = [];
+  if (version === 1) warnings.push("Проект автоматически обновлён из формата v1 в v2");
   const next = createEmptyProject();
   const projectMeta = asRecord(root.project, "project");
   next.project = {
@@ -191,6 +198,33 @@ function parseClubplan(root: Record<string, unknown>): DecodeResult {
     objectLabelsVisible: asBoolean(canvas.objectLabelsVisible, "canvas.objectLabelsVisible"),
     basePlanOpacity: Math.min(1, Math.max(0, asFiniteNumber(canvas.basePlanOpacity, "canvas.basePlanOpacity"))),
   };
+
+  if (version === 2) {
+    const architecture = asRecord(root.architecture, "architecture");
+    const wallOverridesRecord = architecture.wallOverrides === undefined
+      ? {}
+      : asRecord(architecture.wallOverrides, "architecture.wallOverrides");
+    const wallOverrides: Record<string, WallArchitectureOverride> = {};
+    for (const [wallId, value] of Object.entries(wallOverridesRecord)) {
+      const record = asRecord(value, `architecture.wallOverrides.${wallId}`);
+      const override: WallArchitectureOverride = {};
+      if (record.heightM !== undefined) {
+        override.heightM = Math.max(0.1, asFiniteNumber(record.heightM, `architecture.wallOverrides.${wallId}.heightM`));
+      }
+      if (record.thicknessM !== undefined) {
+        override.thicknessM = Math.max(0.01, asFiniteNumber(record.thicknessM, `architecture.wallOverrides.${wallId}.thicknessM`));
+      }
+      if (record.baseElevationM !== undefined) {
+        override.baseElevationM = Math.max(0, asFiniteNumber(record.baseElevationM, `architecture.wallOverrides.${wallId}.baseElevationM`));
+      }
+      wallOverrides[wallId] = override;
+    }
+    next.architecture = {
+      defaultWallHeightM: Math.max(0.1, asFiniteNumber(architecture.defaultWallHeightM, "architecture.defaultWallHeightM")),
+      defaultWallThicknessM: Math.max(0.01, asFiniteNumber(architecture.defaultWallThicknessM, "architecture.defaultWallThicknessM")),
+      wallOverrides,
+    };
+  }
 
   const layerIds = new Set<string>();
   next.layers = asArray(root.layers, "layers").map((value, index): Layer => {
@@ -333,6 +367,8 @@ function parseLegacy(root: Record<string, unknown>): DecodeResult {
       yM: numberOr(record.y, 0),
       widthM: Math.max(0.1, numberOr(record.w, template.widthM)),
       depthM: Math.max(0.1, numberOr(record.h, template.depthM)),
+      heightM: template.heightM,
+      elevationM: template.elevationM ?? 0,
       rotationDeg: normalizeAngle(numberOr(record.angle, 0)),
       layerId: template.layerId,
       locked: false,

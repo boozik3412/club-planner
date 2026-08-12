@@ -19,6 +19,7 @@ function toTemplateObject(source: PlanObject): CompositeTemplateItem["object"] {
     widthM: source.widthM,
     depthM: source.depthM,
     heightM: source.heightM,
+    elevationM: source.elevationM,
     rotationDeg: source.rotationDeg,
     layerId: source.layerId,
     labelVisible: source.labelVisible,

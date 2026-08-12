@@ -1,6 +1,19 @@
 {
   "basePlanId": "measurement-2026-08-10",
   "basePlanSha256": "b3aa3f1edfe4ff58bd10afcb95138cd6f661d537e93d51e751577540841d42d5",
+  "defaultWallHeightM": 3.04,
+  "defaultWallThicknessM": 0.15,
+  "heightRegions": [
+    { "id": "height-stair", "name": "Лестничная зона", "polygon": [{ "xM": 0, "yM": 0 }, { "xM": 6.82498, "yM": 0 }, { "xM": 6.82498, "yM": 7.283 }, { "xM": 0, "yM": 7.283 }], "floorElevationM": 0, "ceilingHeightM": 2.82, "source": "measurement" },
+    { "id": "height-main", "name": "Основной зал", "polygon": [{ "xM": 6.82498, "yM": 0.8 }, { "xM": 51.25339, "yM": 0.8 }, { "xM": 51.25339, "yM": 6.7 }, { "xM": 6.82498, "yM": 6.7 }], "floorElevationM": 0, "ceilingHeightM": 3.04, "source": "measurement" },
+    { "id": "height-room-a", "name": "Помещение A", "polygon": [{ "xM": 34.17443, "yM": 0.91694 }, { "xM": 37.32403, "yM": 0.91694 }, { "xM": 37.32403, "yM": 4.80568 }, { "xM": 34.17443, "yM": 4.80568 }], "floorElevationM": 0, "ceilingHeightM": 2.92, "source": "measurement" },
+    { "id": "height-room-b", "name": "Помещение B", "polygon": [{ "xM": 37.32403, "yM": 0.91694 }, { "xM": 42.75328, "yM": 0.91694 }, { "xM": 42.75328, "yM": 4.80568 }, { "xM": 37.32403, "yM": 4.80568 }], "floorElevationM": 0, "ceilingHeightM": 2.95, "source": "measurement" },
+    { "id": "height-right-a", "name": "Правое помещение A", "polygon": [{ "xM": 51.25339, "yM": 0.91694 }, { "xM": 54.90337, "yM": 0.91694 }, { "xM": 54.90337, "yM": 5.03682 }, { "xM": 51.25339, "yM": 5.03682 }], "floorElevationM": 0, "ceilingHeightM": 2.94, "source": "measurement" },
+    { "id": "height-right-b", "name": "Правое помещение B", "polygon": [{ "xM": 54.90337, "yM": 0.91694 }, { "xM": 58.57367, "yM": 0.91694 }, { "xM": 58.57367, "yM": 5.03682 }, { "xM": 54.90337, "yM": 5.03682 }], "floorElevationM": 0, "ceilingHeightM": 2.91, "source": "measurement" },
+    { "id": "height-right-c", "name": "Правое помещение C", "polygon": [{ "xM": 58.57367, "yM": 0.91694 }, { "xM": 60.62853, "yM": 0.91694 }, { "xM": 60.62853, "yM": 5.03682 }, { "xM": 58.57367, "yM": 5.03682 }], "floorElevationM": 0, "ceilingHeightM": 2.97, "source": "measurement" },
+    { "id": "height-right-d", "name": "Правое помещение D", "polygon": [{ "xM": 60.62853, "yM": 0.91694 }, { "xM": 62.1538, "yM": 0.91694 }, { "xM": 62.1538, "yM": 5.03682 }, { "xM": 60.62853, "yM": 5.03682 }], "floorElevationM": 0, "ceilingHeightM": 2.85, "source": "measurement" },
+    { "id": "height-right-corridor", "name": "Правый коридор", "polygon": [{ "xM": 51.25339, "yM": 5.03682 }, { "xM": 62.1538, "yM": 5.03682 }, { "xM": 62.1538, "yM": 6.53542 }, { "xM": 51.25339, "yM": 6.53542 }], "floorElevationM": 0, "ceilingHeightM": 3.04, "source": "measurement" }
+  ],
   "boundaries": [
     { "id": "wall-main-top", "kind": "wall", "start": { "xM": 6.82498, "yM": 0.91694 }, "end": { "xM": 60.54344, "yM": 0.91694 }, "thicknessM": 0 },
     { "id": "wall-main-bottom", "kind": "wall", "start": { "xM": 6.17474, "yM": 6.53542 }, "end": { "xM": 62.1538, "yM": 6.53542 }, "thicknessM": 0 },
@@ -33,15 +46,15 @@
     { "id": "wall-right-room-bottom", "kind": "wall", "start": { "xM": 60.71362, "yM": 4.80568 }, "end": { "xM": 62.1538, "yM": 4.80568 }, "thicknessM": 0 }
   ],
   "openings": [
-    { "id": "window-main-1", "kind": "window", "start": { "xM": 7.35, "yM": 0.91694 }, "end": { "xM": 11.65, "yM": 0.91694 } },
-    { "id": "window-main-2", "kind": "window", "start": { "xM": 16.65, "yM": 0.91694 }, "end": { "xM": 21.35, "yM": 0.91694 } },
-    { "id": "window-main-3", "kind": "window", "start": { "xM": 24.8, "yM": 0.91694 }, "end": { "xM": 29.25, "yM": 0.91694 } },
-    { "id": "window-room-a", "kind": "window", "start": { "xM": 34.65, "yM": 0.91694 }, "end": { "xM": 37.05, "yM": 0.91694 } },
-    { "id": "window-right-a", "kind": "window", "start": { "xM": 52.1, "yM": 0.91694 }, "end": { "xM": 54.55, "yM": 0.91694 } },
-    { "id": "window-right-b", "kind": "window", "start": { "xM": 55.25, "yM": 0.91694 }, "end": { "xM": 58.25, "yM": 0.91694 } },
-    { "id": "door-room-a", "kind": "door", "start": { "xM": 35.0, "yM": 4.80568 }, "end": { "xM": 35.9, "yM": 4.80568 }, "swing": "right", "openingAngleDeg": 90 },
-    { "id": "door-room-b", "kind": "door", "start": { "xM": 38.0, "yM": 4.80568 }, "end": { "xM": 38.9, "yM": 4.80568 }, "swing": "left", "openingAngleDeg": 90 },
-    { "id": "door-right-a", "kind": "door", "start": { "xM": 52.1, "yM": 5.03682 }, "end": { "xM": 53.0, "yM": 5.03682 }, "swing": "right", "openingAngleDeg": 90 },
-    { "id": "door-right-b", "kind": "door", "start": { "xM": 55.25, "yM": 5.03682 }, "end": { "xM": 56.15, "yM": 5.03682 }, "swing": "left", "openingAngleDeg": 90 }
+    { "id": "window-main-1", "kind": "window", "start": { "xM": 7.35, "yM": 0.91694 }, "end": { "xM": 11.65, "yM": 0.91694 }, "hostWallId": "wall-main-top", "sillHeightM": 0.8, "openingHeightM": 1, "verticalSource": "measurement" },
+    { "id": "window-main-2", "kind": "window", "start": { "xM": 16.65, "yM": 0.91694 }, "end": { "xM": 21.35, "yM": 0.91694 }, "hostWallId": "wall-main-top", "sillHeightM": 0.81, "openingHeightM": 1, "verticalSource": "measurement" },
+    { "id": "window-main-3", "kind": "window", "start": { "xM": 24.8, "yM": 0.91694 }, "end": { "xM": 29.25, "yM": 0.91694 }, "hostWallId": "wall-main-top", "sillHeightM": 0.82, "openingHeightM": 1, "verticalSource": "measurement" },
+    { "id": "window-room-a", "kind": "window", "start": { "xM": 34.65, "yM": 0.91694 }, "end": { "xM": 37.05, "yM": 0.91694 }, "hostWallId": "wall-main-top", "sillHeightM": 0.73, "openingHeightM": 1, "verticalSource": "measurement" },
+    { "id": "window-right-a", "kind": "window", "start": { "xM": 52.1, "yM": 0.91694 }, "end": { "xM": 54.55, "yM": 0.91694 }, "hostWallId": "wall-main-top", "sillHeightM": 0.72, "openingHeightM": 1, "verticalSource": "measurement" },
+    { "id": "window-right-b", "kind": "window", "start": { "xM": 55.25, "yM": 0.91694 }, "end": { "xM": 58.25, "yM": 0.91694 }, "hostWallId": "wall-main-top", "sillHeightM": 0.7, "openingHeightM": 1, "verticalSource": "measurement" },
+    { "id": "door-room-a", "kind": "door", "start": { "xM": 35.0, "yM": 4.80568 }, "end": { "xM": 35.9, "yM": 4.80568 }, "hostWallId": "wall-room-a-bottom", "sillHeightM": 0, "openingHeightM": 2.01, "verticalSource": "measurement", "swing": "right", "openingAngleDeg": 90 },
+    { "id": "door-room-b", "kind": "door", "start": { "xM": 38.0, "yM": 4.80568 }, "end": { "xM": 38.9, "yM": 4.80568 }, "hostWallId": "wall-room-a-bottom", "sillHeightM": 0, "openingHeightM": 2.01, "verticalSource": "measurement", "swing": "left", "openingAngleDeg": 90 },
+    { "id": "door-right-a", "kind": "door", "start": { "xM": 52.1, "yM": 5.03682 }, "end": { "xM": 53.0, "yM": 5.03682 }, "hostWallId": "wall-right-horizontal", "sillHeightM": 0, "openingHeightM": 2.01, "verticalSource": "measurement", "swing": "right", "openingAngleDeg": 90 },
+    { "id": "door-right-b", "kind": "door", "start": { "xM": 55.25, "yM": 5.03682 }, "end": { "xM": 56.15, "yM": 5.03682 }, "hostWallId": "wall-right-horizontal", "sillHeightM": 0, "openingHeightM": 2.01, "verticalSource": "measurement", "swing": "left", "openingAngleDeg": 90 }
   ]
 }

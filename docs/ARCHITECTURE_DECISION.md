@@ -17,6 +17,12 @@
 
 Tauri на Windows использует WebView, но это не должно быть заметно пользователю. Необходимо перехватывать и отключать мешающие браузерные команды, включая `F5`, `Ctrl+R`, `Ctrl+P`, стандартное контекстное меню и навигацию боковыми кнопками мыши, кроме тех сочетаний, которым назначены функции редактора.
 
+## Решение для 3D
+
+Схематичная 3D-визуализация работает в том же React/Tauri WebView через `three` и `@react-three/fiber`. Второй WebView и отдельный нативный renderer не создаются. Модуль загружается динамически только после перехода в 3D, поэтому основной 2D startup не включает выполнение Three.js.
+
+Источник трёхмерной геометрии — семантическая архитектурная модель в метрах. Базовый SVG остаётся точным 2D-фоном и не выдавливается в 3D. Стены с проёмами детерминированно разбиваются на простенки, нижние участки и перемычки без Boolean/CSG. Чистая функция `buildSceneModel` не зависит от React, DOM или WebGL и покрывается unit-тестами.
+
 ## Предлагаемая структура
 
 ```text
@@ -28,6 +34,8 @@ src/
     selection/
     grouping/
     geometry/
+    architecture/
+    geometry3d/
     persistence/
     rendering/
   components/
@@ -44,8 +52,14 @@ docs/
 
 ```json
 {
-  "formatVersion": 1,
+  "format": "clubplan",
+  "formatVersion": 2,
   "basePlan": "measurement-v1",
+  "architecture": {
+    "defaultWallHeightM": 3.04,
+    "defaultWallThicknessM": 0.15,
+    "wallOverrides": {}
+  },
   "canvas": { "rotation": 0 },
   "objects": [],
   "groups": [],

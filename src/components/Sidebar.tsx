@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { LayoutWarning } from "../editor/analysis/layout-analysis";
+import type { ResolvedArchitecturalWall } from "../editor/architecture/types";
 import type { ProjectSummary } from "../editor/analysis/project-summary";
 import { distanceMeters, formatMeters } from "../editor/measurement/measurement";
 import { MIXED_VALUE, getMixedValue } from "../editor/selection/selection";
@@ -27,6 +28,9 @@ interface SidebarProps {
   status: string;
   layoutWarnings: LayoutWarning[];
   projectSummary: ProjectSummary;
+  workspaceMode: "2d" | "3d" | "split";
+  architectureWalls: ResolvedArchitecturalWall[];
+  selectedWall: ResolvedArchitecturalWall | null;
   onNew: () => void;
   onOpen: () => void;
   onOpenRecent: (path: string) => void;
@@ -37,6 +41,11 @@ interface SidebarProps {
   onRedo: () => void;
   onFit: () => void;
   onCanvasChange: (patch: Partial<CanvasSettings>, label: string) => void;
+  onWorkspaceModeChange: (mode: "2d" | "3d" | "split") => void;
+  onSelectedWallChange: (wallId: string | null) => void;
+  onArchitectureDefaultsChange: (patch: Partial<ProjectState["architecture"]>, label: string) => void;
+  onWallOverrideChange: (wallId: string, patch: { heightM?: number; thicknessM?: number; baseElevationM?: number }, label: string) => void;
+  onResetWallOverride: (wallId: string) => void;
   onAddObject: (type: ObjectType) => void;
   onMassPatch: (patch: MassObjectPatch, label: string) => void;
   onRotateSelection: (deltaDeg: number) => void;
@@ -145,6 +154,9 @@ export function Sidebar({
   status,
   layoutWarnings,
   projectSummary,
+  workspaceMode,
+  architectureWalls,
+  selectedWall,
   onNew,
   onOpen,
   onOpenRecent,
@@ -155,6 +167,11 @@ export function Sidebar({
   onRedo,
   onFit,
   onCanvasChange,
+  onWorkspaceModeChange,
+  onSelectedWallChange,
+  onArchitectureDefaultsChange,
+  onWallOverrideChange,
+  onResetWallOverride,
   onAddObject,
   onMassPatch,
   onRotateSelection,
@@ -179,8 +196,8 @@ export function Sidebar({
   const single = selectedObjects.length === 1 ? selectedObjects[0] : null;
   const width = getMixedValue(selectedObjects, "widthM");
   const depth = getMixedValue(selectedObjects, "depthM");
-  const hasHeight = selectedObjects.length > 0 && selectedObjects.every((object) => typeof object.heightM === "number");
-  const height = hasHeight ? getMixedValue(selectedObjects, "heightM") : undefined;
+  const height = getMixedValue(selectedObjects, "heightM");
+  const elevation = getMixedValue(selectedObjects, "elevationM");
   const angle = getMixedValue(selectedObjects, "rotationDeg");
   const layer = getMixedValue(selectedObjects, "layerId");
   const locked = getMixedValue(selectedObjects, "locked");
@@ -249,6 +266,46 @@ export function Sidebar({
         <p className="hint">Колесо — масштаб · средняя кнопка или Пробел+ЛКМ — панорама · ЛКМ по фону — рамка. Проверка проходов информационная и не подтверждает соответствие нормам.</p>
       </section>
 
+      <section className="panel-section architecture-panel">
+        <div className="section-heading-row">
+          <h2>Архитектура и 3D</h2>
+          <span className="source-badge">обмер + схема</span>
+        </div>
+        <div className="button-grid button-grid--three view-mode-buttons" aria-label="Режим отображения">
+          <button type="button" className={workspaceMode === "2d" ? "is-active" : ""} onClick={() => onWorkspaceModeChange("2d")}>2D</button>
+          <button type="button" className={workspaceMode === "3d" ? "is-active" : ""} onClick={() => onWorkspaceModeChange("3d")}>3D</button>
+          <button type="button" className={workspaceMode === "split" ? "is-active" : ""} onClick={() => onWorkspaceModeChange("split")}>Вместе</button>
+        </div>
+        <div className="property-grid">
+          <NumberField label="Высота стен по умолчанию, м" value={project.architecture.defaultWallHeightM} min={0.1} onCommit={(value) => onArchitectureDefaultsChange({ defaultWallHeightM: Math.max(0.1, value) }, "Высота стен по умолчанию")} />
+          <NumberField label="Толщина стен по умолчанию, м" value={project.architecture.defaultWallThicknessM} min={0.01} onCommit={(value) => onArchitectureDefaultsChange({ defaultWallThicknessM: Math.max(0.01, value) }, "Толщина стен по умолчанию")} />
+        </div>
+        <label className="property-field property-field--wide">
+          <span>Стена базового плана</span>
+          <select value={selectedWall?.id ?? ""} onChange={(event) => onSelectedWallChange(event.target.value || null)}>
+            <option value="">Выберите стену…</option>
+            {architectureWalls.filter((wall) => wall.source === "base-plan").map((wall) => (
+              <option key={wall.id} value={wall.id}>{wall.id}</option>
+            ))}
+          </select>
+        </label>
+        {selectedWall ? (
+          <div className="wall-editor">
+            <div className="wall-editor__meta">
+              <strong>{selectedWall.id}</strong>
+              <span>Высота: {selectedWall.heightSource === "user" ? "введено пользователем" : selectedWall.heightSource === "region" ? "из высотной зоны" : selectedWall.heightSource === "measurement" ? "из обмера" : "по умолчанию"}</span>
+              <span>Толщина: {selectedWall.thicknessSource === "user" ? "введено пользователем" : selectedWall.thicknessSource === "measurement" ? "из обмера" : "расчётная"}</span>
+            </div>
+            <div className="property-grid">
+              <NumberField label="Высота стены, м" value={selectedWall.heightM} min={0.1} onCommit={(value) => onWallOverrideChange(selectedWall.id, { heightM: Math.max(0.1, value) }, "Высота стены")} />
+              <NumberField label="Толщина стены, м" value={selectedWall.thicknessM} min={0.01} onCommit={(value) => onWallOverrideChange(selectedWall.id, { thicknessM: Math.max(0.01, value) }, "Толщина стены")} />
+              <NumberField label="Отметка основания, м" value={selectedWall.baseElevationM} min={0} onCommit={(value) => onWallOverrideChange(selectedWall.id, { baseElevationM: Math.max(0, value) }, "Отметка основания стены")} />
+            </div>
+            <button className="button button--wide" type="button" onClick={() => onResetWallOverride(selectedWall.id)}>Вернуть значения из обмера</button>
+          </div>
+        ) : <p className="hint">Выберите стену в списке или щёлкните по ней в 3D. Нулевые толщины исходного плана показываются расчётной толщиной.</p>}
+      </section>
+
       <section className="panel-section">
         <h2>Добавить предмет</h2>
         <div className="object-grid" aria-label="Библиотека предметов">
@@ -274,7 +331,8 @@ export function Sidebar({
               {single ? <><NumberField label="X, м" value={single.xM} onCommit={(value) => onMassPatch({ xM: value }, "Координата X")} /><NumberField label="Y, м" value={single.yM} onCommit={(value) => onMassPatch({ yM: value }, "Координата Y")} /></> : null}
               <NumberField label="Ширина, м" value={width} min={0.1} onCommit={(value) => onMassPatch({ widthM: value }, "Массовая ширина")} />
               <NumberField label="Глубина, м" value={depth} min={0.1} onCommit={(value) => onMassPatch({ depthM: value }, "Массовая глубина")} />
-              {hasHeight ? <NumberField label="Высота, м" value={height} min={0.1} onCommit={(value) => onMassPatch({ heightM: value }, "Массовая высота")} /> : null}
+              <NumberField label="Высота, м" value={height} min={0.1} onCommit={(value) => onMassPatch({ heightM: value }, "Массовая высота")} />
+              <NumberField label="Отметка от пола, м" value={elevation} min={0} onCommit={(value) => onMassPatch({ elevationM: value }, "Отметка установки")} />
               <NumberField label="Угол, °" value={angle} step={1} onCommit={(value) => onMassPatch({ rotationDeg: value }, "Абсолютный угол")} />
               <label className="property-field"><span>Слой</span><select value={layer === MIXED_VALUE || layer === undefined ? "" : layer} onChange={(event) => event.target.value && onMassPatch({ layerId: event.target.value as LayerId }, "Слой предметов")}><option value="">разные значения</option>{project.layers.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select></label>
             </div>

@@ -61,6 +61,11 @@ export function createEmptyProject(
       objectLabelsVisible: true,
       basePlanOpacity: 0.82,
     },
+    architecture: {
+      defaultWallHeightM: 3.04,
+      defaultWallThicknessM: 0.15,
+      wallOverrides: {},
+    },
     layers: [
       { id: "equipment", name: "Оборудование", visible: true, locked: false },
       { id: "furniture", name: "Мебель", visible: true, locked: false },

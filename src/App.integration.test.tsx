@@ -28,6 +28,10 @@ vi.mock("./components/BasePlanCanvas", () => ({
   ),
 }));
 
+vi.mock("./components/Plan3DView", () => ({
+  Plan3DView: () => <section aria-label="Тестовый 3D-вид">3D-сцена загружена</section>,
+}));
+
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: vi.fn(),
 }));
@@ -53,6 +57,25 @@ afterEach(() => {
 });
 
 describe("App integration", () => {
+  it("edits a base wall as one undoable transaction and opens the lazy 3D view", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const wallSelect = screen.getByRole("combobox", { name: "Стена базового плана" });
+    await user.selectOptions(wallSelect, "wall-main-top");
+    const heightField = screen.getByRole("spinbutton", { name: "Высота стены, м" });
+    await user.clear(heightField);
+    await user.type(heightField, "2.7");
+    fireEvent.blur(heightField);
+    expect(screen.getByRole("spinbutton", { name: "Высота стены, м" })).toHaveValue(2.7);
+
+    await user.click(screen.getByRole("button", { name: "↶" }));
+    expect(screen.getByRole("spinbutton", { name: "Высота стены, м" })).toHaveValue(3.04);
+
+    await user.click(screen.getAllByRole("button", { name: "3D" })[0]);
+    expect(await screen.findByRole("region", { name: "Тестовый 3D-вид" })).toHaveTextContent("3D-сцена загружена");
+  });
+
   it("bulk-edits, groups, undoes and redoes through the Russian UI", async () => {
     const user = userEvent.setup();
     render(<App />);

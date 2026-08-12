@@ -3,6 +3,7 @@ import { createEmptyProject, updateProject } from "../model/project";
 import { createObjectFromTemplate } from "../model/templates";
 import { EMPTY_SELECTION } from "../model/types";
 import {
+  addObjectCommand,
   deleteSelectionCommand,
   duplicateSelectionCommand,
   groupObjectsCommand,
@@ -24,6 +25,13 @@ function projectWithTwoTables() {
 }
 
 describe("project commands", () => {
+  it("creates a full-height partition from the project architectural default", () => {
+    const project = createEmptyProject();
+    project.architecture.defaultWallHeightM = 2.65;
+    const result = addObjectCommand(project, "partition", 2, 3);
+    expect(result.project.objects[0]).toMatchObject({ heightM: 2.65, elevationM: 0 });
+  });
+
   it("moves a selection by one shared vector", () => {
     const moved = moveObjectsCommand(projectWithTwoTables(), ["first", "second"], 0.5, -0.25);
     expect(moved.objects.map(({ xM, yM }) => [xM, yM])).toEqual([

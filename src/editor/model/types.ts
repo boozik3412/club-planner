@@ -1,5 +1,5 @@
 export const CLUBPLAN_FORMAT = "clubplan" as const;
-export const CLUBPLAN_FORMAT_VERSION = 1 as const;
+export const CLUBPLAN_FORMAT_VERSION = 2 as const;
 export const BASE_PLAN_ID = "measurement-2026-08-10";
 export const BASE_PLAN_ASSET = "base_plan_new_measurement.svg";
 export const BASE_PLAN_SHA256 =
@@ -82,6 +82,20 @@ export interface CanvasSettings {
   basePlanOpacity: number;
 }
 
+export type ArchitectureValueSource = "measurement" | "region" | "default" | "user";
+
+export interface WallArchitectureOverride {
+  heightM?: number;
+  thicknessM?: number;
+  baseElevationM?: number;
+}
+
+export interface ArchitectureSettings {
+  defaultWallHeightM: number;
+  defaultWallThicknessM: number;
+  wallOverrides: Record<string, WallArchitectureOverride>;
+}
+
 export interface Layer {
   id: LayerId;
   name: string;
@@ -98,7 +112,8 @@ export interface PlanObject {
   yM: number;
   widthM: number;
   depthM: number;
-  heightM?: number;
+  heightM: number;
+  elevationM: number;
   rotationDeg: number;
   layerId: LayerId;
   locked: boolean;
@@ -148,6 +163,7 @@ export interface ProjectState {
   project: ProjectMetadata;
   basePlan: BasePlanRef;
   canvas: CanvasSettings;
+  architecture: ArchitectureSettings;
   layers: Layer[];
   objects: PlanObject[];
   groups: ObjectGroup[];
