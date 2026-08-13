@@ -19,11 +19,13 @@ import {
   deleteSelectionCommand,
   duplicateSelectionCommand,
   groupObjectsCommand,
+  mirrorSelectionCommand,
   moveObjectsCommand,
   pasteObjectClipboardCommand,
   rotateSelectionCommand,
   rotateGroupToAngleCommand,
   setGroupsLockedCommand,
+  splitPartitionCommand,
   ungroupObjectsCommand,
   updateObjectsCommand,
   type MassObjectPatch,
@@ -39,6 +41,7 @@ import {
   redoHistory,
   undoHistory,
 } from "./editor/history/history";
+import { resolveEditorShortcut } from "./editor/keyboard/shortcuts";
 import { loadBasePlan } from "./editor/load-base-plan";
 import { createEmptyProject, normalizeAngle, updateProject } from "./editor/model/project";
 import { EMPTY_SELECTION, type CameraState, type CanvasSettings, type ObjectType, type PointM, type ProjectState, type SelectionState } from "./editor/model/types";
@@ -51,12 +54,13 @@ import {
   openProjectAtPath,
   readRecovery,
   saveProjectContents,
+  savePdfContents,
   saveSvgContents,
   showError,
   writeRecovery,
   type FilePayload,
 } from "./editor/persistence/desktop-files";
-import { buildProjectSvg } from "./editor/persistence/export-svg";
+import { buildProjectPdfSvg, buildProjectSvg } from "./editor/persistence/export-svg";
 import {
   createRecoveryEnvelope,
   decodeProject,
@@ -293,6 +297,18 @@ export default function App() {
     }
   }, [history.present.project, showStatus]);
 
+  const handleExportPdf = useCallback(async () => {
+    try {
+      const plan = await loadBasePlan();
+      const path = await savePdfContents(buildProjectPdfSvg(history.present.project, plan));
+      if (path) showStatus("PDF экспортирован");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await showError(`Не удалось экспортировать PDF: ${message}`);
+      showStatus(`Ошибка экспорта PDF: ${message}`);
+    }
+  }, [history.present.project, showStatus]);
+
   const handleUndo = useCallback(() => {
     const next = undoHistory(history);
     if (next === history) return;
@@ -395,6 +411,45 @@ export default function App() {
   const handleRotateSelection = useCallback((deltaDeg: number) => {
     commitProject(rotateSelectionCommand(history.present.project, selection, deltaDeg), `Поворот на ${deltaDeg > 0 ? "+" : ""}${deltaDeg}°`);
   }, [commitProject, history.present.project, selection]);
+
+  const handleMirrorSelection = useCallback((axis: "horizontal" | "vertical") => {
+    const next = mirrorSelectionCommand(history.present.project, selection, axis);
+    if (next === history.present.project) {
+      showStatus("Сначала выберите незаблокированный предмет");
+      return;
+    }
+    commitProject(next, axis === "horizontal" ? "Отражение слева направо" : "Отражение сверху вниз");
+  }, [commitProject, history.present.project, selection, showStatus]);
+
+  const handleToggleLock = useCallback(() => {
+    if (selection.objectIds.length === 0) {
+      showStatus("Сначала выберите предметы");
+      return;
+    }
+    const selectedGroups = history.present.project.groups.filter((group) => selection.groupIds.includes(group.id));
+    const shouldLock = selectedObjects.some((object) => !object.locked)
+      || selectedGroups.some((group) => !group.locked);
+    let next = updateObjectsCommand(history.present.project, selection.objectIds, { locked: shouldLock });
+    if (selection.groupIds.length > 0) {
+      next = setGroupsLockedCommand(next, selection.groupIds, shouldLock);
+    }
+    commitProject(next, shouldLock ? "Блокировка выборки" : "Разблокировка выборки");
+  }, [commitProject, history.present.project, selectedObjects, selection.groupIds, selection.objectIds, showStatus]);
+
+  const handleSplitPartition = useCallback((passageWidthM: number) => {
+    const source = selectedObjects.length === 1 ? selectedObjects[0] : null;
+    if (!source || source.kind !== "partition") {
+      showStatus("Выберите одну перегородку");
+      return;
+    }
+    const result = splitPartitionCommand(history.present.project, source.id, passageWidthM);
+    if (!result) {
+      showStatus("Не удалось разделить: уменьшите ширину прохода или разблокируйте перегородку");
+      return;
+    }
+    commitProject(result.project, `Проход ${passageWidthM.toFixed(2)} м в перегородке`);
+    setSelection({ objectIds: result.partIds, groupIds: [], groupEditId: selection.groupEditId });
+  }, [commitProject, history.present.project, selectedObjects, selection.groupEditId, showStatus]);
 
   const handleAlignBetween = useCallback((mode: BetweenBoundariesMode) => {
     if (selection.objectIds.length === 0) {
@@ -582,64 +637,59 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const key = event.key.toLowerCase();
-      const control = event.ctrlKey || event.metaKey;
-      if (event.key === "F5" || (control && ["r", "p", "+", "-", "0"].includes(key))) {
+      const shortcut = resolveEditorShortcut(event);
+      if (!shortcut) return;
+      if (shortcut === "block-browser") {
         event.preventDefault();
-        return;
-      }
-      if (control && key === "s") {
-        event.preventDefault();
-        void saveProject(event.shiftKey);
-        return;
-      }
-      if (control && key === "o") {
-        event.preventDefault();
-        void handleOpen();
         return;
       }
       if (isEditableTarget(event.target)) return;
-      if (control && key === "z") {
-        event.preventDefault();
-        if (event.shiftKey) handleRedo();
-        else handleUndo();
-      } else if (control && key === "y") {
-        event.preventDefault();
-        handleRedo();
-      } else if (control && key === "d") {
-        event.preventDefault();
-        handleDuplicate();
-      } else if (control && key === "c") {
-        event.preventDefault();
-        handleCopy();
-      } else if (control && key === "v") {
-        event.preventDefault();
-        handlePaste();
-      } else if (control && key === "g") {
-        event.preventDefault();
-        if (event.shiftKey) handleUngroup();
-        else handleGroup();
-      } else if (control && key === "a") {
-        event.preventDefault();
-        setSelection(selectAllEditable(history.present.project));
-      } else if (event.key === "Delete" || event.key === "Backspace") {
-        event.preventDefault();
-        if (selectedDimensionId) handleDeleteDimension(selectedDimensionId);
-        else handleDelete();
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        if (selectedDimensionId) setSelectedDimensionId(null);
-        else if (selection.groupEditId) handleExitGroup();
-        else setSelection(EMPTY_SELECTION);
-      } else if (key === "r") {
-        event.preventDefault();
-        handleRotateSelection(event.shiftKey ? -90 : 90);
-      } else if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key) && selection.objectIds.length > 0) {
-        event.preventDefault();
-        const step = event.shiftKey ? 0.01 : history.present.project.canvas.snapStepM;
-        const deltaX = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0;
-        const deltaY = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
-        commitProject(moveObjectsCommand(history.present.project, selection.objectIds, deltaX, deltaY), "Перемещение клавишами");
+      event.preventDefault();
+      switch (shortcut) {
+        case "new": void handleNew(); break;
+        case "open": void handleOpen(); break;
+        case "save": void saveProject(false); break;
+        case "save-as": void saveProject(true); break;
+        case "export-svg": void handleExportSvg(); break;
+        case "export-pdf": void handleExportPdf(); break;
+        case "undo": handleUndo(); break;
+        case "redo": handleRedo(); break;
+        case "duplicate": handleDuplicate(); break;
+        case "copy": handleCopy(); break;
+        case "paste": handlePaste(); break;
+        case "group": handleGroup(); break;
+        case "ungroup": handleUngroup(); break;
+        case "select-all": setSelection(selectAllEditable(history.present.project)); break;
+        case "toggle-lock": handleToggleLock(); break;
+        case "fit": setFitRequest((value) => value + 1); break;
+        case "view-2d": setWorkspaceMode("2d"); break;
+        case "view-3d": setWorkspaceMode("3d"); break;
+        case "view-split": setWorkspaceMode("split"); break;
+        case "measure": handleStartMeasure(); break;
+        case "mirror-horizontal": handleMirrorSelection("horizontal"); break;
+        case "mirror-vertical": handleMirrorSelection("vertical"); break;
+        case "delete":
+          if (selectedDimensionId) handleDeleteDimension(selectedDimensionId);
+          else handleDelete();
+          break;
+        case "escape":
+          if (selectedDimensionId) setSelectedDimensionId(null);
+          else if (selection.groupEditId) handleExitGroup();
+          else setSelection(EMPTY_SELECTION);
+          break;
+        case "rotate-clockwise": handleRotateSelection(90); break;
+        case "rotate-counterclockwise": handleRotateSelection(-90); break;
+        case "move-left":
+        case "move-right":
+        case "move-up":
+        case "move-down": {
+          if (selection.objectIds.length === 0) break;
+          const step = event.shiftKey ? 0.01 : history.present.project.canvas.snapStepM;
+          const deltaX = shortcut === "move-left" ? -step : shortcut === "move-right" ? step : 0;
+          const deltaY = shortcut === "move-up" ? -step : shortcut === "move-down" ? step : 0;
+          commitProject(moveObjectsCommand(history.present.project, selection.objectIds, deltaX, deltaY), "Перемещение клавишами");
+          break;
+        }
       }
     };
     const blockContextMenu = (event: MouseEvent) => event.preventDefault();
@@ -654,7 +704,7 @@ export default function App() {
       window.removeEventListener("contextmenu", blockContextMenu);
       window.removeEventListener("auxclick", blockAuxNavigation);
     };
-  }, [commitProject, handleCopy, handleDelete, handleDeleteDimension, handleDuplicate, handleExitGroup, handleGroup, handleOpen, handlePaste, handleRedo, handleRotateSelection, handleUndo, handleUngroup, history.present.project, saveProject, selectedDimensionId, selection]);
+  }, [commitProject, handleCopy, handleDelete, handleDeleteDimension, handleDuplicate, handleExitGroup, handleExportPdf, handleExportSvg, handleGroup, handleMirrorSelection, handleNew, handleOpen, handlePaste, handleRedo, handleRotateSelection, handleStartMeasure, handleToggleLock, handleUndo, handleUngroup, history.present.project, saveProject, selectedDimensionId, selection]);
 
   useEffect(() => {
     if (selection.objectIds.length > 0 || selection.groupIds.length > 0) setSelectedDimensionId(null);
@@ -764,6 +814,7 @@ export default function App() {
         onSave={() => { void saveProject(false); }}
         onSaveAs={() => { void saveProject(true); }}
         onExportSvg={() => { void handleExportSvg(); }}
+        onExportPdf={() => { void handleExportPdf(); }}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onFit={() => setFitRequest((value) => value + 1)}
@@ -779,6 +830,8 @@ export default function App() {
         onAddObject={handleAddObject}
         onMassPatch={handleMassPatch}
         onRotateSelection={handleRotateSelection}
+        onMirrorSelection={handleMirrorSelection}
+        onSplitPartition={handleSplitPartition}
         onDuplicate={handleDuplicate}
         onDelete={handleDelete}
         onGroup={handleGroup}
@@ -795,9 +848,9 @@ export default function App() {
       />
       <main className="workspace" aria-label="Рабочая область плана">
         <div className="workspace-mode-toolbar" aria-label="Режим рабочей области">
-          <button type="button" className={workspaceMode === "2d" ? "is-active" : ""} onClick={() => setWorkspaceMode("2d")}>2D</button>
-          <button type="button" className={workspaceMode === "3d" ? "is-active" : ""} onClick={() => setWorkspaceMode("3d")}>3D</button>
-          <button type="button" className={workspaceMode === "split" ? "is-active" : ""} onClick={() => setWorkspaceMode("split")}>2D + 3D</button>
+          <button type="button" title="Ctrl+1" className={workspaceMode === "2d" ? "is-active" : ""} onClick={() => setWorkspaceMode("2d")}>2D</button>
+          <button type="button" title="Ctrl+2" className={workspaceMode === "3d" ? "is-active" : ""} onClick={() => setWorkspaceMode("3d")}>3D</button>
+          <button type="button" title="Ctrl+3" className={workspaceMode === "split" ? "is-active" : ""} onClick={() => setWorkspaceMode("split")}>2D + 3D</button>
           <span>Высоты из обмера · схема, не BIM-модель</span>
         </div>
         <div className={`workspace-content workspace-content--${workspaceMode}`}>

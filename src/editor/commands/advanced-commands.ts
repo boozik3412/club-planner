@@ -21,6 +21,8 @@ function toTemplateObject(source: PlanObject): CompositeTemplateItem["object"] {
     heightM: source.heightM,
     elevationM: source.elevationM,
     rotationDeg: source.rotationDeg,
+    flipX: source.flipX ?? false,
+    flipY: source.flipY ?? false,
     layerId: source.layerId,
     labelVisible: source.labelVisible,
     style: source.style ? structuredClone(source.style) : undefined,

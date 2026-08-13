@@ -2,17 +2,20 @@ import { describe, expect, it } from "vitest";
 import { createEmptyProject, updateProject } from "../model/project";
 import { createObjectFromTemplate } from "../model/templates";
 import { EMPTY_SELECTION } from "../model/types";
+import { getObjectsBounds } from "../geometry/geometry";
 import {
   addObjectCommand,
   copySelectionToClipboard,
   deleteSelectionCommand,
   duplicateSelectionCommand,
   groupObjectsCommand,
+  mirrorSelectionCommand,
   moveObjectsCommand,
   moveObjectsSnappedCommand,
   pasteObjectClipboardCommand,
   rotateSelectionCommand,
   setGroupsLockedCommand,
+  splitPartitionCommand,
   ungroupObjectsCommand,
   updateObjectsCommand,
 } from "./project-commands";
@@ -141,5 +144,52 @@ describe("project commands", () => {
     expect(pasted?.project.objects).toHaveLength(2);
     expect(pasted?.project.groups).toHaveLength(1);
     expect(pasted?.selection.objectIds).toHaveLength(2);
+  });
+
+  it("mirrors a rotated selection around its shared center and is reversible", () => {
+    const project = projectWithTwoTables();
+    project.objects[0].rotationDeg = 30;
+    project.objects[1].rotationDeg = 330;
+    const selection = { ...EMPTY_SELECTION, objectIds: ["first", "second"] };
+    const centerX = getObjectsBounds(project.objects)?.centerXM as number;
+    const mirrored = mirrorSelectionCommand(project, selection, "horizontal");
+
+    expect(mirrored.objects[0].xM).toBeCloseTo(2 * centerX - project.objects[0].xM);
+    expect(mirrored.objects[1].xM).toBeCloseTo(2 * centerX - project.objects[1].xM);
+    expect(mirrored.objects.map((object) => object.rotationDeg)).toEqual([330, 30]);
+    expect(mirrored.objects.every((object) => object.flipX)).toBe(true);
+
+    const restored = mirrorSelectionCommand(mirrored, selection, "horizontal");
+    for (const [index, object] of restored.objects.entries()) {
+      expect(object.xM).toBeCloseTo(project.objects[index].xM);
+      expect(object.yM).toBeCloseTo(project.objects[index].yM);
+      expect(object.rotationDeg).toBe(project.objects[index].rotationDeg);
+      expect(object.flipX).toBe(project.objects[index].flipX);
+    }
+  });
+
+  it("splits a rotated grouped partition around an exact central passage", () => {
+    const project = updateProject(createEmptyProject(), (draft) => {
+      draft.objects = [
+        {
+          ...createObjectFromTemplate("partition", 5, 4, "wall"),
+          widthM: 5,
+          depthM: 0.18,
+          heightM: 2.8,
+          rotationDeg: 30,
+        },
+        createObjectFromTemplate("table", 1, 1, "table"),
+      ];
+      draft.groups = [{ id: "module", name: "Модуль", objectIds: ["wall", "table"], locked: false }];
+    });
+    const result = splitPartitionCommand(project, "wall", 1);
+    expect(result).not.toBeNull();
+    const parts = result?.project.objects.filter((object) => result.partIds.includes(object.id)) ?? [];
+
+    expect(parts).toHaveLength(2);
+    expect(parts.every((object) => object.widthM === 2 && object.depthM === 0.18 && object.heightM === 2.8)).toBe(true);
+    expect(Math.hypot(parts[1].xM - parts[0].xM, parts[1].yM - parts[0].yM)).toBeCloseTo(3);
+    expect(result?.project.groups[0].objectIds).toEqual([result?.partIds[0], result?.partIds[1], "table"]);
+    expect(splitPartitionCommand(project, "wall", 4.81)).toBeNull();
   });
 });

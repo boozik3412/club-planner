@@ -17,6 +17,7 @@ export interface SnapGuide {
   boundary?: PlanBoundary;
   from: PointM;
   to: PointM;
+  markers?: PointM[];
   distanceM: number;
   snapType:
     | "wall"
@@ -25,7 +26,8 @@ export interface SnapGuide {
     | "parallel"
     | "object-edge"
     | "object-center"
-    | "equal-gap";
+    | "equal-gap"
+    | "row-alignment";
   candidateIndex: number;
   candidateCount: number;
 }

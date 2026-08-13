@@ -2,6 +2,7 @@ import { getObjectsBounds } from "../geometry/geometry";
 import { normalizeAngle } from "../model/project";
 import type { PlanObject, PointM } from "../model/types";
 import { resolveObjectSnap } from "./object-snap";
+import { findRowAlignmentCandidates } from "./row-alignment";
 import type { PlanBoundary, SnapGuide, SnapResolution } from "./types";
 
 const ACQUIRE_PX = 10;
@@ -311,6 +312,29 @@ export function resolveMoveSnap(input: ResolveMoveSnapInput): SnapResolution {
   const uniqueCandidates = [...new Map(candidates.map((candidate) => [candidate.key, candidate])).values()]
     .sort((left, right) => candidateMagnitude(left) - candidateMagnitude(right));
   if (uniqueCandidates.length === 0) {
+    const rowCandidates = findRowAlignmentCandidates(
+      objects,
+      otherObjects,
+      rawDeltaXM,
+      rawDeltaYM,
+      acquireToleranceM,
+    );
+    if (rowCandidates.length > 0) {
+      const normalizedRowIndex = ((candidateIndex % rowCandidates.length) + rowCandidates.length)
+        % rowCandidates.length;
+      const rowCandidate = rowCandidates[normalizedRowIndex];
+      return {
+        deltaXM: rowCandidate.deltaXM,
+        deltaYM: rowCandidate.deltaYM,
+        activeBoundaryId: null,
+        guide: {
+          ...rowCandidate.guide,
+          candidateIndex: normalizedRowIndex,
+          candidateCount: rowCandidates.length,
+        },
+        rotations: {},
+      };
+    }
     const objectSnap = resolveObjectSnap(
       objects,
       otherObjects,

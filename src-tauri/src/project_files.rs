@@ -31,6 +31,10 @@ fn check_extension(path: &Path, allowed: &[&str]) -> Result<(), String> {
 }
 
 fn atomic_write(path: &Path, contents: &str) -> Result<(), String> {
+    atomic_write_bytes(path, contents.as_bytes())
+}
+
+fn atomic_write_bytes(path: &Path, contents: &[u8]) -> Result<(), String> {
     let parent = path
         .parent()
         .ok_or_else(|| "Не удалось определить папку файла".to_string())?;
@@ -42,7 +46,7 @@ fn atomic_write(path: &Path, contents: &str) -> Result<(), String> {
     let temporary = parent.join(format!(".{file_name}.tmp"));
     let backup = parent.join(format!(".{file_name}.bak"));
 
-    fs::write(&temporary, contents.as_bytes())
+    fs::write(&temporary, contents)
         .map_err(|error| format!("Не удалось записать временный файл: {error}"))?;
 
     if path.exists() {
@@ -63,6 +67,22 @@ fn atomic_write(path: &Path, contents: &str) -> Result<(), String> {
         let _ = fs::remove_file(backup);
     }
     Ok(())
+}
+
+pub fn svg_to_pdf_bytes(contents: &str) -> Result<Vec<u8>, String> {
+    let mut options = svg2pdf::usvg::Options::default();
+    options.fontdb_mut().load_system_fonts();
+    let tree = svg2pdf::usvg::Tree::from_str(contents, &options)
+        .map_err(|error| format!("Не удалось разобрать SVG для PDF: {error}"))?;
+    svg2pdf::to_pdf(
+        &tree,
+        svg2pdf::ConversionOptions {
+            embed_text: false,
+            ..Default::default()
+        },
+        svg2pdf::PageOptions { dpi: 96.0 },
+    )
+    .map_err(|error| format!("Не удалось сформировать PDF: {error}"))
 }
 
 fn read_payload(path: PathBuf, allowed: &[&str]) -> Result<FilePayload, String> {
@@ -93,6 +113,15 @@ pub fn write_svg_file(path: String, contents: String) -> Result<String, String> 
     let path = PathBuf::from(path);
     check_extension(&path, &["svg"])?;
     atomic_write(&path, &contents)?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub fn write_pdf_file(path: String, contents: String) -> Result<String, String> {
+    let path = PathBuf::from(path);
+    check_extension(&path, &["pdf"])?;
+    let pdf = svg_to_pdf_bytes(&contents)?;
+    atomic_write_bytes(&path, &pdf)?;
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -131,7 +160,7 @@ pub fn clear_recovery(app: AppHandle) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{atomic_write, check_extension};
+    use super::{atomic_write, check_extension, svg_to_pdf_bytes};
     use std::fs;
     use std::path::Path;
 
@@ -149,5 +178,15 @@ mod tests {
         atomic_write(&path, "second").expect("second write");
         assert_eq!(fs::read_to_string(&path).expect("read"), "second");
         fs::remove_file(path).expect("cleanup");
+    }
+
+    #[test]
+    fn converts_a_landscape_svg_with_cyrillic_text_to_pdf() {
+        let pdf = svg_to_pdf_bytes(
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200"><rect width="400" height="200" fill="white"/><text x="20" y="100" font-family="Arial" font-size="28">План клуба</text></svg>"#,
+        )
+        .expect("pdf conversion");
+        assert!(pdf.starts_with(b"%PDF-"));
+        assert!(pdf.len() > 500);
     }
 }

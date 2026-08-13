@@ -65,6 +65,8 @@ export function createObjectFromTemplate(
     heightM: template.heightM,
     elevationM: template.elevationM ?? 0,
     rotationDeg: 0,
+    flipX: false,
+    flipY: false,
     layerId: template.layerId,
     locked: false,
     labelVisible: true,

@@ -1,5 +1,5 @@
 export const CLUBPLAN_FORMAT = "clubplan" as const;
-export const CLUBPLAN_FORMAT_VERSION = 2 as const;
+export const CLUBPLAN_FORMAT_VERSION = 3 as const;
 export const BASE_PLAN_ID = "measurement-2026-08-10";
 export const BASE_PLAN_ASSET = "base_plan_new_measurement.svg";
 export const BASE_PLAN_SHA256 =
@@ -115,6 +115,8 @@ export interface PlanObject {
   heightM: number;
   elevationM: number;
   rotationDeg: number;
+  flipX?: boolean;
+  flipY?: boolean;
   layerId: LayerId;
   locked: boolean;
   labelVisible: boolean;

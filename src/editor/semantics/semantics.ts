@@ -45,8 +45,14 @@ export function openingFromProjectObject(object: PlanObject): SemanticOpening | 
   if (object.kind !== "door" && object.kind !== "window") return null;
   const radians = object.rotationDeg * Math.PI / 180;
   const halfLength = object.widthM / 2;
-  const dx = Math.cos(radians) * halfLength;
-  const dy = Math.sin(radians) * halfLength;
+  const localXDirection = object.flipX ? -1 : 1;
+  const dx = Math.cos(radians) * halfLength * localXDirection;
+  const dy = Math.sin(radians) * halfLength * localXDirection;
+  const storedSwing = object.properties?.doorSwing ?? "right";
+  const reflectedHandedness = Boolean(object.flipX) !== Boolean(object.flipY);
+  const effectiveSwing = reflectedHandedness
+    ? storedSwing === "left" ? "right" : "left"
+    : storedSwing;
   return {
     id: `object-opening:${object.id}`,
     kind: object.kind,
@@ -54,7 +60,7 @@ export function openingFromProjectObject(object: PlanObject): SemanticOpening | 
     end: { xM: object.xM + dx, yM: object.yM + dy },
     source: "project-object",
     sourceObjectId: object.id,
-    swing: object.kind === "door" ? object.properties?.doorSwing ?? "right" : undefined,
+    swing: object.kind === "door" ? effectiveSwing : undefined,
     openingAngleDeg: object.kind === "door" ? object.properties?.openingAngleDeg ?? 90 : undefined,
   };
 }

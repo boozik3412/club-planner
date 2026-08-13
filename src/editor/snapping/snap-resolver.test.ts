@@ -227,4 +227,42 @@ describe("wall snap resolver", () => {
       1.5 / Math.sqrt(2),
     );
   });
+
+  it("prioritizes matching row alignment over ordinary object and grid snaps", () => {
+    const moving = [0, 1, 2].map((x, index) => createObjectFromTemplate("table", x, 1, `moving-${index}`));
+    const target = [5, 6, 7].map((x, index) => createObjectFromTemplate("table", x, 3, `target-${index}`));
+    const result = resolveMoveSnap({
+      objects: moving,
+      otherObjects: target,
+      rawDeltaXM: 0.04,
+      rawDeltaYM: 1.94,
+      boundaries: [],
+      snapEnabled: true,
+      snapStepM: 0.1,
+      unitsPerMeter: 377.952755906,
+      zoom: 0.1,
+    });
+    expect(result.guide?.snapType).toBe("row-alignment");
+    expect(result.deltaYM).toBeCloseTo(2);
+    expect(result.guide?.markers).toHaveLength(6);
+  });
+
+  it("keeps a wall candidate above a simultaneous row candidate", () => {
+    const moving = [0, 1, 2].map((x, index) => createObjectFromTemplate("table", x, 1, `moving-wall-${index}`));
+    const target = [5, 6, 7].map((x, index) => createObjectFromTemplate("table", x, 3, `target-wall-${index}`));
+    const wall = { ...horizontalWall, id: "row-wall", start: { xM: -1, yM: 3.4 }, end: { xM: 8, yM: 3.4 } };
+    const result = resolveMoveSnap({
+      objects: moving,
+      otherObjects: target,
+      rawDeltaXM: 0,
+      rawDeltaYM: 1.94,
+      boundaries: [wall],
+      snapEnabled: true,
+      snapStepM: 0.1,
+      unitsPerMeter: 377.952755906,
+      zoom: 0.1,
+    });
+    expect(result.guide?.snapType).toBe("wall");
+    expect(result.activeBoundaryId).toBe("row-wall");
+  });
 });

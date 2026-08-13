@@ -65,6 +65,7 @@ vi.mock("./editor/persistence/desktop-files", () => ({
   openProjectAtPath: vi.fn(),
   readRecovery: vi.fn().mockResolvedValue(null),
   saveProjectContents: vi.fn().mockResolvedValue(null),
+  savePdfContents: vi.fn().mockResolvedValue(null),
   saveSvgContents: vi.fn().mockResolvedValue(null),
   showError: desktopMocks.showError.mockResolvedValue(undefined),
   writeRecovery: desktopMocks.writeRecovery,
@@ -165,6 +166,56 @@ describe("App integration", () => {
     await user.click(screen.getByRole("button", { name: "↷" }));
     expect(screen.getByText(/2 предметов · 1 групп/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Разгруппировать" })).toBeEnabled();
+  });
+
+  it("handles popular shortcuts by physical key with a Russian layout and ignores inputs", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const tableButton = screen.getByRole("button", { name: /^Стол$/ });
+    await user.click(tableButton);
+    await user.click(tableButton);
+    fireEvent.keyDown(window, { key: "ф", code: "KeyA", ctrlKey: true, cancelable: true });
+    fireEvent.keyDown(window, { key: "п", code: "KeyG", ctrlKey: true, cancelable: true });
+    expect(screen.getByText(/2 предметов · 1 групп/)).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "я", code: "KeyZ", ctrlKey: true, cancelable: true });
+    expect(screen.getByText(/2 предметов · 0 групп/)).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Я", code: "KeyZ", ctrlKey: true, shiftKey: true, cancelable: true });
+    expect(screen.getByText(/2 предметов · 1 групп/)).toBeInTheDocument();
+
+    const widthField = screen.getByRole("spinbutton", { name: "Ширина, м" });
+    widthField.focus();
+    fireEvent.keyDown(widthField, { key: "п", code: "KeyG", ctrlKey: true, shiftKey: true, cancelable: true });
+    expect(screen.getByText(/2 предметов · 1 групп/)).toBeInTheDocument();
+    widthField.blur();
+
+    fireEvent.keyDown(window, { key: "д", code: "KeyL", ctrlKey: true, cancelable: true });
+    expect(screen.getByText("Блокировка выборки")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "2", code: "Digit2", ctrlKey: true, cancelable: true });
+    expect(await screen.findByRole("region", { name: "Тестовый 3D-вид" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "1", code: "Digit1", ctrlKey: true, cancelable: true });
+    fireEvent.keyDown(window, { key: "ь", code: "KeyM", cancelable: true });
+    expect(screen.getByRole("button", { name: "Создать тестовый размер" })).toBeInTheDocument();
+  });
+
+  it("mirrors a selection and splits a partition into two parts with one undo step", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /^Дверь$/ }));
+    fireEvent.keyDown(window, { key: "Р", code: "KeyH", shiftKey: true, cancelable: true });
+    expect(screen.getByText("Отражение слева направо")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "↶" }));
+    expect(screen.getByText("Отменено: Отражение слева направо")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Перегородка$/ }));
+    const passage = screen.getByRole("spinbutton", { name: "Ширина прохода, м" });
+    await user.clear(passage);
+    await user.type(passage, "0.8");
+    await user.click(screen.getByRole("button", { name: "Разделить перегородку" }));
+    expect(screen.getByText(/3 предметов · 0 групп/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Выбрано: 2" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "↶" }));
+    expect(screen.getByText(/2 предметов · 0 групп/)).toBeInTheDocument();
   });
 
   it("keeps the current project when opening a corrupted file fails", async () => {
