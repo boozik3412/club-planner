@@ -79,6 +79,13 @@ interface ScreenPoint {
   y: number;
 }
 
+function boundsIntersect(left: BoundsM, right: BoundsM): boolean {
+  return left.maxXM >= right.minXM
+    && left.minXM <= right.maxXM
+    && left.maxYM >= right.minYM
+    && left.minYM <= right.maxYM;
+}
+
 type Gesture =
   | { mode: "pan"; pointerId: number; start: ScreenPoint; camera: CameraState; rightButton: boolean }
   | { mode: "marquee"; pointerId: number; start: ScreenPoint; current: ScreenPoint; additive: boolean }
@@ -292,6 +299,30 @@ export function BasePlanCanvas({
     const units = screenToPlanUnits(screen.x, screen.y, camera, project.canvas.rotationDeg);
     return { x: units.x / project.basePlan.unitsPerMeter, y: units.y / project.basePlan.unitsPerMeter };
   }, [camera, project.basePlan.unitsPerMeter, project.canvas.rotationDeg]);
+
+  const getVisiblePlanBounds = useCallback((): BoundsM | null => {
+    if (viewport.width <= 1 || viewport.height <= 1) return null;
+    const points = [
+      planPoint({ x: 0, y: 0 }),
+      planPoint({ x: viewport.width, y: 0 }),
+      planPoint({ x: viewport.width, y: viewport.height }),
+      planPoint({ x: 0, y: viewport.height }),
+    ];
+    const minXM = Math.min(...points.map((point) => point.x));
+    const minYM = Math.min(...points.map((point) => point.y));
+    const maxXM = Math.max(...points.map((point) => point.x));
+    const maxYM = Math.max(...points.map((point) => point.y));
+    return {
+      minXM,
+      minYM,
+      maxXM,
+      maxYM,
+      widthM: maxXM - minXM,
+      heightM: maxYM - minYM,
+      centerXM: (minXM + maxXM) / 2,
+      centerYM: (minYM + maxYM) / 2,
+    };
+  }, [planPoint, viewport]);
 
   const capture = (pointerId: number) => {
     try { svgRef.current?.setPointerCapture(pointerId); } catch { /* pointer capture is best-effort */ }
@@ -545,7 +576,13 @@ export function BasePlanCanvas({
       const startPlan = planPoint(screen);
       const startObjects = project.objects.filter((object) => nextSelection.objectIds.includes(object.id));
       const nextSelectedSet = new Set(nextSelection.objectIds);
-      const otherObjects = project.objects.filter((object) => !nextSelectedSet.has(object.id));
+      const visiblePlanBounds = getVisiblePlanBounds();
+      const otherObjects = project.objects.filter((object) => {
+        if (nextSelectedSet.has(object.id) || !visibleLayers.has(object.layerId)) return false;
+        if (!visiblePlanBounds) return true;
+        const objectBounds = getObjectsBounds([object]);
+        return objectBounds ? boundsIntersect(objectBounds, visiblePlanBounds) : false;
+      });
       const boundaries = getPlanBoundaries(project, new Set(nextSelection.objectIds));
       gestureRef.current = {
         mode: "move",
@@ -916,7 +953,7 @@ export function BasePlanCanvas({
                   vectorEffect="non-scaling-stroke"
                 /> : null}
                 <line
-                  className="snap-guide__distance"
+                  className={`snap-guide__distance snap-guide__distance--${snapGuide.snapType}`}
                   x1={snapGuide.from.xM * project.basePlan.unitsPerMeter}
                   y1={snapGuide.from.yM * project.basePlan.unitsPerMeter}
                   x2={snapGuide.to.xM * project.basePlan.unitsPerMeter}
@@ -930,6 +967,16 @@ export function BasePlanCanvas({
                   r={5 / camera.zoom}
                   vectorEffect="non-scaling-stroke"
                 />
+                {snapGuide.markers?.map((marker, index) => (
+                  <circle
+                    key={`${marker.xM}:${marker.yM}:${index}`}
+                    className="snap-guide__row-marker"
+                    cx={marker.xM * project.basePlan.unitsPerMeter}
+                    cy={marker.yM * project.basePlan.unitsPerMeter}
+                    r={4.5 / camera.zoom}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
               </g>
             ) : null}
             {betweenSession ? (
@@ -987,10 +1034,11 @@ export function BasePlanCanvas({
             "object-edge": "Край–край",
             "object-center": "Центр–центр",
             "equal-gap": "Равные промежутки",
+            "row-alignment": "Ряды на одной линии",
           }[snapGuide.snapType]}
           {snapGuide.snapType === "equal-gap"
             ? ` · промежуток ${snapGuide.distanceM.toFixed(2)} м`
-            : snapGuide.snapType === "object-edge" || snapGuide.snapType === "object-center"
+            : snapGuide.snapType === "object-edge" || snapGuide.snapType === "object-center" || snapGuide.snapType === "row-alignment"
               ? ""
               : ` · отступ ${snapGuide.distanceM.toFixed(2)} м`}
           {snapGuide.candidateCount > 1

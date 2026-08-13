@@ -4,6 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createEmptyProject } from "../editor/model/project";
+import { createObjectFromTemplate } from "../editor/model/templates";
 import { EMPTY_SELECTION } from "../editor/model/types";
 import { BasePlanCanvas } from "./BasePlanCanvas";
 
@@ -13,6 +14,10 @@ vi.mock("../editor/load-base-plan", () => ({
     geometryMarkup: "",
     labels: [],
   }),
+}));
+
+vi.mock("../editor/snapping/boundaries", () => ({
+  getPlanBoundaries: vi.fn(() => []),
 }));
 
 class ResizeObserverMock {
@@ -32,7 +37,9 @@ afterEach(() => {
 function renderCanvas(overrides: Record<string, unknown> = {}) {
   const onCameraChange = vi.fn();
   const onGroupSelection = vi.fn();
-  render(
+  const onPreviewProject = vi.fn();
+  const onCommitProject = vi.fn();
+  const view = render(
     <BasePlanCanvas
       project={createEmptyProject()}
       selection={EMPTY_SELECTION}
@@ -44,8 +51,8 @@ function renderCanvas(overrides: Record<string, unknown> = {}) {
       onCameraChange={onCameraChange}
       onVisibleCenterChange={vi.fn()}
       onSelectionChange={vi.fn()}
-      onPreviewProject={vi.fn()}
-      onCommitProject={vi.fn()}
+      onPreviewProject={onPreviewProject}
+      onCommitProject={onCommitProject}
       onGroupSelection={onGroupSelection}
       onUngroupSelection={vi.fn()}
       onDeleteSelection={vi.fn()}
@@ -59,7 +66,7 @@ function renderCanvas(overrides: Record<string, unknown> = {}) {
       {...overrides}
     />,
   );
-  return { onCameraChange, onGroupSelection };
+  return { ...view, onCameraChange, onGroupSelection, onPreviewProject, onCommitProject };
 }
 
 describe("BasePlanCanvas pointer navigation", () => {
@@ -108,5 +115,32 @@ describe("BasePlanCanvas pointer navigation", () => {
 
     fireEvent.pointerDown(dimension, { button: 0, pointerId: 9, clientX: 120, clientY: 120 });
     expect(onDimensionSelect).toHaveBeenCalledWith("dimension-1");
+  });
+
+  it("shows a long smart guide and aligns two matching visible rows", () => {
+    const project = createEmptyProject();
+    const moving = [1, 2, 3].map((x, index) => createObjectFromTemplate("table", x, 1, `moving-${index}`));
+    const target = [5, 6, 7].map((x, index) => createObjectFromTemplate("table", x, 4, `target-${index}`));
+    project.objects = [...moving, ...target];
+    const selection = { ...EMPTY_SELECTION, objectIds: moving.map((object) => object.id) };
+    const { container, onPreviewProject, onCommitProject } = renderCanvas({ project, selection });
+    const canvas = screen.getByRole("img", { name: "Актуальная планировка компьютерного клуба" });
+    const firstObject = container.querySelector('[data-object-id="moving-0"]') as SVGElement;
+    const startX = 20 + 1 * project.basePlan.unitsPerMeter * 0.05;
+    const startY = 30 + 1 * project.basePlan.unitsPerMeter * 0.05;
+    const almostAlignedY = startY + 2.94 * project.basePlan.unitsPerMeter * 0.05;
+
+    fireEvent.pointerDown(firstObject, { button: 0, pointerId: 11, clientX: startX, clientY: startY });
+    fireEvent.pointerMove(canvas, { buttons: 1, pointerId: 11, clientX: startX, clientY: almostAlignedY });
+
+    expect(screen.getByText(/Ряды на одной линии/)).toBeInTheDocument();
+    expect(container.querySelector(".snap-guide__distance--row-alignment")).not.toBeNull();
+    expect(container.querySelectorAll(".snap-guide__row-marker")).toHaveLength(6);
+    const preview = onPreviewProject.mock.lastCall?.[0];
+    expect(preview.objects.find((object: { id: string }) => object.id === "moving-0").yM).toBeCloseTo(4);
+
+    fireEvent.pointerUp(canvas, { button: 0, pointerId: 11, clientX: startX, clientY: almostAlignedY });
+    expect(onCommitProject).toHaveBeenCalledWith(expect.any(Object), "Перемещение выборки");
+    expect(screen.queryByText(/Ряды на одной линии/)).not.toBeInTheDocument();
   });
 });

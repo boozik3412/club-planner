@@ -22,6 +22,8 @@ function toTemplateObject(source: PlanObject): CompositeTemplateItem["object"] {
     heightM: source.heightM,
     elevationM: source.elevationM,
     rotationDeg: source.rotationDeg,
+    flipX: source.flipX ?? false,
+    flipY: source.flipY ?? false,
     layerId: source.layerId,
     labelVisible: source.labelVisible,
     style: source.style ? structuredClone(source.style) : undefined,
@@ -137,6 +139,8 @@ function parseObject(
     heightM,
     elevationM,
     rotationDeg: normalizedAngle,
+    flipX: optionalBoolean(record.flipX, false),
+    flipY: optionalBoolean(record.flipY, false),
     layerId,
     locked: asBoolean(record.locked, `objects[${index}].locked`),
     labelVisible: asBoolean(record.labelVisible, `objects[${index}].labelVisible`),
@@ -152,11 +156,11 @@ function parseObject(
 function parseClubplan(root: Record<string, unknown>): DecodeResult {
   if (root.format !== "clubplan") throw new Error("Файл не является проектом Club Planner");
   const version = asFiniteNumber(root.formatVersion, "formatVersion");
-  if (version > 2) throw new Error(`Файл создан более новой версией Club Planner (${version})`);
-  if (version !== 1 && version !== 2) throw new Error(`Неподдерживаемая версия формата: ${version}`);
+  if (version > 3) throw new Error(`Файл создан более новой версией Club Planner (${version})`);
+  if (version !== 1 && version !== 2 && version !== 3) throw new Error(`Неподдерживаемая версия формата: ${version}`);
 
   const warnings: string[] = [];
-  if (version === 1) warnings.push("Проект автоматически обновлён из формата v1 в v2");
+  if (version < 3) warnings.push(`Проект автоматически обновлён из формата v${version} в v3`);
   const next = createEmptyProject();
   const projectMeta = asRecord(root.project, "project");
   next.project = {
@@ -199,7 +203,7 @@ function parseClubplan(root: Record<string, unknown>): DecodeResult {
     basePlanOpacity: Math.min(1, Math.max(0, asFiniteNumber(canvas.basePlanOpacity, "canvas.basePlanOpacity"))),
   };
 
-  if (version === 2) {
+  if (version >= 2) {
     const architecture = asRecord(root.architecture, "architecture");
     const wallOverridesRecord = architecture.wallOverrides === undefined
       ? {}
@@ -370,6 +374,8 @@ function parseLegacy(root: Record<string, unknown>): DecodeResult {
       heightM: template.heightM,
       elevationM: template.elevationM ?? 0,
       rotationDeg: normalizeAngle(numberOr(record.angle, 0)),
+      flipX: false,
+      flipY: false,
       layerId: template.layerId,
       locked: false,
       labelVisible: true,

@@ -1,4 +1,4 @@
-mod project_files;
+pub mod project_files;
 
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
@@ -21,6 +21,7 @@ pub fn run() {
             project_files::read_project_file,
             project_files::write_project_file,
             project_files::write_svg_file,
+            project_files::write_pdf_file,
             project_files::write_recovery,
             project_files::read_recovery,
             project_files::clear_recovery,

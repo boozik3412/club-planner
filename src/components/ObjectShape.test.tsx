@@ -22,4 +22,15 @@ describe("ObjectShape", () => {
     expect(container.querySelector('ellipse[data-object-id="circle"]')).not.toBeNull();
     expect(container.querySelector('ellipse[data-object-id="oval"]')).not.toBeNull();
   });
+
+  it("reflects only the object shape while keeping its label readable", () => {
+    const object = { ...createObjectFromTemplate("door", 1, 1, "door"), flipX: true, flipY: true };
+    const { container } = render(
+      <svg>
+        <ObjectShape object={object} unitsPerMeter={100} canvasRotationDeg={0} zoom={1} selected={false} showHandles={false} labelsVisible />
+      </svg>,
+    );
+    expect(container.querySelector('g[transform="scale(-1 -1)"]')).not.toBeNull();
+    expect(container.querySelector(".object-label-wrap")?.getAttribute("transform")).toBe("rotate(0)");
+  });
 });

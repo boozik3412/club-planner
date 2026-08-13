@@ -89,6 +89,19 @@ export async function saveSvgContents(contents: string): Promise<string | null> 
   return invoke<string>("write_svg_file", { path, contents });
 }
 
+export async function savePdfContents(contents: string): Promise<string | null> {
+  if (!isTauriRuntime()) {
+    throw new Error("Экспорт PDF доступен в настольном приложении");
+  }
+  let path = await save({
+    defaultPath: "club-layout.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (!path) return null;
+  if (!path.toLowerCase().endsWith(".pdf")) path += ".pdf";
+  return invoke<string>("write_pdf_file", { path, contents });
+}
+
 export async function writeRecovery(contents: string): Promise<void> {
   if (isTauriRuntime()) await invoke("write_recovery", { contents });
 }

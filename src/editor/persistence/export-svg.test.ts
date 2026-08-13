@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyProject, updateProject } from "../model/project";
 import { createObjectFromTemplate } from "../model/templates";
-import { buildProjectSvg } from "./export-svg";
+import { buildProjectPdfSvg, buildProjectSvg } from "./export-svg";
 
 describe("SVG export", () => {
   it("exports round and oval custom objects as ellipses", () => {
@@ -21,5 +21,21 @@ describe("SVG export", () => {
     expect(svg.match(/<ellipse/g)).toHaveLength(2);
     expect(svg).toContain('data-object-id="circle"');
     expect(svg).toContain('data-object-id="oval"');
+  });
+
+  it("exports reflected object geometry without reflecting its label", () => {
+    const project = createEmptyProject();
+    project.objects = [{ ...createObjectFromTemplate("door", 2, 2, "door"), flipX: true }];
+    const svg = buildProjectSvg(project, { source: "<svg/>", defsMarkup: "", geometryMarkup: "", labels: [] });
+    expect(svg).toContain("rotate(0) scale(-1 1)");
+    expect(svg).toContain("<text");
+  });
+
+  it("fits the PDF export onto one A4 landscape SVG page", () => {
+    const project = createEmptyProject();
+    const svg = buildProjectPdfSvg(project, { source: "<svg/>", defsMarkup: "", geometryMarkup: "", labels: [] });
+    expect(svg).toContain('width="1122" height="793" viewBox="0 0 1122 793"');
+    expect(svg).toContain('preserveAspectRatio="xMidYMid meet"');
+    expect(svg).toContain(`<svg x="28"`);
   });
 });

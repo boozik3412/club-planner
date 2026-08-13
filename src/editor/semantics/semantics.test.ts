@@ -31,4 +31,16 @@ describe("semantic openings", () => {
     expect(swing?.openEnd.xM).toBeCloseTo(1);
     expect(swing?.openEnd.yM).toBeCloseTo(2.5);
   });
+
+  it("keeps a reflected door opening and handedness consistent", () => {
+    const door = {
+      ...createObjectFromTemplate("door", 2, 3, "door"),
+      widthM: 1,
+      flipX: true,
+    };
+    const opening = openingFromProjectObject(door);
+    expect(opening?.start).toMatchObject({ xM: 2.5, yM: 3 });
+    expect(opening?.end).toMatchObject({ xM: 1.5, yM: 3 });
+    expect(opening?.swing).toBe("left");
+  });
 });

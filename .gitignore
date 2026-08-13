@@ -18,5 +18,6 @@ Thumbs.db
 # Logs and temporary QA artifacts
 *.log
 tmp/
+output/
 playwright-report/
 test-results/

@@ -37,6 +37,8 @@ export function replaceObjectsCommand(
       && replacement.heightM === object.heightM
       && replacement.elevationM === object.elevationM
       && replacement.rotationDeg === object.rotationDeg
+      && replacement.flipX === object.flipX
+      && replacement.flipY === object.flipY
       && replacement.layerId === object.layerId
       && replacement.locked === object.locked
       && replacement.labelVisible === object.labelVisible
@@ -191,6 +193,100 @@ export function rotateSelectionCommand(
 
   if (replacements.size === 0) return project;
   return replaceObjectsCommand(project, [...replacements.values()]);
+}
+
+export type MirrorAxis = "horizontal" | "vertical";
+
+export function mirrorSelectionCommand(
+  project: ProjectState,
+  selection: SelectionState,
+  axis: MirrorAxis,
+): ProjectState {
+  const eligibleIds = new Set<ObjectId>();
+  const handledIds = new Set<ObjectId>();
+
+  for (const groupId of selection.groupIds) {
+    const group = project.groups.find((candidate) => candidate.id === groupId);
+    if (!group || group.locked) continue;
+    for (const objectId of group.objectIds) {
+      eligibleIds.add(objectId);
+      handledIds.add(objectId);
+    }
+  }
+  for (const object of project.objects) {
+    if (selection.objectIds.includes(object.id) && !handledIds.has(object.id) && !object.locked) {
+      eligibleIds.add(object.id);
+    }
+  }
+
+  const objects = project.objects.filter((object) => eligibleIds.has(object.id));
+  const bounds = getObjectsBounds(objects);
+  if (!bounds) return project;
+  const replacements = objects.map((object): PlanObject => axis === "horizontal"
+    ? {
+        ...object,
+        xM: 2 * bounds.centerXM - object.xM,
+        rotationDeg: normalizeAngle(-object.rotationDeg),
+        flipX: !(object.flipX ?? false),
+      }
+    : {
+        ...object,
+        yM: 2 * bounds.centerYM - object.yM,
+        rotationDeg: normalizeAngle(-object.rotationDeg),
+        flipY: !(object.flipY ?? false),
+      });
+  return replaceObjectsCommand(project, replacements);
+}
+
+export interface SplitPartitionResult {
+  project: ProjectState;
+  partIds: [ObjectId, ObjectId];
+}
+
+export function splitPartitionCommand(
+  project: ProjectState,
+  objectId: ObjectId,
+  passageWidthM: number,
+): SplitPartitionResult | null {
+  const source = project.objects.find((object) => object.id === objectId);
+  const group = project.groups.find((candidate) => candidate.objectIds.includes(objectId));
+  if (!source || source.kind !== "partition" || source.locked || group?.locked) return null;
+  if (!Number.isFinite(passageWidthM) || passageWidthM <= 0) return null;
+  const partWidthM = (source.widthM - passageWidthM) / 2;
+  if (partWidthM < 0.1) return null;
+
+  const radians = source.rotationDeg * Math.PI / 180;
+  const centerOffsetM = passageWidthM / 2 + partWidthM / 2;
+  const partIds: [ObjectId, ObjectId] = [createStableId("partition"), createStableId("partition")];
+  const parts: [PlanObject, PlanObject] = [
+    {
+      ...structuredClone(source),
+      id: partIds[0],
+      name: `${source.name} · 1`,
+      xM: source.xM - Math.cos(radians) * centerOffsetM,
+      yM: source.yM - Math.sin(radians) * centerOffsetM,
+      widthM: partWidthM,
+    },
+    {
+      ...structuredClone(source),
+      id: partIds[1],
+      name: `${source.name} · 2`,
+      xM: source.xM + Math.cos(radians) * centerOffsetM,
+      yM: source.yM + Math.sin(radians) * centerOffsetM,
+      widthM: partWidthM,
+    },
+  ];
+  return {
+    partIds,
+    project: updateProject(project, (draft) => {
+      const index = draft.objects.findIndex((object) => object.id === objectId);
+      draft.objects.splice(index, 1, ...parts);
+      for (const draftGroup of draft.groups) {
+        const memberIndex = draftGroup.objectIds.indexOf(objectId);
+        if (memberIndex >= 0) draftGroup.objectIds.splice(memberIndex, 1, ...partIds);
+      }
+    }),
+  };
 }
 
 export function groupObjectsCommand(

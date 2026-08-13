@@ -54,8 +54,8 @@ describe(".clubplan serialization", () => {
     delete legacyV1Object.elevationM;
     source.objects = [legacyV1Object];
     const decoded = decodeProject(JSON.stringify(source));
-    expect(decoded.warnings).toContain("Проект автоматически обновлён из формата v1 в v2");
-    expect(decoded.project.formatVersion).toBe(2);
+    expect(decoded.warnings).toContain("Проект автоматически обновлён из формата v1 в v3");
+    expect(decoded.project.formatVersion).toBe(3);
     expect(decoded.project.canvas).toMatchObject({
       wallSnapOffsetM: 0,
       autoRotateFurnitureToWall: false,
@@ -70,7 +70,7 @@ describe(".clubplan serialization", () => {
     expect(decoded.project.objects[0]).toMatchObject({ heightM: 0.75, elevationM: 0 });
   });
 
-  it("round-trips v2 architectural overrides and object elevations", () => {
+  it("round-trips v3 architectural overrides, elevations and reflections", () => {
     const project = createEmptyProject();
     project.architecture.defaultWallHeightM = 3.2;
     project.architecture.wallOverrides["wall-main-top"] = {
@@ -81,14 +81,15 @@ describe(".clubplan serialization", () => {
     project.objects = [{
       ...createObjectFromTemplate("table", 2, 3, "raised-table"),
       elevationM: 0.25,
+      flipX: true,
     }];
 
     const decoded = decodeProject(encodeProject(project));
     expect(decoded.project.architecture).toEqual(project.architecture);
-    expect(decoded.project.objects[0]).toMatchObject({ heightM: 0.75, elevationM: 0.25 });
+    expect(decoded.project.objects[0]).toMatchObject({ heightM: 0.75, elevationM: 0.25, flipX: true, flipY: false });
   });
 
-  it("keeps v2 architecture in the recovery envelope", () => {
+  it("keeps v3 architecture in the recovery envelope", () => {
     const project = createEmptyProject();
     project.architecture.defaultWallHeightM = 3.4;
     project.architecture.wallOverrides["wall-main-top"] = { heightM: 2.9 };
@@ -101,7 +102,7 @@ describe(".clubplan serialization", () => {
 
   it("rejects projects from a future format version", () => {
     const source = JSON.parse(encodeProject(createEmptyProject()));
-    source.formatVersion = 3;
+    source.formatVersion = 4;
 
     expect(() => decodeProject(JSON.stringify(source))).toThrow(/более новой версией/);
   });

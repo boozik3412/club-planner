@@ -41,6 +41,7 @@ interface SidebarProps {
   onSave: () => void;
   onSaveAs: () => void;
   onExportSvg: () => void;
+  onExportPdf: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onFit: () => void;
@@ -56,6 +57,8 @@ interface SidebarProps {
   onAddObject: (type: ObjectType) => void;
   onMassPatch: (patch: MassObjectPatch, label: string) => void;
   onRotateSelection: (deltaDeg: number) => void;
+  onMirrorSelection: (axis: "horizontal" | "vertical") => void;
+  onSplitPartition: (passageWidthM: number) => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onGroup: () => void;
@@ -220,6 +223,7 @@ export function Sidebar({
   onSave,
   onSaveAs,
   onExportSvg,
+  onExportPdf,
   onUndo,
   onRedo,
   onFit,
@@ -235,6 +239,8 @@ export function Sidebar({
   onAddObject,
   onMassPatch,
   onRotateSelection,
+  onMirrorSelection,
+  onSplitPartition,
   onDuplicate,
   onDelete,
   onGroup,
@@ -253,6 +259,7 @@ export function Sidebar({
   const [arrayStepM, setArrayStepM] = useState(1.5);
   const [arrayDirection, setArrayDirection] = useState<"horizontal" | "vertical">("horizontal");
   const [templateName, setTemplateName] = useState("");
+  const [passageWidthM, setPassageWidthM] = useState(0.9);
   const single = selectedObjects.length === 1 ? selectedObjects[0] : null;
   const width = getMixedValue(selectedObjects, "widthM");
   const depth = getMixedValue(selectedObjects, "depthM");
@@ -278,7 +285,7 @@ export function Sidebar({
       </header>
 
       <nav className="file-toolbar" aria-label="Файл и история">
-        <button type="button" onClick={onNew} title="Новый проект">Новый</button>
+        <button type="button" onClick={onNew} title="Новый проект · Ctrl+N">Новый</button>
         <button type="button" onClick={onOpen} title="Открыть · Ctrl+O">Открыть</button>
         <button className="button--primary" type="button" onClick={onSave} title="Сохранить · Ctrl+S">Сохранить</button>
         <button type="button" onClick={onSaveAs} title="Сохранить как · Ctrl+Shift+S">Как…</button>
@@ -303,7 +310,7 @@ export function Sidebar({
       <section className="panel-section">
         <h2>Навигация и холст</h2>
         <div className="button-grid button-grid--three">
-          <button className="button--primary" type="button" onClick={onFit}>Вписать</button>
+          <button className="button--primary" type="button" onClick={onFit} title="Вписать план · Ctrl+0 или F">Вписать</button>
           <button type="button" onClick={() => onCanvasChange({ rotationDeg: project.canvas.rotationDeg - 90 }, "Поворот холста")}>↺ 90°</button>
           <button type="button" onClick={() => onCanvasChange({ rotationDeg: project.canvas.rotationDeg + 90 }, "Поворот холста")}>90° ↻</button>
         </div>
@@ -322,10 +329,28 @@ export function Sidebar({
         </div>
         <NumberField label="Отступ от стены, м" value={project.canvas.wallSnapOffsetM} min={0} onCommit={(value) => onCanvasChange({ wallSnapOffsetM: Math.max(0, value) }, "Отступ от стены")} />
         <NumberField label="Минимальный проход, м" value={project.canvas.minimumPassageWidthM} min={0} onCommit={(value) => onCanvasChange({ minimumPassageWidthM: Math.max(0, value) }, "Минимальная ширина прохода")} />
-        <button className="button button--wide" type="button" onClick={onStartMeasure}>Линейка · постоянный размер</button>
+        <button className="button button--wide" type="button" onClick={onStartMeasure} title="Линейка · M">Линейка · постоянный размер</button>
         <label className="field-label">Контраст базового чертежа · {Math.round(project.canvas.basePlanOpacity * 100)}%</label>
         <CommitRange value={project.canvas.basePlanOpacity} onCommit={(value) => onCanvasChange({ basePlanOpacity: value }, "Контраст базового плана")} />
         <p className="hint">Колесо — масштаб · ПКМ, средняя кнопка или Пробел+ЛКМ — панорама · ЛКМ по фону — рамка · Ctrl+C / Ctrl+V — копировать / вставить. Проверка проходов информационная и не подтверждает соответствие нормам.</p>
+        <details className="shortcut-help">
+          <summary>Горячие клавиши</summary>
+          <dl>
+            <div><dt>Ctrl+N / O / S</dt><dd>новый / открыть / сохранить</dd></div>
+            <div><dt>Ctrl+Shift+S / Ctrl+E</dt><dd>сохранить как / экспорт SVG</dd></div>
+            <div><dt>Ctrl+Shift+E</dt><dd>экспорт PDF</dd></div>
+            <div><dt>Ctrl+Z / Ctrl+Y</dt><dd>отменить / повторить</dd></div>
+            <div><dt>Ctrl+C / V / D</dt><dd>копировать / вставить / дубликат</dd></div>
+            <div><dt>Ctrl+G / Ctrl+Shift+G</dt><dd>группа / разгруппировать</dd></div>
+            <div><dt>Ctrl+A / Ctrl+L</dt><dd>выделить всё / блокировка</dd></div>
+            <div><dt>R / Shift+R</dt><dd>поворот вправо / влево</dd></div>
+            <div><dt>Shift+H / Shift+V</dt><dd>отразить по горизонтали / вертикали</dd></div>
+            <div><dt>M / F / Ctrl+0</dt><dd>линейка / вписать план</dd></div>
+            <div><dt>Ctrl+1 / 2 / 3</dt><dd>2D / 3D / совместный вид</dd></div>
+            <div><dt>Стрелки / Shift+стрелки</dt><dd>шаг сетки / точный шаг 1 см</dd></div>
+            <div><dt>Delete / Esc</dt><dd>удалить / отменить выбор</dd></div>
+          </dl>
+        </details>
       </section>
 
       <section className="panel-section architecture-panel">
@@ -400,6 +425,15 @@ export function Sidebar({
             </div>
             <div className="check-grid"><MixedCheckbox label="Заблокировано" value={locked} onCommit={(value) => onMassPatch({ locked: value }, "Блокировка предметов")} /><MixedCheckbox label="Подпись видна" value={labelVisible} onCommit={(value) => onMassPatch({ labelVisible: value }, "Видимость подписей")} /></div>
             <div className="button-grid button-grid--three"><button type="button" onClick={() => onRotateSelection(-90)}>↺ 90°</button><button type="button" onClick={() => onMassPatch({ rotationDeg: 0 }, "Сброс угла")}>0°</button><button type="button" onClick={() => onRotateSelection(90)}>90° ↻</button></div>
+            <div className="button-grid button-grid--two action-row"><button type="button" onClick={() => onMirrorSelection("horizontal")} title="Shift+H">Отразить ↔</button><button type="button" onClick={() => onMirrorSelection("vertical")} title="Shift+V">Отразить ↕</button></div>
+            {single?.kind === "partition" ? (
+              <details className="selection-tool" open>
+                <summary>Проход в перегородке</summary>
+                <label className="property-field property-field--wide"><span>Ширина прохода, м</span><input type="number" min="0.1" step="0.1" value={passageWidthM} onChange={(event) => setPassageWidthM(Number(event.target.value))} /></label>
+                <button className="button button--wide" type="button" disabled={single.locked || !Number.isFinite(passageWidthM) || passageWidthM <= 0 || passageWidthM > single.widthM - 0.2} onClick={() => onSplitPartition(passageWidthM)}>Разделить перегородку</button>
+                <p className="hint">Проход создаётся по центру, обе части остаются отдельными редактируемыми перегородками.</p>
+              </details>
+            ) : null}
             <div className="button-grid button-grid--two action-row"><button type="button" onClick={onDuplicate}>Дублировать</button><button className="button--danger" type="button" onClick={onDelete}>Удалить</button></div>
             <div className="button-grid button-grid--two action-row"><button type="button" onClick={onGroup} disabled={selectedObjects.length < 2 || selection.groupIds.length > 0}>Сгруппировать</button><button type="button" onClick={onUngroup} disabled={selection.groupIds.length === 0}>Разгруппировать</button></div>
             <div className={`button-grid action-row${selectedObjects.length > 1 || canFillOpening ? " button-grid--two" : ""}`}>
@@ -478,7 +512,10 @@ export function Sidebar({
       </section>
 
       <section className="panel-section export-section">
-        <button className="button button--wide" type="button" onClick={onExportSvg}>Экспортировать SVG</button>
+        <div className="button-grid button-grid--two">
+          <button type="button" onClick={onExportSvg} title="Ctrl+E">Экспорт SVG</button>
+          <button className="button--primary" type="button" onClick={onExportPdf} title="Ctrl+Shift+E">Экспорт PDF</button>
+        </div>
       </section>
 
       <footer className="sidebar-footer" aria-live="polite"><span className="status-dot" aria-hidden="true" />{status}</footer>
