@@ -8,25 +8,33 @@
 |---|---|
 | `pnpm typecheck` | пройден |
 | `pnpm lint` | пройден без предупреждений |
-| `pnpm test` | 43 файла, 178 тестов пройдено |
+| `pnpm test` | 43 файла, 179 тестов пройдено |
 | `pnpm corpus:validate` | 30/30 fixtures: 10 vector PDF, 10 scan PNG, 10 perspective JPEG; SHA-256 и ground truth валидны |
 | `pnpm build` | production bundle собран вместе с локальными PDF.js/OpenCV.js/Tesseract `rus+eng` ресурсами |
 | `cargo fmt --check` | пройден |
 | `cargo test` | 8 Rust-тестов пройдено, включая v4 ZIP safety/checksum/round-trip |
 | `cargo clippy --all-targets -- -D warnings` | пройден; локализованное сообщение MSVC linker не является Clippy warning |
 | `pnpm tauri build --debug --no-bundle` | пройден; создан `src-tauri/target/debug/club-planner.exe`, 14 132 224 байта |
-| `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.2` собраны локально без приватного CI-ключа |
+| `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.3` собраны локально без приватного CI-ключа |
 | Portable smoke | `.exe` открыл отвечающее окно и завершил процесс после закрытия |
 | NSIS smoke | silent install → launch → close → silent uninstall пройдены во временной папке |
 | Release workflow | [GitHub Actions run 32377950599](https://github.com/boozik3412/club-planner/actions/runs/32377950599) пройден; quality gates, подписанная Tauri build и публикация Release `v0.2.2` успешны |
 
-Production frontend `v0.2.2` собран с ленивыми chunks `PlanImportWizard` 496,60 kB (149,65 kB gzip) и `Plan3DView` 909,13 kB (245,85 kB gzip). OpenCV, OCR-модели, PDF worker и базовый SVG упакованы как локальные assets; сеть для распознавания не используется. Предупреждение Vite о крупных ленивых chunks зафиксировано и не влияет на начальный 2D-экран.
+Production frontend `v0.2.3` собран с ленивыми chunks `PlanImportWizard` 496,60 kB (149,65 kB gzip) и `Plan3DView` 909,13 kB (245,85 kB gzip). OpenCV, OCR-модели, PDF worker и базовый SVG упакованы как локальные assets; сеть для распознавания не используется. Предупреждение Vite о крупных ленивых chunks зафиксировано и не влияет на начальный 2D-экран.
 
 Unit-тесты покрывают базовый asset, камеру, выделение, массовые команды, группировку и поворот вокруг общего центра, историю на 100 операций, serialization/legacy-import, ссылочную целостность, семантические стены/проёмы, wall/object snap, размеры, проходы, коллизии, дверные зоны, массивы, составные шаблоны, сводку и три режима геометрии между перегородками. React integration-тесты дополнительно проходят линейку, массив из выбранного предмета, сохранение/вставку проектного шаблона и изменение минимальной ширины прохода.
 
 Контекстная вставка и навигация проверены отдельно: преобразование центра viewport в метры при pan/zoom/rotation, панорамирование удержанием ПКМ, сохранение `Shift+ПКМ` для группировки, copy/paste снимка группы после удаления оригиналов и горячие клавиши `Ctrl+C` / `Ctrl+V`. В отрисованном приложении после масштабирования в другую область новый стол появился по центру текущего окна в `X=44,1`, `Y=1,9`; framework overlay, ошибки и предупреждения консоли отсутствовали.
 
 Проверки подписанного updater покрывают прогресс с известным/неизвестным размером, автоматическое и ручное состояние проверки, явное подтверждение пользователя, recovery грязного проекта, завершение установки и перезапуск. Браузерная сборка не показывает нативные команды обновления. Установленная во временную папку публичная версия `0.1.2` автоматически прочитала новый `latest.json` и показала «Доступна v0.1.3» с кнопкой «Установить и перезапустить»; тихой автоматической установки без действия пользователя нет.
+
+### Плавность панорамирования `v0.2.3`
+
+- установленная причина задержки: каждый `pointermove` вызывал корневой React `setCamera`, повторный проход `App`/боковой панели/большого SVG и эффект пересчёта видимого центра; полная SVG-тень дополнительно заставляла WebView2 перерисовывать многомегабайтный слой;
+- временная камера перенесена в `ref`, события объединяются одним `requestAnimationFrame`, а в кадре меняется только композитный CSS transform `.plan-camera-layer`; корневое состояние синхронизируется один раз на `pointerup`/`pointercancel`;
+- component regression отправляет burst из 120 RMB `pointermove`, подтверждает один запланированный frame, отсутствие React camera-коммитов во время жеста, запись последней позиции в выполненном frame и ровно один итоговый коммит;
+- сохранены короткий context menu ПКМ, подавление меню после drag, `Shift+ПКМ`, средняя кнопка и `Пробел+ЛКМ`; полный frontend gate — 43 файла/179 тестов;
+- rendered desktop `1536×960` показывает версию `0.2.3`, композитный inline transform камеры и содержательный 2D-план без framework overlay; portable/installed smoke ниже подтверждают отдельное отвечающее окно.
 
 ## Автоматический импорт и `.clubplan` v4 — этапы 16–21
 
@@ -105,6 +113,8 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 
 ## Нативная Windows-проверка
 
+- локальная неподписанная сборка `v0.2.3`: portable 28 872 704 байта, SHA-256 `294E0CDE4A087915100FC1A4855BCBD7BD7F6400730D69FEEF3A56180323811F`; NSIS installer 15 791 756 байт, SHA-256 `62991A50A8851142938FC944963B61C9A4E6A21FD64D51741BB2E0E763D89D69`;
+- portable `v0.2.3` открыл отдельное отвечающее окно `Club Planner — планировщик клуба`; NSIS прошёл silent install → launch → close → silent uninstall с кодами 0 и полностью удалил проверочную папку;
 - локальная неподписанная сборка `v0.2.2`: portable 28 872 704 байта, SHA-256 `621CB3D0024B12278AF7DE4A6049772A2A5BF1197B8BE580332AD1B4B10158D5`; NSIS installer 15 790 021 байт, SHA-256 `FA10ED40B2712B880096DE531858C9C0799E3F2EE19E3C86222F362C1A084A68`;
 - portable `v0.2.2` открыл отдельное отвечающее окно `Club Planner — планировщик клуба`; NSIS прошёл silent install → launch → close → silent uninstall с кодами 0 и полностью удалил проверочную папку;
 - опубликованный [Release v0.2.2](https://github.com/boozik3412/club-planner/releases/tag/v0.2.2) содержит portable 28 875 776 байт, SHA-256 `D6B1350C64C8E650B1B003FD5B7FEF207F31B7144A37009C03A5B80EA4FBCD06`, и NSIS 15 790 800 байт, SHA-256 `C52672C112B0056F342444A78E6048788A2C6DAE79AA490A07151C28C0C7DDF8`;

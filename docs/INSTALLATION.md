@@ -30,7 +30,7 @@ WebView2 уже присутствует на большинстве актуа�
 В каждом релизе есть `SHA256SUMS.txt`. Для проверки установщика в PowerShell:
 
 ```powershell
-$version = "0.2.2"
+$version = "0.2.3"
 Get-FileHash ".\Club-Planner_${version}_x64-setup.exe" -Algorithm SHA256
 ```
 

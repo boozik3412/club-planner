@@ -1,6 +1,6 @@
 [package]
 name = "club-planner"
-version = "0.2.2"
+version = "0.2.3"
 description = "Автономный планировщик компьютерного клуба"
 authors = ["Club Planner"]
 edition = "2021"

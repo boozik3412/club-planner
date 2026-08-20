@@ -93,6 +93,10 @@ interface ScreenPoint {
   y: number;
 }
 
+function cameraCssTransform(camera: CameraState): string {
+  return `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`;
+}
+
 function boundsIntersect(left: BoundsM, right: BoundsM): boolean {
   return left.maxXM >= right.minXM
     && left.minXM <= right.maxXM
@@ -101,7 +105,7 @@ function boundsIntersect(left: BoundsM, right: BoundsM): boolean {
 }
 
 type Gesture =
-  | { mode: "pan"; pointerId: number; start: ScreenPoint; camera: CameraState; rightButton: boolean }
+  | { mode: "pan"; pointerId: number; start: ScreenPoint; camera: CameraState; currentCamera: CameraState; cameraChanged: boolean; rightButton: boolean }
   | { mode: "marquee"; pointerId: number; start: ScreenPoint; current: ScreenPoint; additive: boolean }
   | { mode: "move"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; startObjects: PlanObject[]; otherObjects: PlanObject[]; boundaries: PlanBoundary[]; preview: ProjectState | null; activeBoundaryId: string | null; candidateIndex: number; lastPlan: ScreenPoint | null; snappingDisabled: boolean }
   | { mode: "resize"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; object: PlanObject; handle: ResizeHandle; preview: ProjectState | null }
@@ -220,7 +224,10 @@ export function BasePlanCanvas({
   const [measurementSession, setMeasurementSession] = useState<MeasurementSession | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const cameraLayerRef = useRef<SVGGElement>(null);
   const gestureRef = useRef<Gesture | null>(null);
+  const panAnimationFrameRef = useRef<number | null>(null);
+  const pendingPanCameraRef = useRef<CameraState | null>(null);
   const spacePressedRef = useRef(false);
   const suppressContextMenuRef = useRef(false);
   const lastFitKeyRef = useRef("");
@@ -326,6 +333,43 @@ export function BasePlanCanvas({
   const localPoint = useCallback((clientX: number, clientY: number): ScreenPoint => {
     const rect = frameRef.current?.getBoundingClientRect();
     return { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) };
+  }, []);
+
+  const writeCameraTransform = useCallback((nextCamera: CameraState) => {
+    if (cameraLayerRef.current) {
+      cameraLayerRef.current.style.transform = cameraCssTransform(nextCamera);
+    }
+  }, []);
+
+  const schedulePanTransform = useCallback((nextCamera: CameraState) => {
+    pendingPanCameraRef.current = nextCamera;
+    if (panAnimationFrameRef.current !== null) return;
+    if (typeof window.requestAnimationFrame !== "function") {
+      pendingPanCameraRef.current = null;
+      writeCameraTransform(nextCamera);
+      return;
+    }
+    panAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      panAnimationFrameRef.current = null;
+      const pendingCamera = pendingPanCameraRef.current;
+      pendingPanCameraRef.current = null;
+      if (pendingCamera) writeCameraTransform(pendingCamera);
+    });
+  }, [writeCameraTransform]);
+
+  const flushPanTransform = useCallback((nextCamera: CameraState) => {
+    if (panAnimationFrameRef.current !== null && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(panAnimationFrameRef.current);
+    }
+    panAnimationFrameRef.current = null;
+    pendingPanCameraRef.current = null;
+    writeCameraTransform(nextCamera);
+  }, [writeCameraTransform]);
+
+  useEffect(() => () => {
+    if (panAnimationFrameRef.current !== null && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(panAnimationFrameRef.current);
+    }
   }, []);
 
   const planPoint = useCallback((screen: ScreenPoint): ScreenPoint => {
@@ -511,8 +555,11 @@ export function BasePlanCanvas({
         pointerId: event.pointerId,
         start: screen,
         camera,
+        currentCamera: camera,
+        cameraChanged: false,
         rightButton: true,
       };
+      svgRef.current?.classList.add("is-panning");
       capture(event.pointerId);
       return;
     }
@@ -552,7 +599,8 @@ export function BasePlanCanvas({
 
     if (event.button === 1 || (event.button === 0 && spacePressedRef.current)) {
       event.preventDefault();
-      gestureRef.current = { mode: "pan", pointerId: event.pointerId, start: screen, camera, rightButton: false };
+      gestureRef.current = { mode: "pan", pointerId: event.pointerId, start: screen, camera, currentCamera: camera, cameraChanged: false, rightButton: false };
+      svgRef.current?.classList.add("is-panning");
       capture(event.pointerId);
       return;
     }
@@ -709,7 +757,14 @@ export function BasePlanCanvas({
       if (Math.hypot(screen.x - gesture.start.x, screen.y - gesture.start.y) >= 3) {
         if (gesture.rightButton) suppressContextMenuRef.current = true;
       }
-      onCameraChange({ ...gesture.camera, x: gesture.camera.x + screen.x - gesture.start.x, y: gesture.camera.y + screen.y - gesture.start.y });
+      const nextCamera = {
+        ...gesture.camera,
+        x: gesture.camera.x + screen.x - gesture.start.x,
+        y: gesture.camera.y + screen.y - gesture.start.y,
+      };
+      gesture.currentCamera = nextCamera;
+      gesture.cameraChanged = nextCamera.x !== gesture.camera.x || nextCamera.y !== gesture.camera.y;
+      schedulePanTransform(nextCamera);
       return;
     }
     if (gesture.mode === "marquee") {
@@ -768,6 +823,12 @@ export function BasePlanCanvas({
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     gestureRef.current = null;
     try { svgRef.current?.releasePointerCapture(event.pointerId); } catch { /* no active capture */ }
+    if (gesture.mode === "pan") {
+      svgRef.current?.classList.remove("is-panning");
+      flushPanTransform(gesture.currentCamera);
+      if (gesture.cameraChanged) onCameraChange(gesture.currentCamera);
+      return;
+    }
     if (gesture.mode === "marquee") {
       const start = planPoint(gesture.start);
       const end = planPoint(gesture.current);
@@ -837,7 +898,7 @@ export function BasePlanCanvas({
     <div className="canvas-frame" ref={frameRef}>
       <svg
         ref={svgRef}
-        className={`plan-canvas${gestureRef.current?.mode === "pan" ? " is-panning" : ""}`}
+        className="plan-canvas"
         viewBox={`0 0 ${viewport.width} ${viewport.height}`}
         preserveAspectRatio="none"
         role="img"
@@ -849,7 +910,11 @@ export function BasePlanCanvas({
         onWheel={onWheel}
         onContextMenu={onContextMenu}
       >
-        <g transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
+        <g
+          ref={cameraLayerRef}
+          className="plan-camera-layer"
+          style={{ transform: cameraCssTransform(camera) }}
+        >
           <g transform={`rotate(${project.canvas.rotationDeg} ${project.basePlan.widthM * project.basePlan.unitsPerMeter / 2} ${project.basePlan.heightM * project.basePlan.unitsPerMeter / 2})`}>
             {plan ? <BasePlanLayer plan={plan} project={project} sourceImageUrl={sourceImageUrl} /> : null}
             {project.canvas.semanticLayerVisible ? (

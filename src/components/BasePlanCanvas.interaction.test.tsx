@@ -70,17 +70,66 @@ function renderCanvas(overrides: Record<string, unknown> = {}) {
 }
 
 describe("BasePlanCanvas pointer navigation", () => {
-  it("pans the camera while the right mouse button is held", () => {
-    const { onCameraChange } = renderCanvas();
+  it("coalesces a burst of right-button pan events into one camera commit", () => {
+    const requestAnimationFrame = vi.fn(() => 41);
+    const cancelAnimationFrame = vi.fn();
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrame);
+    vi.stubGlobal("cancelAnimationFrame", cancelAnimationFrame);
+    const { container, onCameraChange } = renderCanvas();
     const canvas = screen.getByRole("img", { name: "Актуальная планировка компьютерного клуба" });
+    const cameraLayer = container.querySelector(".plan-camera-layer");
 
     fireEvent.pointerDown(canvas, { button: 2, pointerId: 7, clientX: 100, clientY: 120 });
-    fireEvent.pointerMove(canvas, { buttons: 2, pointerId: 7, clientX: 160, clientY: 150 });
-    fireEvent.pointerUp(canvas, { button: 2, pointerId: 7, clientX: 160, clientY: 150 });
-    fireEvent.contextMenu(canvas, { button: 2, clientX: 160, clientY: 150 });
+    for (let index = 1; index <= 120; index += 1) {
+      fireEvent.pointerMove(canvas, {
+        buttons: 2,
+        pointerId: 7,
+        clientX: 100 + index * 2,
+        clientY: 120 + index,
+      });
+    }
 
-    expect(onCameraChange).toHaveBeenLastCalledWith({ x: 80, y: 60, zoom: 0.05 });
+    expect(onCameraChange).not.toHaveBeenCalled();
+    expect(requestAnimationFrame).toHaveBeenCalledOnce();
+    expect(canvas).toHaveClass("is-panning");
+
+    fireEvent.pointerUp(canvas, { button: 2, pointerId: 7, clientX: 340, clientY: 240 });
+    fireEvent.contextMenu(canvas, { button: 2, clientX: 340, clientY: 240 });
+
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(41);
+    expect(onCameraChange).toHaveBeenCalledOnce();
+    expect(onCameraChange).toHaveBeenLastCalledWith({ x: 260, y: 150, zoom: 0.05 });
+    expect(cameraLayer).toHaveStyle({ transform: "translate(260px, 150px) scale(0.05)" });
+    expect(canvas).not.toHaveClass("is-panning");
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("writes the latest transient camera to the composited layer on the next frame", () => {
+    const scheduledFrames: FrameRequestCallback[] = [];
+    const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      scheduledFrames.push(callback);
+      return 42;
+    });
+    vi.stubGlobal("requestAnimationFrame", requestAnimationFrame);
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const { container, onCameraChange } = renderCanvas();
+    const canvas = screen.getByRole("img", { name: "Актуальная планировка компьютерного клуба" });
+    const cameraLayer = container.querySelector(".plan-camera-layer");
+
+    fireEvent.pointerDown(canvas, { button: 2, pointerId: 12, clientX: 100, clientY: 120 });
+    fireEvent.pointerMove(canvas, { buttons: 2, pointerId: 12, clientX: 120, clientY: 130 });
+    fireEvent.pointerMove(canvas, { buttons: 2, pointerId: 12, clientX: 140, clientY: 150 });
+
+    expect(requestAnimationFrame).toHaveBeenCalledOnce();
+    expect(onCameraChange).not.toHaveBeenCalled();
+    expect(scheduledFrames).toHaveLength(1);
+    scheduledFrames[0]!(16);
+    expect(cameraLayer).toHaveStyle({ transform: "translate(60px, 60px) scale(0.05)" });
+    expect(onCameraChange).not.toHaveBeenCalled();
+
+    fireEvent.pointerUp(canvas, { button: 2, pointerId: 12, clientX: 140, clientY: 150 });
+    expect(onCameraChange).toHaveBeenCalledOnce();
+    expect(onCameraChange).toHaveBeenCalledWith({ x: 60, y: 60, zoom: 0.05 });
   });
 
   it("keeps Shift plus right click reserved for grouping", () => {
