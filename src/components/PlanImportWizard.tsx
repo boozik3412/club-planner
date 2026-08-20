@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { wallLengthM, wallSvgPath } from "../editor/architecture/geometry";
+import { arcFromBulge, wallLengthM } from "../editor/architecture/geometry";
 import { createStableId } from "../editor/model/templates";
 import type {
   ArchitectureVertex,
   ArchitecturalOpening,
   ArchitecturalWall,
   PlanSource,
-  PointM,
   SourcePoint,
 } from "../editor/model/types";
 import {
@@ -15,8 +14,8 @@ import {
   type BinaryFilePayload,
   type ProjectAssetPayload,
 } from "../editor/persistence/desktop-files";
-import { bulgeFromThreePoints } from "../editor/recognition/graph";
 import { assessRecognitionQuality } from "../editor/recognition/quality";
+import { deleteReviewWallFromDraft, type ManualWallProperties, type ReviewDraftCommandResult } from "../editor/recognition/review-commands";
 import { createProjectFromRecognitionDraft } from "../editor/recognition/import-project";
 import { startRecognition } from "../editor/recognition/client";
 import { rectangleForQuad, transformSourcePoint } from "../editor/recognition/perspective";
@@ -39,6 +38,7 @@ import {
   type RecognitionProgress,
   type RecognitionIssue,
 } from "../editor/recognition/types";
+import { RecognitionReviewCanvas, type ReviewManualTool } from "./RecognitionReviewCanvas";
 
 interface PlanImportWizardProps {
   file: BinaryFilePayload;
@@ -49,8 +49,6 @@ interface PlanImportWizardProps {
 }
 
 type WizardStep = "prepare" | "calibrate" | "options" | "analyze" | "review";
-type ManualTool = "none" | "line" | "arc" | "region";
-
 interface PreparedPage {
   imageData: ImageData;
   previewUrl: string;
@@ -94,10 +92,6 @@ async function imageDataPngAsset(imageData: ImageData, path: string, maxDimensio
   return { path, mimeType: "image/png", dataBase64: bytesToBase64(new Uint8Array(await blob.arrayBuffer())) };
 }
 
-function confidenceColor(confidence = 0): string {
-  return confidence >= 0.86 ? "#22c55e" : confidence >= 0.65 ? "#f59e0b" : "#ef4444";
-}
-
 function svgPoint(event: React.MouseEvent<SVGSVGElement> | React.PointerEvent<SVGSVGElement>, width: number, height: number): SourcePoint {
   const bounds = event.currentTarget.getBoundingClientRect();
   return {
@@ -130,27 +124,6 @@ function reviewBlockingIssues(draft: RecognitionDraft): RecognitionIssue[] {
   return issues;
 }
 
-function addManualWall(draft: RecognitionDraft, points: readonly PointM[], curve: ArchitecturalWall["curve"]): RecognitionDraft {
-  const next = structuredClone(draft);
-  const start: ArchitectureVertex = {
-    id: createStableId("vertex"), xM: points[0].xM, yM: points[0].yM,
-    provenance: "manual", reviewStatus: "accepted", locked: false, confidence: 1,
-  };
-  const end: ArchitectureVertex = {
-    id: createStableId("vertex"), xM: points[points.length - 1]?.xM ?? points[0].xM, yM: points[points.length - 1]?.yM ?? points[0].yM,
-    provenance: "manual", reviewStatus: "accepted", locked: false, confidence: 1,
-  };
-  next.vertices.push(start, end);
-  next.walls.push({
-    id: createStableId("wall"), kind: "wall", startVertexId: start.id, endVertexId: end.id, curve,
-    thicknessM: next.walls[0]?.thicknessM ?? 0.15,
-    heightM: next.walls[0]?.heightM ?? 3,
-    baseElevationM: 0, heightSource: "user", thicknessSource: "user",
-    provenance: "manual", reviewStatus: "accepted", locked: false, confidence: 1,
-  });
-  return next;
-}
-
 export function PlanImportWizard({
   file,
   defaultWallHeightM,
@@ -161,7 +134,6 @@ export function PlanImportWizard({
   const pdfRef = useRef<PDFDocumentProxy | null>(null);
   const recognitionRef = useRef<ReturnType<typeof startRecognition> | null>(null);
   const dragCornerRef = useRef<number | null>(null);
-  const dragVertexRef = useRef<{ id: string; before: RecognitionDraft } | null>(null);
   const [step, setStep] = useState<WizardStep>("prepare");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -183,8 +155,8 @@ export function PlanImportWizard({
   const [undoStack, setUndoStack] = useState<RecognitionDraft[]>([]);
   const [redoStack, setRedoStack] = useState<RecognitionDraft[]>([]);
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
-  const [manualTool, setManualTool] = useState<ManualTool>("none");
-  const [manualPoints, setManualPoints] = useState<SourcePoint[]>([]);
+  const [manualTool, setManualTool] = useState<ReviewManualTool>("none");
+  const [manualWallKind, setManualWallKind] = useState<ArchitecturalWall["kind"]>("wall");
   const [dimensionHintIds, setDimensionHintIds] = useState<string[]>([]);
 
   const loadPage = useCallback(async (index: number, pdf = pdfRef.current) => {
@@ -339,7 +311,7 @@ export function PlanImportWizard({
       metersPerSourceUnit: calibrationScale,
       locked: true,
       recognizer: {
-        engineVersion: "local-hybrid-2",
+        engineVersion: "local-hybrid-3",
         pdfEngine: "pdf.js 6.2.108",
         cvEngine: "OpenCV.js 5.0.0",
         ocrEngine: "Tesseract.js 7.0.0 rus+eng",
@@ -428,6 +400,35 @@ export function PlanImportWizard({
     });
   }, []);
 
+  const applyReviewCommand = useCallback((command: (current: RecognitionDraft) => ReviewDraftCommandResult) => {
+    setDraft((current) => {
+      if (!current) return current;
+      const result = command(current);
+      if (result.error) {
+        setError(result.error);
+        return current;
+      }
+      if (result.draft === current) return current;
+      setUndoStack((stack) => [...stack, structuredClone(current)].slice(-100));
+      setRedoStack([]);
+      result.draft.quality = assessRecognitionQuality(result.draft);
+      if (result.wallId) setSelectedWallId(result.wallId);
+      return result.draft;
+    });
+  }, []);
+
+  const previewReviewDraft = useCallback((next: RecognitionDraft) => setDraft(next), []);
+
+  const commitReviewPreview = useCallback((before: RecognitionDraft) => {
+    setDraft((current) => {
+      if (!current) return current;
+      setUndoStack((stack) => [...stack, before].slice(-100));
+      setRedoStack([]);
+      current.quality = assessRecognitionQuality(current);
+      return { ...current };
+    });
+  }, []);
+
   const undoReview = useCallback(() => {
     if (!draft || undoStack.length === 0) return;
     const previous = undoStack[undoStack.length - 1];
@@ -458,6 +459,50 @@ export function PlanImportWizard({
       .slice(0, 120);
   }, [draft, reviewQuality?.candidateExplosion]);
   const visibleReviewVertexIds = useMemo(() => new Set(visibleReviewWalls.flatMap((wall) => [wall.startVertexId, wall.endVertexId])), [visibleReviewWalls]);
+  const manualWallProperties = useMemo<ManualWallProperties>(() => ({
+    kind: manualWallKind,
+    thicknessM: selectedWall?.thicknessM ?? options.defaultWallThicknessM,
+    heightM: selectedWall?.heightM ?? options.defaultWallHeightM,
+    baseElevationM: selectedWall?.baseElevationM ?? 0,
+  }), [manualWallKind, options.defaultWallHeightM, options.defaultWallThicknessM, selectedWall]);
+  const selectedWallGeometry = useMemo(() => {
+    if (!selectedWall) return null;
+    const start = reviewVertices.get(selectedWall.startVertexId);
+    const end = reviewVertices.get(selectedWall.endVertexId);
+    if (!start || !end) return null;
+    const lengthM = wallLengthM(selectedWall, reviewVertices);
+    const angleDeg = Math.atan2(end.yM - start.yM, end.xM - start.xM) * 180 / Math.PI;
+    const arc = selectedWall.curve.kind === "arc" ? arcFromBulge(start, end, selectedWall.curve.bulge) : null;
+    return { start, end, lengthM, angleDeg, radiusM: arc?.radiusM };
+  }, [reviewVertices, selectedWall]);
+
+  const changeSelectedWallGeometry = useCallback((field: "length" | "angle" | "radius", value: number) => {
+    if (!selectedWallId || !selectedWallGeometry || !(value > 0 || field === "angle") || !Number.isFinite(value)) return;
+    applyDraft((next) => {
+      const wall = next.walls.find((candidate) => candidate.id === selectedWallId);
+      if (!wall) return next;
+      const start = next.vertices.find((vertex) => vertex.id === wall.startVertexId);
+      const end = next.vertices.find((vertex) => vertex.id === wall.endVertexId);
+      if (!start || !end || end.locked) return next;
+      const currentChord = Math.hypot(end.xM - start.xM, end.yM - start.yM);
+      const chordAngle = field === "angle" ? value * Math.PI / 180 : Math.atan2(end.yM - start.yM, end.xM - start.xM);
+      let chordM = currentChord;
+      if (field === "length") {
+        if (wall.curve.kind === "arc") {
+          const sweep = Math.abs(4 * Math.atan(wall.curve.bulge));
+          chordM = sweep > 1e-8 ? value * 2 * Math.sin(sweep / 2) / sweep : value;
+        } else chordM = value;
+      } else if (field === "radius" && wall.curve.kind === "arc") {
+        const sweep = Math.abs(4 * Math.atan(wall.curve.bulge));
+        chordM = 2 * value * Math.sin(sweep / 2);
+      }
+      end.xM = start.xM + Math.cos(chordAngle) * chordM;
+      end.yM = start.yM + Math.sin(chordAngle) * chordM;
+      end.provenance = "manual";
+      wall.provenance = "manual";
+      return next;
+    });
+  }, [applyDraft, selectedWallGeometry, selectedWallId]);
 
   const addOpening = useCallback((kind: ArchitecturalOpening["kind"]) => {
     if (!selectedWallId) return;
@@ -614,15 +659,23 @@ export function PlanImportWizard({
               </div> : null}
               <div className="button-grid button-grid--three"><button type="button" disabled={!undoStack.length} onClick={undoReview}>↶</button><button type="button" disabled={!redoStack.length} onClick={redoReview}>↷</button><button type="button" disabled={!reviewQuality?.allowBatchAccept} title={reviewQuality?.allowBatchAccept ? "Принять только кандидаты с высокой измеренной уверенностью" : "Пакетное принятие заблокировано оценкой качества"} onClick={() => applyDraft((next) => { next.walls.forEach((wall) => { if ((wall.confidence ?? 0) >= 0.86) wall.reviewStatus = "accepted"; }); return next; })}>Принять надёжные</button></div>
               <div className="button-grid"><button type="button" disabled={!selectedWall} onClick={() => applyDraft((next) => { const wall = next.walls.find((candidate) => candidate.id === selectedWallId); if (wall) wall.reviewStatus = "accepted"; return next; })}>Принять</button><button type="button" disabled={!selectedWall} onClick={() => applyDraft((next) => { const wall = next.walls.find((candidate) => candidate.id === selectedWallId); if (wall) wall.reviewStatus = "rejected"; return next; })}>Отклонить</button></div>
-              <div className="button-grid"><button type="button" className={manualTool === "line" ? "is-active" : ""} onClick={() => { setManualTool("line"); setManualPoints([]); }}>Стена · 2 точки</button><button type="button" className={manualTool === "arc" ? "is-active" : ""} onClick={() => { setManualTool("arc"); setManualPoints([]); }}>Дуга · 3 точки</button></div>
-              <button className={manualTool === "region" ? "button button--wide is-active" : "button button--wide"} type="button" onClick={() => { setManualTool("region"); setManualPoints([]); }}>Повторить анализ области · 2 угла</button>
+              <label><span>Новая геометрия</span><select value={manualWallKind} onChange={(event) => setManualWallKind(event.target.value as ArchitecturalWall["kind"])}><option value="wall">Стена</option><option value="partition">Перегородка</option></select></label>
+              <div className="button-grid"><button type="button" className={manualTool === "line" ? "is-active" : ""} onClick={() => setManualTool(manualTool === "line" ? "none" : "line")}>Стена · 2 точки (W)</button><button type="button" className={manualTool === "arc" ? "is-active" : ""} onClick={() => setManualTool(manualTool === "arc" ? "none" : "arc")}>Дуга · 3 точки (A)</button></div>
+              <button className={manualTool === "region" ? "button button--wide is-active" : "button button--wide"} type="button" onClick={() => setManualTool(manualTool === "region" ? "none" : "region")}>Повторить анализ области · 2 угла</button>
+              {manualTool !== "none" ? <p className="recognition-tool-hint">Активный инструмент: {manualTool === "line" ? "прямая стена" : manualTool === "arc" ? "дуговая стена" : "область анализа"}. ПКМ отменяет текущий сегмент, Esc завершает инструмент.</p> : null}
               {selectedWall ? <div className="review-wall-fields">
                 <strong>{selectedWall.id}</strong>
                 <label><span>Тип</span><select value={selectedWall.kind} onChange={(event) => applyDraft((next) => { const wall = next.walls.find((candidate) => candidate.id === selectedWall.id); if (wall) wall.kind = event.target.value as ArchitecturalWall["kind"]; return next; })}><option value="wall">Стена</option><option value="partition">Перегородка</option></select></label>
                 <label><span>Толщина, м</span><input type="number" min="0.01" step="0.01" value={selectedWall.thicknessM} onChange={(event) => applyDraft((next) => { const wall = next.walls.find((candidate) => candidate.id === selectedWall.id); if (wall) { wall.thicknessM = Number(event.target.value); wall.thicknessSource = "user"; } return next; })} /></label>
                 <label><span>Высота, м</span><input type="number" min="0.1" step="0.1" value={selectedWall.heightM} onChange={(event) => applyDraft((next) => { const wall = next.walls.find((candidate) => candidate.id === selectedWall.id); if (wall) { wall.heightM = Number(event.target.value); wall.heightSource = "user"; } return next; })} /></label>
                 <label><span>Основание, м</span><input type="number" min="0" step="0.1" value={selectedWall.baseElevationM} onChange={(event) => applyDraft((next) => { const wall = next.walls.find((candidate) => candidate.id === selectedWall.id); if (wall) wall.baseElevationM = Number(event.target.value); return next; })} /></label>
+                {selectedWallGeometry ? <>
+                  <label><span>Длина, м</span><input type="number" min="0.02" step="0.01" value={Number(selectedWallGeometry.lengthM.toFixed(3))} onChange={(event) => changeSelectedWallGeometry("length", Number(event.target.value))} /></label>
+                  <label><span>Угол хорды, °</span><input type="number" step="1" value={Number(selectedWallGeometry.angleDeg.toFixed(2))} onChange={(event) => changeSelectedWallGeometry("angle", Number(event.target.value))} /></label>
+                  {selectedWallGeometry.radiusM ? <label><span>Радиус, м</span><input type="number" min="0.02" step="0.01" value={Number(selectedWallGeometry.radiusM.toFixed(3))} onChange={(event) => changeSelectedWallGeometry("radius", Number(event.target.value))} /></label> : null}
+                </> : null}
                 <div className="button-grid"><button type="button" onClick={() => addOpening("door")}>Добавить дверь</button><button type="button" onClick={() => addOpening("window")}>Добавить окно</button></div>
+                <button type="button" className="button--danger" onClick={() => { applyReviewCommand((current) => deleteReviewWallFromDraft(current, selectedWall.id)); setSelectedWallId(null); }}>Удалить стену (Del)</button>
               </div> : <p className="hint">Щёлкните стену. Перетаскивание общего узла изменяет все подключённые стены.</p>}
               <details open={blockingIssues.length > 0}><summary>Проблемы · {draft.issues.length}</summary><ul className="issue-list">{draft.issues.map((issue) => <li key={issue.id} className={`issue--${issue.severity}`}><button type="button" onClick={() => { if (issue.wallId) setSelectedWallId(issue.wallId); }}>{issue.message}</button></li>)}</ul></details>
               {draft.textHints.length > 0 ? <details><summary>Распознанный текст · {draft.textHints.length}</summary>{draft.textHints.map((hint) => <div className="recognized-hint" key={hint.id}>
@@ -632,57 +685,27 @@ export function PlanImportWizard({
               <div className="import-actions"><button type="button" onClick={() => setStep("options")}>Повторить анализ</button><button className="button--primary" type="button" disabled={acceptedCount === 0 || blockingIssues.length > 0} onClick={() => { void finish(); }}>Создать проект</button></div>
               {acceptedCount === 0 ? <p className="blocking-hint">Примите хотя бы одну стену.</p> : null}
             </aside>
-            <div className="import-preview-stage review-canvas">
-              <svg
-                viewBox={`0 0 ${prepared.imageData.width} ${prepared.imageData.height}`}
-                onPointerMove={(event) => {
-                  const dragging = dragVertexRef.current;
-                  if (!dragging) return;
-                  const point = svgPoint(event, prepared.imageData.width, prepared.imageData.height);
-                  setDraft((current) => {
-                    if (!current) return current;
-                    const next = structuredClone(current);
-                    const vertex = next.vertices.find((candidate) => candidate.id === dragging.id);
-                    if (vertex) { vertex.xM = point.x * source.metersPerSourceUnit!; vertex.yM = point.y * source.metersPerSourceUnit!; vertex.provenance = "manual"; }
-                    return next;
-                  });
-                }}
-                onPointerUp={() => {
-                  const dragging = dragVertexRef.current;
-                  if (dragging) {
-                    setUndoStack((stack) => [...stack, dragging.before].slice(-100));
-                    setRedoStack([]);
-                    dragVertexRef.current = null;
-                  }
-                }}
-                onClick={(event) => {
-                  if (manualTool === "none") return;
-                  const point = svgPoint(event, prepared.imageData.width, prepared.imageData.height);
-                  const points = [...manualPoints, point];
-                  const required = manualTool === "arc" ? 3 : 2;
-                  if (points.length < required) { setManualPoints(points); return; }
-                  if (manualTool === "region") {
-                    setManualPoints([]);
-                    setManualTool("none");
-                    runRegionRecognition(points[0], points[1]);
-                    return;
-                  }
-                  const meterPoints = points.map((candidate) => ({ xM: candidate.x * source.metersPerSourceUnit!, yM: candidate.y * source.metersPerSourceUnit! }));
-                  const curve = manualTool === "arc" ? (() => { const bulge = bulgeFromThreePoints(meterPoints[0], meterPoints[1], meterPoints[2]); return bulge ? { kind: "arc" as const, bulge } : null; })() : { kind: "line" as const };
-                  if (curve) applyDraft((current) => addManualWall(current, manualTool === "arc" ? [meterPoints[0], meterPoints[2]] : meterPoints, curve));
-                  setManualPoints([]);
-                  setManualTool("none");
-                }}
-              >
-                <image href={prepared.previewUrl} width={prepared.imageData.width} height={prepared.imageData.height} opacity="0.48" />
-                {visibleReviewWalls.map((wall) => {
-                  const path = wallSvgPath(wall, reviewVertices, 1 / source.metersPerSourceUnit!);
-                  return path ? <path key={wall.id} d={path} stroke={confidenceColor(wall.confidence)} className={`review-wall${wall.id === selectedWallId ? " is-selected" : ""}`} onClick={(event) => { if (manualTool !== "none") return; event.stopPropagation(); setSelectedWallId(wall.id); }} /> : null;
-                })}
-                {draft.vertices.filter((vertex) => vertex.reviewStatus !== "rejected" && visibleReviewVertexIds.has(vertex.id)).map((vertex) => <circle key={vertex.id} cx={vertex.xM / source.metersPerSourceUnit!} cy={vertex.yM / source.metersPerSourceUnit!} r={Math.max(3, prepared.imageData.width / 500)} className="review-vertex" onPointerDown={(event) => { if (manualTool !== "none") return; event.stopPropagation(); dragVertexRef.current = { id: vertex.id, before: structuredClone(draft) }; }} />)}
-                {manualPoints.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r={Math.max(5, prepared.imageData.width / 400)} className="manual-point" />)}
-              </svg>
-            </div>
+            <RecognitionReviewCanvas
+              draft={draft}
+              imageUrl={prepared.previewUrl}
+              imageWidth={prepared.imageData.width}
+              imageHeight={prepared.imageData.height}
+              metersPerSourceUnit={source.metersPerSourceUnit!}
+              visibleWalls={visibleReviewWalls}
+              visibleVertexIds={visibleReviewVertexIds}
+              selectedWallId={selectedWallId}
+              manualTool={manualTool}
+              manualWallProperties={manualWallProperties}
+              onSelectWall={setSelectedWallId}
+              onSetManualTool={setManualTool}
+              onApplyCommand={applyReviewCommand}
+              onPreviewDraft={previewReviewDraft}
+              onCommitPreview={commitReviewPreview}
+              onAnalyzeRegion={runRegionRecognition}
+              onUndo={undoReview}
+              onRedo={redoReview}
+              onError={setError}
+            />
           </div>
         ) : null}
       </div>
