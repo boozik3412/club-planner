@@ -1566,6 +1566,38 @@ button:disabled {
   font-size: 12px;
 }
 
+.recognition-quality {
+  display: grid;
+  gap: 6px;
+  padding: 9px 10px;
+  border: 1px solid #43515c;
+  border-radius: 8px;
+  background: #19232b;
+}
+
+.recognition-quality ul {
+  display: grid;
+  gap: 4px;
+  padding-left: 18px;
+  margin: 0;
+}
+
+.recognition-quality--reliable {
+  border-color: #2f7555;
+  color: #c7f8da;
+}
+
+.recognition-quality--review {
+  border-color: #8b6a2c;
+  color: #ffe0a0;
+}
+
+.recognition-quality--unreliable {
+  border-color: #9e3e49;
+  color: #ffd0d5;
+  background: #321d23;
+}
+
 .review-controls details {
   padding: 8px;
   border: 1px solid #303b46;

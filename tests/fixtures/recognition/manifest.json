@@ -1,6 +1,6 @@
 {
   "format": "club-planner-recognition-corpus",
-  "version": 1,
+  "version": 2,
   "license": "CC0-1.0",
   "generator": "tools/generate_recognition_corpus.py",
   "cases": [
@@ -10,7 +10,7 @@
       "path": "tests/fixtures/recognition/vector/vector-01.pdf",
       "mimeType": "application/pdf",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "d75393f04bc5a42e5a16a2a2f37eaab16e53063cfc5d38c5168ead1a72d7f199",
+      "sha256": "5754c18be849351744aaaedc445279f1ffe2166a4d563f174937d7136509ea62",
       "groundTruth": {
         "widthM": 10.5,
         "heightM": 7.0,
@@ -64,17 +64,6 @@
             "start": [
               3.2,
               0
-            ],
-            "end": [
-              3.2,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.2,
-              3.5
             ],
             "end": [
               3.2,
@@ -198,17 +187,6 @@
             ],
             "end": [
               3.2,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.2,
-              3.5
-            ],
-            "end": [
-              3.2,
               7.0
             ]
           },
@@ -272,7 +250,7 @@
       "path": "tests/fixtures/recognition/photo/photo-01.jpg",
       "mimeType": "image/jpeg",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "e123d55ecc4e43f9bd186192c4ee3f592d1988f7c2d72760836c0e9988481281",
+      "sha256": "3690dfb0d40fb30419c50210b79882cf7adeb304fbc5c2a9cfe518a644939b20",
       "groundTruth": {
         "widthM": 10.5,
         "heightM": 7.0,
@@ -326,17 +304,6 @@
             "start": [
               3.2,
               0
-            ],
-            "end": [
-              3.2,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.2,
-              3.5
             ],
             "end": [
               3.2,
@@ -394,7 +361,25 @@
             7.45
           ],
           "knownDistanceM": 3
-        }
+        },
+        "sourceQuad": [
+          [
+            45.0,
+            35.0
+          ],
+          [
+            1150.0,
+            48.0
+          ],
+          [
+            1170.0,
+            752.0
+          ],
+          [
+            30.0,
+            772.0
+          ]
+        ]
       }
     },
     {
@@ -403,7 +388,7 @@
       "path": "tests/fixtures/recognition/vector/vector-02.pdf",
       "mimeType": "application/pdf",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "3325ef3a5250a0b1db940112a02ceedc6b088528c6ceb5424654846af0ef3df5",
+      "sha256": "0825fc7354afc28cac082134bb211713156f75e7a75a15e9dbf789857c16fe71",
       "groundTruth": {
         "widthM": 11.0,
         "heightM": 7.4,
@@ -457,17 +442,6 @@
             "start": [
               3.5500000000000003,
               0
-            ],
-            "end": [
-              3.5500000000000003,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.5500000000000003,
-              3.5
             ],
             "end": [
               3.5500000000000003,
@@ -587,17 +561,6 @@
             ],
             "end": [
               3.5500000000000003,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.5500000000000003,
-              3.5
-            ],
-            "end": [
-              3.5500000000000003,
               7.4
             ]
           },
@@ -657,7 +620,7 @@
       "path": "tests/fixtures/recognition/photo/photo-02.jpg",
       "mimeType": "image/jpeg",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "ac3754dc4b27a393418700ecbfbd49215b8d1741911bf49e6d1fee01773718b8",
+      "sha256": "a4439946446ed3d4ca8087b0039613a29b1f4f703654461191096e47968c1b77",
       "groundTruth": {
         "widthM": 11.0,
         "heightM": 7.4,
@@ -714,17 +677,6 @@
             ],
             "end": [
               3.5500000000000003,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.5500000000000003,
-              3.5
-            ],
-            "end": [
-              3.5500000000000003,
               7.4
             ]
           },
@@ -775,7 +727,25 @@
             7.8500000000000005
           ],
           "knownDistanceM": 3
-        }
+        },
+        "sourceQuad": [
+          [
+            47.0,
+            36.0
+          ],
+          [
+            1148.0,
+            49.0
+          ],
+          [
+            1169.0,
+            750.0
+          ],
+          [
+            31.0,
+            771.0
+          ]
+        ]
       }
     },
     {
@@ -784,7 +754,7 @@
       "path": "tests/fixtures/recognition/vector/vector-03.pdf",
       "mimeType": "application/pdf",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "aa7e32613ede1e241f8758625b2e29be47f13aa558dc24b3c22a439f4546ddb8",
+      "sha256": "917ccd97050cc20f871e8f66ec861470902f9082baf7ebe35b022bbab804dde4",
       "groundTruth": {
         "widthM": 11.5,
         "heightM": 7.0,
@@ -838,17 +808,6 @@
             "start": [
               3.9000000000000004,
               0
-            ],
-            "end": [
-              3.9000000000000004,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.9000000000000004,
-              3.5
             ],
             "end": [
               3.9000000000000004,
@@ -957,17 +916,6 @@
             ],
             "end": [
               3.9000000000000004,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.9000000000000004,
-              3.5
-            ],
-            "end": [
-              3.9000000000000004,
               7.0
             ]
           },
@@ -1016,7 +964,7 @@
       "path": "tests/fixtures/recognition/photo/photo-03.jpg",
       "mimeType": "image/jpeg",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "7d4bbeb2b372536727a495e1d47209b7141aa7ea95ff60519f98fbba5d0de7db",
+      "sha256": "91b5a4ed57ebafd8b8fa7b3fb997878ca52d09cb2d52183d969b2cf07b0c2ad8",
       "groundTruth": {
         "widthM": 11.5,
         "heightM": 7.0,
@@ -1073,17 +1021,6 @@
             ],
             "end": [
               3.9000000000000004,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.9000000000000004,
-              3.5
-            ],
-            "end": [
-              3.9000000000000004,
               7.0
             ]
           },
@@ -1123,7 +1060,25 @@
             7.45
           ],
           "knownDistanceM": 3
-        }
+        },
+        "sourceQuad": [
+          [
+            49.0,
+            37.0
+          ],
+          [
+            1146.0,
+            50.0
+          ],
+          [
+            1168.0,
+            748.0
+          ],
+          [
+            32.0,
+            770.0
+          ]
+        ]
       }
     },
     {
@@ -1132,7 +1087,7 @@
       "path": "tests/fixtures/recognition/vector/vector-04.pdf",
       "mimeType": "application/pdf",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "a35a5b0ac567de0fb6b62db7ed2a6a9b0b62e4a7a26fabe91676266c9ee1da38",
+      "sha256": "17771da0f2fb0dd17f7ca8a878bffdc1b605ff8526689400f1497b114a032451",
       "groundTruth": {
         "widthM": 10.5,
         "heightM": 7.4,
@@ -1186,17 +1141,6 @@
             "start": [
               4.25,
               0
-            ],
-            "end": [
-              4.25,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              4.25,
-              3.5
             ],
             "end": [
               4.25,
@@ -1320,17 +1264,6 @@
             ],
             "end": [
               4.25,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              4.25,
-              3.5
-            ],
-            "end": [
-              4.25,
               7.4
             ]
           },
@@ -1394,7 +1327,7 @@
       "path": "tests/fixtures/recognition/photo/photo-04.jpg",
       "mimeType": "image/jpeg",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "01fde2e5f8e56ef3941edd7ba62a7a6b04199a06aab12117a1cf2f1c4f1af88f",
+      "sha256": "e39ef13283c36855c747f29cbb6dffbaf915f263d389555ae761fc65331fe543",
       "groundTruth": {
         "widthM": 10.5,
         "heightM": 7.4,
@@ -1448,17 +1381,6 @@
             "start": [
               4.25,
               0
-            ],
-            "end": [
-              4.25,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              4.25,
-              3.5
             ],
             "end": [
               4.25,
@@ -1516,7 +1438,25 @@
             7.8500000000000005
           ],
           "knownDistanceM": 3
-        }
+        },
+        "sourceQuad": [
+          [
+            51.0,
+            38.0
+          ],
+          [
+            1144.0,
+            51.0
+          ],
+          [
+            1167.0,
+            746.0
+          ],
+          [
+            33.0,
+            769.0
+          ]
+        ]
       }
     },
     {
@@ -1525,7 +1465,7 @@
       "path": "tests/fixtures/recognition/vector/vector-05.pdf",
       "mimeType": "application/pdf",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "b17f4c76216fe0c15fbbba96186d0e94425f8603f92c558174c944b83ec29bd3",
+      "sha256": "01c88f016439376da9e14179c111fe5dffd483f682995b757682469707c19c1b",
       "groundTruth": {
         "widthM": 11.0,
         "heightM": 7.0,
@@ -1579,17 +1519,6 @@
             "start": [
               3.2,
               0
-            ],
-            "end": [
-              3.2,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.2,
-              3.5
             ],
             "end": [
               3.2,
@@ -1698,17 +1627,6 @@
             ],
             "end": [
               3.2,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.2,
-              3.5
-            ],
-            "end": [
-              3.2,
               7.0
             ]
           },
@@ -1757,7 +1675,7 @@
       "path": "tests/fixtures/recognition/photo/photo-05.jpg",
       "mimeType": "image/jpeg",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "9bf6bfd38f51590ff82103c2c27a3ae7d593d4bdbfa78d54233ac056ea031d75",
+      "sha256": "f2f05ba052538ddd32cb6d80b4d9ed1093857dd03432fa1b07ef6180bdcf99a1",
       "groundTruth": {
         "widthM": 11.0,
         "heightM": 7.0,
@@ -1814,17 +1732,6 @@
             ],
             "end": [
               3.2,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.2,
-              3.5
-            ],
-            "end": [
-              3.2,
               7.0
             ]
           },
@@ -1864,7 +1771,25 @@
             7.45
           ],
           "knownDistanceM": 3
-        }
+        },
+        "sourceQuad": [
+          [
+            53.0,
+            39.0
+          ],
+          [
+            1142.0,
+            52.0
+          ],
+          [
+            1166.0,
+            744.0
+          ],
+          [
+            34.0,
+            768.0
+          ]
+        ]
       }
     },
     {
@@ -1873,7 +1798,7 @@
       "path": "tests/fixtures/recognition/vector/vector-06.pdf",
       "mimeType": "application/pdf",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "248a384ce47fdb8f7a06e0b8afdaedb84e3ec4173baeeea5617d314591f1bac2",
+      "sha256": "15820fea820a529778e55a7034ba7e36de39c74c524b06498b5bd4a57d8656b1",
       "groundTruth": {
         "widthM": 11.5,
         "heightM": 7.4,
@@ -1927,17 +1852,6 @@
             "start": [
               3.5500000000000003,
               0
-            ],
-            "end": [
-              3.5500000000000003,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.5500000000000003,
-              3.5
             ],
             "end": [
               3.5500000000000003,
@@ -2057,17 +1971,6 @@
             ],
             "end": [
               3.5500000000000003,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.5500000000000003,
-              3.5
-            ],
-            "end": [
-              3.5500000000000003,
               7.4
             ]
           },
@@ -2127,7 +2030,7 @@
       "path": "tests/fixtures/recognition/photo/photo-06.jpg",
       "mimeType": "image/jpeg",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "19b9e1d1b2b27599c7412c04c4151154f496af034242eab16af9075d631c15da",
+      "sha256": "405b32223375fcdd1061e01dd0241731604b49bff6b4c45de62dd099a2da0364",
       "groundTruth": {
         "widthM": 11.5,
         "heightM": 7.4,
@@ -2184,17 +2087,6 @@
             ],
             "end": [
               3.5500000000000003,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.5500000000000003,
-              3.5
-            ],
-            "end": [
-              3.5500000000000003,
               7.4
             ]
           },
@@ -2245,7 +2137,25 @@
             7.8500000000000005
           ],
           "knownDistanceM": 3
-        }
+        },
+        "sourceQuad": [
+          [
+            55.0,
+            40.0
+          ],
+          [
+            1140.0,
+            53.0
+          ],
+          [
+            1165.0,
+            742.0
+          ],
+          [
+            35.0,
+            767.0
+          ]
+        ]
       }
     },
     {
@@ -2254,7 +2164,7 @@
       "path": "tests/fixtures/recognition/vector/vector-07.pdf",
       "mimeType": "application/pdf",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "ab0d5e5824749057d7c6632821a5f9b835712d384a0e4b751e5d7894bd1f53f5",
+      "sha256": "1f4d23e2aa4a74cf2637853f9c3b67e84f46c57af1cbab69e364b60586dc8338",
       "groundTruth": {
         "widthM": 10.5,
         "heightM": 7.0,
@@ -2308,17 +2218,6 @@
             "start": [
               3.9000000000000004,
               0
-            ],
-            "end": [
-              3.9000000000000004,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.9000000000000004,
-              3.5
             ],
             "end": [
               3.9000000000000004,
@@ -2442,17 +2341,6 @@
             ],
             "end": [
               3.9000000000000004,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.9000000000000004,
-              3.5
-            ],
-            "end": [
-              3.9000000000000004,
               7.0
             ]
           },
@@ -2516,7 +2404,7 @@
       "path": "tests/fixtures/recognition/photo/photo-07.jpg",
       "mimeType": "image/jpeg",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "4b3b5190e2807c60ce3a486ee96d9ab37a8784ae9fb8569a82fd95c7906cd8dd",
+      "sha256": "1e1bb37912dea6ce406ab7b5eb5f4877c5ca7c241bef605b66cbd2a106c4471b",
       "groundTruth": {
         "widthM": 10.5,
         "heightM": 7.0,
@@ -2570,17 +2458,6 @@
             "start": [
               3.9000000000000004,
               0
-            ],
-            "end": [
-              3.9000000000000004,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.9000000000000004,
-              3.5
             ],
             "end": [
               3.9000000000000004,
@@ -2638,7 +2515,25 @@
             7.45
           ],
           "knownDistanceM": 3
-        }
+        },
+        "sourceQuad": [
+          [
+            57.0,
+            41.0
+          ],
+          [
+            1138.0,
+            54.0
+          ],
+          [
+            1164.0,
+            740.0
+          ],
+          [
+            36.0,
+            766.0
+          ]
+        ]
       }
     },
     {
@@ -2647,7 +2542,7 @@
       "path": "tests/fixtures/recognition/vector/vector-08.pdf",
       "mimeType": "application/pdf",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "ae66da583e2e569d3824fe2e8eb3735f3523f6b08d0f4bb07457d89c90619238",
+      "sha256": "103f995712f30a2659c379df773bad688eb184f0db592793aed55d8f39eed17f",
       "groundTruth": {
         "widthM": 11.0,
         "heightM": 7.4,
@@ -2701,17 +2596,6 @@
             "start": [
               4.25,
               0
-            ],
-            "end": [
-              4.25,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              4.25,
-              3.5
             ],
             "end": [
               4.25,
@@ -2820,17 +2704,6 @@
             ],
             "end": [
               4.25,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              4.25,
-              3.5
-            ],
-            "end": [
-              4.25,
               7.4
             ]
           },
@@ -2879,7 +2752,7 @@
       "path": "tests/fixtures/recognition/photo/photo-08.jpg",
       "mimeType": "image/jpeg",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "0e2d167e040a6b7f01d9c2cb3c7a1f87111fb9255517d5478855ff43d618d926",
+      "sha256": "e2f381ef0ab7b76667184f50768eb9266a0d41bf0b29b82565ed6046ab5ad4d9",
       "groundTruth": {
         "widthM": 11.0,
         "heightM": 7.4,
@@ -2936,17 +2809,6 @@
             ],
             "end": [
               4.25,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              4.25,
-              3.5
-            ],
-            "end": [
-              4.25,
               7.4
             ]
           },
@@ -2986,7 +2848,25 @@
             7.8500000000000005
           ],
           "knownDistanceM": 3
-        }
+        },
+        "sourceQuad": [
+          [
+            59.0,
+            42.0
+          ],
+          [
+            1136.0,
+            55.0
+          ],
+          [
+            1163.0,
+            738.0
+          ],
+          [
+            37.0,
+            765.0
+          ]
+        ]
       }
     },
     {
@@ -2995,7 +2875,7 @@
       "path": "tests/fixtures/recognition/vector/vector-09.pdf",
       "mimeType": "application/pdf",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "7d9d959fce913558436a966cf6ff230c2101d20895f4d7525a55f443324ac9cc",
+      "sha256": "8b93504a61bc206d5b6c67fb176e91da0bcfcc191603f03001248ab09065d00f",
       "groundTruth": {
         "widthM": 11.5,
         "heightM": 7.0,
@@ -3049,17 +2929,6 @@
             "start": [
               3.2,
               0
-            ],
-            "end": [
-              3.2,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.2,
-              3.5
             ],
             "end": [
               3.2,
@@ -3168,17 +3037,6 @@
             ],
             "end": [
               3.2,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.2,
-              3.5
-            ],
-            "end": [
-              3.2,
               7.0
             ]
           },
@@ -3227,7 +3085,7 @@
       "path": "tests/fixtures/recognition/photo/photo-09.jpg",
       "mimeType": "image/jpeg",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "7ecce36bc39de7ae8ca3e448dc71191036390dd5d0ba68fd99d8b9e4a8859911",
+      "sha256": "bafb2d2f2f6fe5f1fc88501b653e77b95efd0c525c4ee5ddcba2c976e619f4ab",
       "groundTruth": {
         "widthM": 11.5,
         "heightM": 7.0,
@@ -3284,17 +3142,6 @@
             ],
             "end": [
               3.2,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.2,
-              3.5
-            ],
-            "end": [
-              3.2,
               7.0
             ]
           },
@@ -3334,7 +3181,25 @@
             7.45
           ],
           "knownDistanceM": 3
-        }
+        },
+        "sourceQuad": [
+          [
+            61.0,
+            43.0
+          ],
+          [
+            1134.0,
+            56.0
+          ],
+          [
+            1162.0,
+            736.0
+          ],
+          [
+            38.0,
+            764.0
+          ]
+        ]
       }
     },
     {
@@ -3343,7 +3208,7 @@
       "path": "tests/fixtures/recognition/vector/vector-10.pdf",
       "mimeType": "application/pdf",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "da255daebf95e091cb50a4ac262e3b42f6ae7494784637903f9be8452b54d096",
+      "sha256": "d767ed0c82780ac6415c03993585300d2f3ac6296917a1889f957b755550ca1c",
       "groundTruth": {
         "widthM": 10.5,
         "heightM": 7.4,
@@ -3397,17 +3262,6 @@
             "start": [
               3.5500000000000003,
               0
-            ],
-            "end": [
-              3.5500000000000003,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.5500000000000003,
-              3.5
             ],
             "end": [
               3.5500000000000003,
@@ -3542,17 +3396,6 @@
             ],
             "end": [
               3.5500000000000003,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.5500000000000003,
-              3.5
-            ],
-            "end": [
-              3.5500000000000003,
               7.4
             ]
           },
@@ -3627,7 +3470,7 @@
       "path": "tests/fixtures/recognition/photo/photo-10.jpg",
       "mimeType": "image/jpeg",
       "license": "CC0-1.0 / self-generated",
-      "sha256": "9df11d30901559909fa0c7ae75534dea3d4487380b3f39631cebeffb23fc6333",
+      "sha256": "dec99eceb338de838b091bdd72ddbfae0080e06ad9f9bef70a4ea28a3361b0fc",
       "groundTruth": {
         "widthM": 10.5,
         "heightM": 7.4,
@@ -3681,17 +3524,6 @@
             "start": [
               3.5500000000000003,
               0
-            ],
-            "end": [
-              3.5500000000000003,
-              2.6
-            ]
-          },
-          {
-            "kind": "line",
-            "start": [
-              3.5500000000000003,
-              3.5
             ],
             "end": [
               3.5500000000000003,
@@ -3760,7 +3592,25 @@
             7.8500000000000005
           ],
           "knownDistanceM": 3
-        }
+        },
+        "sourceQuad": [
+          [
+            63.0,
+            44.0
+          ],
+          [
+            1132.0,
+            57.0
+          ],
+          [
+            1161.0,
+            734.0
+          ],
+          [
+            39.0,
+            763.0
+          ]
+        ]
       }
     }
   ],

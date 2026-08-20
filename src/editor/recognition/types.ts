@@ -40,6 +40,7 @@ export interface RecognitionImage {
   outputHeight: number;
   metersPerPixel: number;
   vectorLines?: DetectedLine[];
+  vectorOpeningLines?: DetectedLine[];
   vectorArcs?: DetectedArc[];
 }
 
@@ -48,6 +49,13 @@ export interface DetectedLine {
   end: SourcePoint;
   confidence: number;
   thicknessPx?: number;
+  evidence?: {
+    pairedFaces?: boolean;
+    overlapRatio?: number;
+    thicknessConsistency?: number;
+    pixelSupport?: number;
+    coloredOpeningSupport?: number;
+  };
 }
 
 export interface DetectedArc {
@@ -55,6 +63,10 @@ export interface DetectedArc {
   through: SourcePoint;
   end: SourcePoint;
   confidence: number;
+  evidence?: {
+    gradientSupport?: number;
+    concentricPair?: boolean;
+  };
 }
 
 export interface RecognizedTextHint {
@@ -75,6 +87,22 @@ export interface RecognitionIssue {
   point?: SourcePoint;
 }
 
+export type RecognitionQualityStatus = "reliable" | "review" | "unreliable";
+
+export interface RecognitionQualityReport {
+  status: RecognitionQualityStatus;
+  score: number;
+  wallCount: number;
+  arcCount: number;
+  danglingEndpointCount: number;
+  danglingEndpointRatio: number;
+  isolatedWallCount: number;
+  isolatedWallRatio: number;
+  candidateExplosion: boolean;
+  allowBatchAccept: boolean;
+  reasons: string[];
+}
+
 export interface RecognitionDraft {
   engineVersion: string;
   source: PlanSource;
@@ -83,6 +111,7 @@ export interface RecognitionDraft {
   openings: ArchitecturalOpening[];
   textHints: RecognizedTextHint[];
   issues: RecognitionIssue[];
+  quality?: RecognitionQualityReport;
 }
 
 export type RecognizerRequest =
@@ -98,7 +127,7 @@ export type RecognizerResponse =
 export const DEFAULT_RECOGNITION_OPTIONS: RecognitionOptions = {
   detectWalls: true,
   detectOpenings: true,
-  detectArcs: true,
+  detectArcs: false,
   recognizeText: true,
   defaultWallHeightM: 3,
   defaultWallThicknessM: 0.15,

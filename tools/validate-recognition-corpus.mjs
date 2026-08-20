@@ -7,7 +7,7 @@ const root = resolve(import.meta.dirname, "..");
 const manifestPath = resolve(root, "tests/fixtures/recognition/manifest.json");
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 
-if (manifest.format !== "club-planner-recognition-corpus" || manifest.version !== 1) {
+if (manifest.format !== "club-planner-recognition-corpus" || ![1, 2].includes(manifest.version)) {
   throw new Error("Неподдерживаемая версия manifest корпуса распознавания");
 }
 const ids = new Set();
@@ -19,6 +19,14 @@ for (const fixture of manifest.cases) {
   if (!fixture.license?.includes("self-generated")) throw new Error(`Нет разрешённой лицензии: ${fixture.id}`);
   if (!fixture.groundTruth?.walls?.length || !(fixture.groundTruth.calibration?.knownDistanceM > 0)) {
     throw new Error(`Нет ground truth или калибровки: ${fixture.id}`);
+  }
+  if (manifest.version >= 2 && fixture.category === "photo"
+    && (!Array.isArray(fixture.groundTruth.sourceQuad) || fixture.groundTruth.sourceQuad.length !== 4)) {
+    throw new Error(`Нет четырёхточечной photo-калибровки: ${fixture.id}`);
+  }
+  for (const opening of fixture.groundTruth.openings ?? []) {
+    const host = fixture.groundTruth.walls[opening.hostWallIndex];
+    if (!host || host.kind !== "line") throw new Error(`Некорректный host проёма: ${fixture.id}`);
   }
   const bytes = await readFile(resolve(root, fixture.path));
   const actual = createHash("sha256").update(bytes).digest("hex");

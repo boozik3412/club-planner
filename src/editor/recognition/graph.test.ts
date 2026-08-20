@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PlanSource } from "../model/types";
 import { DEFAULT_RECOGNITION_OPTIONS } from "./types";
-import { buildRecognitionGraph, bulgeFromThreePoints, mergeCollinearLines, mergeNearbyVertices } from "./graph";
+import { bridgeColoredDoorGaps, buildRecognitionGraph, bulgeFromThreePoints, mergeCollinearLines, mergeNearbyVertices, splitLinesAtJunctions } from "./graph";
 
 const source: PlanSource = {
   id: "source-test",
@@ -20,6 +20,26 @@ const source: PlanSource = {
 };
 
 describe("recognition graph", () => {
+  it("bridges collinear wall faces across a colored door leaf", () => {
+    const result = bridgeColoredDoorGaps([
+      { start: { x: 10, y: 0 }, end: { x: 10, y: 100 }, confidence: 0.9, thicknessPx: 5 },
+      { start: { x: 10, y: 140 }, end: { x: 10, y: 240 }, confidence: 0.9, thicknessPx: 5 },
+    ], [{
+      start: { x: 10, y: 100 }, end: { x: 50, y: 100 }, confidence: 0.9,
+      evidence: { coloredOpeningSupport: 1 },
+    }], 0.02);
+    expect(result.lines).toHaveLength(1);
+    expect(result.doorGaps).toEqual([{ start: { x: 10, y: 100 }, end: { x: 10, y: 140 }, confidence: 0.9 }]);
+  });
+  it("splits a host wall and snaps a T junction to one point", () => {
+    const result = splitLinesAtJunctions([
+      { start: { x: 0, y: 0 }, end: { x: 100, y: 0 }, confidence: 0.9 },
+      { start: { x: 50, y: 52 }, end: { x: 50, y: 3 }, confidence: 0.9 },
+    ], 4);
+    expect(result).toHaveLength(3);
+    expect(result.filter((line) => Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y) === 50)).toHaveLength(2);
+    expect(result.some((line) => line.start.x === 50 && line.start.y === 0 || line.end.x === 50 && line.end.y === 0)).toBe(true);
+  });
   it("merges close endpoints into one shared vertex", () => {
     const merged = mergeNearbyVertices([{ xM: 0, yM: 0 }, { xM: 0.03, yM: 0.02 }, { xM: 1, yM: 0 }], 0.08, "raster");
     expect(merged.vertices).toHaveLength(2);
@@ -41,6 +61,7 @@ describe("recognition graph", () => {
       lines: [{ start: { x: 0, y: 0 }, end: { x: 500, y: 0 }, confidence: 0.92 }],
       arcs: [{ start: { x: 500, y: 0 }, through: { x: 600, y: 100 }, end: { x: 500, y: 200 }, confidence: 0.8 }],
       options: DEFAULT_RECOGNITION_OPTIONS,
+      geometrySource: "vector",
     });
     expect(draft.walls).toHaveLength(2);
     expect(draft.walls[1].curve.kind).toBe("arc");
@@ -54,6 +75,7 @@ describe("recognition graph", () => {
       lines: [{ start: { x: 0, y: 100 }, end: { x: 500, y: 100 }, confidence: 0.95 }],
       arcs: [{ start: { x: 200, y: 100 }, through: { x: 270, y: 130 }, end: { x: 300, y: 200 }, confidence: 0.85 }],
       options: DEFAULT_RECOGNITION_OPTIONS,
+      geometrySource: "vector",
     });
     expect(draft.openings).toHaveLength(1);
     expect(draft.openings[0].kind).toBe("door");
@@ -79,6 +101,44 @@ describe("recognition graph", () => {
       options: DEFAULT_RECOGNITION_OPTIONS,
     });
     expect(draft.openings).toHaveLength(0);
+  });
+
+  it("requires concentric evidence before creating a raster curved wall", () => {
+    const single = buildRecognitionGraph({
+      source,
+      lines: [],
+      arcs: [{ start: { x: 200, y: 100 }, through: { x: 300, y: 0 }, end: { x: 400, y: 100 }, confidence: 0.91 }],
+      options: { ...DEFAULT_RECOGNITION_OPTIONS, detectOpenings: false },
+      geometrySource: "raster",
+    });
+    expect(single.walls).toHaveLength(0);
+
+    const paired = buildRecognitionGraph({
+      source,
+      lines: [],
+      arcs: [
+        { start: { x: 200, y: 100 }, through: { x: 300, y: 0 }, end: { x: 400, y: 100 }, confidence: 0.91 },
+        { start: { x: 190, y: 100 }, through: { x: 300, y: -10 }, end: { x: 410, y: 100 }, confidence: 0.88 },
+      ],
+      options: { ...DEFAULT_RECOGNITION_OPTIONS, detectOpenings: false },
+      geometrySource: "raster",
+    });
+    expect(paired.walls).toHaveLength(1);
+    expect(paired.walls[0].curve.kind).toBe("arc");
+  });
+
+  it("prunes short isolated raster graphics but keeps connected wall chains", () => {
+    const draft = buildRecognitionGraph({
+      source,
+      lines: [
+        { start: { x: 0, y: 0 }, end: { x: 500, y: 0 }, confidence: 0.95 },
+        { start: { x: 500, y: 0 }, end: { x: 500, y: 300 }, confidence: 0.94 },
+        { start: { x: 80, y: 120 }, end: { x: 180, y: 120 }, confidence: 0.98 },
+      ],
+      options: DEFAULT_RECOGNITION_OPTIONS,
+      geometrySource: "raster",
+    });
+    expect(draft.walls).toHaveLength(2);
   });
 
   it("uses a nearby OCR window label as a reviewable hosted opening", () => {

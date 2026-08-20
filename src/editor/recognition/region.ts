@@ -1,5 +1,6 @@
 import type { PlanSource } from "../model/types";
 import type { DetectedArc, DetectedLine, RecognitionDraft, RecognitionImage } from "./types";
+import { assessRecognitionQuality } from "./quality";
 
 export interface PixelRegion {
   x: number;
@@ -32,6 +33,7 @@ export function cropRecognitionImage(
   metersPerPixel: number,
   vectorLines: readonly DetectedLine[],
   vectorArcs: readonly DetectedArc[] = [],
+  vectorOpeningLines: readonly DetectedLine[] = [],
 ): RecognitionImage {
   const rgba = new Uint8ClampedArray(region.width * region.height * 4);
   for (let row = 0; row < region.height; row += 1) {
@@ -53,6 +55,13 @@ export function cropRecognitionImage(
       through: { x: arc.through.x - region.x, y: arc.through.y - region.y },
       end: { x: arc.end.x - region.x, y: arc.end.y - region.y },
     }));
+  const openingLines = vectorOpeningLines
+    .filter((line) => inside(line.start, region) || inside(line.end, region))
+    .map((line) => ({
+      ...line,
+      start: { x: line.start.x - region.x, y: line.start.y - region.y },
+      end: { x: line.end.x - region.x, y: line.end.y - region.y },
+    }));
   return {
     width: region.width,
     height: region.height,
@@ -65,6 +74,7 @@ export function cropRecognitionImage(
     outputHeight: region.height,
     metersPerPixel,
     vectorLines: lines,
+    vectorOpeningLines: openingLines,
     vectorArcs: arcs,
   };
 }
@@ -102,7 +112,7 @@ export function mergeRegionRecognition(
     xM: vertex.xM + xOffsetM,
     yM: vertex.yM + yOffsetM,
   }));
-  return {
+  const next: RecognitionDraft = {
     ...current,
     engineVersion: recognized.engineVersion,
     source,
@@ -124,4 +134,6 @@ export function mergeRegionRecognition(
       })),
     ],
   };
+  next.quality = assessRecognitionQuality(next);
+  return next;
 }

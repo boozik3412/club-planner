@@ -41,8 +41,7 @@ def plan_geometry(index: int) -> dict:
         {"kind": "line", "start": [room_width, 0], "end": [room_width, room_height]},
         {"kind": "line", "start": [room_width, room_height], "end": [0, room_height]},
         {"kind": "line", "start": [0, room_height], "end": [0, 0]},
-        {"kind": "line", "start": [divider_x, 0], "end": [divider_x, 2.6]},
-        {"kind": "line", "start": [divider_x, 3.5], "end": [divider_x, room_height]},
+        {"kind": "line", "start": [divider_x, 0], "end": [divider_x, room_height]},
         {"kind": "line", "start": [divider_x, cross_y], "end": [room_width, cross_y]},
     ]
     if index % 3 == 0:
@@ -66,9 +65,14 @@ def pixel(point: list[float]) -> tuple[float, float]:
 
 
 def draw_plan(draw: ImageDraw.ImageDraw, geometry: dict, line_width: int = 7) -> None:
-    for wall in geometry["walls"]:
+    for wall_index, wall in enumerate(geometry["walls"]):
         if wall["kind"] == "line":
-            draw.line([pixel(wall["start"]), pixel(wall["end"])], fill=(18, 24, 32), width=line_width)
+            if wall_index == 4:
+                divider_x = wall["start"][0]
+                draw.line([pixel([divider_x, 0]), pixel([divider_x, 2.6])], fill=(18, 24, 32), width=line_width)
+                draw.line([pixel([divider_x, 3.5]), pixel([divider_x, wall["end"][1]])], fill=(18, 24, 32), width=line_width)
+            else:
+                draw.line([pixel(wall["start"]), pixel(wall["end"])], fill=(18, 24, 32), width=line_width)
         else:
             start = np.array(pixel(wall["start"]))
             through = np.array(pixel(wall["through"]))
@@ -99,14 +103,22 @@ def draw_plan(draw: ImageDraw.ImageDraw, geometry: dict, line_width: int = 7) ->
 
 
 def vector_pdf(path: Path, geometry: dict) -> None:
-    page = canvas.Canvas(str(path), pagesize=(WIDTH_PX, HEIGHT_PX), pageCompression=1)
+    page = canvas.Canvas(str(path), pagesize=(WIDTH_PX, HEIGHT_PX), pageCompression=1, invariant=1)
     page.setStrokeColorRGB(0.08, 0.1, 0.13)
     page.setLineWidth(5)
-    for wall in geometry["walls"]:
+    for wall_index, wall in enumerate(geometry["walls"]):
         if wall["kind"] == "line":
-            x1, y1 = pixel(wall["start"])
-            x2, y2 = pixel(wall["end"])
-            page.line(x1, HEIGHT_PX - y1, x2, HEIGHT_PX - y2)
+            segments = [wall]
+            if wall_index == 4:
+                divider_x = wall["start"][0]
+                segments = [
+                    {"start": [divider_x, 0], "end": [divider_x, 2.6]},
+                    {"start": [divider_x, 3.5], "end": [divider_x, wall["end"][1]]},
+                ]
+            for segment in segments:
+                x1, y1 = pixel(segment["start"])
+                x2, y2 = pixel(segment["end"])
+                page.line(x1, HEIGHT_PX - y1, x2, HEIGHT_PX - y2)
         else:
             start = pixel(wall["start"])
             end = pixel(wall["end"])
@@ -139,24 +151,47 @@ def scan_image(path: Path, geometry: dict, seed: int) -> Image.Image:
     pixels = np.asarray(image).astype(np.int16)
     noise = rng.normal(0, 4.5, pixels.shape[:2])[:, :, None]
     pixels = np.clip(pixels + noise, 0, 255).astype(np.uint8)
-    result = Image.fromarray(pixels, "RGB").filter(ImageFilter.GaussianBlur(0.45 + seed % 3 * 0.15))
+    result = Image.fromarray(pixels).filter(ImageFilter.GaussianBlur(0.45 + seed % 3 * 0.15))
     result.save(path, optimize=True)
     return result
 
 
-def photo_image(path: Path, geometry: dict, seed: int) -> None:
+def perspective_coefficients(destination: list[tuple[float, float]], source: list[tuple[float, float]]) -> list[float]:
+    matrix = []
+    values = []
+    for (x, y), (u, v) in zip(destination, source, strict=True):
+        matrix.append([x, y, 1, 0, 0, 0, -u * x, -u * y])
+        values.append(u)
+        matrix.append([0, 0, 0, x, y, 1, -v * x, -v * y])
+        values.append(v)
+    return np.linalg.solve(np.asarray(matrix, dtype=np.float64), np.asarray(values, dtype=np.float64)).tolist()
+
+
+def photo_image(path: Path, geometry: dict, seed: int) -> list[list[float]]:
     base = scan_image(path.with_suffix(".tmp.png"), geometry, seed + 100)
-    angle = -2.5 + seed * 0.45
-    rotated = base.rotate(angle, resample=Image.Resampling.BICUBIC, expand=True, fillcolor=(72, 68, 62))
-    quad = (30 + seed * 2, 10, rotated.width - 50, 28 + seed, rotated.width - 8, rotated.height - 35, 55, rotated.height - 5)
-    warped = rotated.transform((WIDTH_PX, HEIGHT_PX), Image.Transform.QUAD, quad, resample=Image.Resampling.BICUBIC, fillcolor=(66, 62, 58))
+    destination = [
+        (45 + seed * 2, 35 + seed),
+        (1150 - seed * 2, 48 + seed),
+        (1170 - seed, 752 - seed * 2),
+        (30 + seed, 772 - seed),
+    ]
+    source = [(0, 0), (WIDTH_PX - 1, 0), (WIDTH_PX - 1, HEIGHT_PX - 1), (0, HEIGHT_PX - 1)]
+    coefficients = perspective_coefficients(destination, source)
+    warped = base.transform(
+        (WIDTH_PX, HEIGHT_PX),
+        Image.Transform.PERSPECTIVE,
+        coefficients,
+        resample=Image.Resampling.BICUBIC,
+        fillcolor=(66, 62, 58),
+    )
     array = np.asarray(warped).astype(np.float32)
     gradient = np.linspace(0.72, 1.12, WIDTH_PX, dtype=np.float32)[None, :, None]
     vignette_y = np.linspace(0.9, 1.05, HEIGHT_PX, dtype=np.float32)[:, None, None]
     array = np.clip(array * gradient * vignette_y, 0, 255).astype(np.uint8)
-    result = ImageEnhance.Contrast(Image.fromarray(array, "RGB")).enhance(0.92)
+    result = ImageEnhance.Contrast(Image.fromarray(array)).enhance(0.92)
     result.save(path, quality=88, optimize=True)
     path.with_suffix(".tmp.png").unlink()
+    return [[float(x), float(y)] for x, y in destination]
 
 
 def digest(path: Path) -> str:
@@ -177,8 +212,11 @@ def main() -> None:
         ]
         vector_pdf(variants[0][1], geometry)
         scan_image(variants[1][1], geometry, index)
-        photo_image(variants[2][1], geometry, index)
+        photo_quad = photo_image(variants[2][1], geometry, index)
         for category, path, mime in variants:
+            ground_truth = json.loads(json.dumps(geometry))
+            if category == "photo":
+                ground_truth["sourceQuad"] = photo_quad
             cases.append({
                 "id": f"{category}-{index + 1:02d}",
                 "category": category,
@@ -186,11 +224,11 @@ def main() -> None:
                 "mimeType": mime,
                 "license": "CC0-1.0 / self-generated",
                 "sha256": digest(path),
-                "groundTruth": geometry,
+                "groundTruth": ground_truth,
             })
     manifest = {
         "format": "club-planner-recognition-corpus",
-        "version": 1,
+        "version": 2,
         "license": "CC0-1.0",
         "generator": "tools/generate_recognition_corpus.py",
         "cases": cases,

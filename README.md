@@ -10,6 +10,8 @@
 - [Club-Planner_0.2.0_x64-portable.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.2.0_x64-portable.exe) — запуск без установки;
 - [SHA256SUMS.txt](https://github.com/boozik3412/club-planner/releases/latest/download/SHA256SUMS.txt) — контрольные суммы загрузок.
 
+Опубликованная стабильная версия сейчас `0.2.0`; исходники `0.2.1` содержат новую итерацию распознавания и до публикации доступны только через локальную сборку.
+
 См. [инструкцию по установке и проверке файла](docs/INSTALLATION.md). Сборка пока не подписана коммерческим сертификатом, поэтому Windows SmartScreen может показать предупреждение издателя.
 
 ## Возможности
@@ -50,6 +52,7 @@ pnpm tauri dev
 pnpm typecheck
 pnpm lint
 pnpm test
+pnpm recognition:benchmark
 pnpm build
 ```
 
@@ -70,7 +73,7 @@ pnpm tauri build
 Артефакты создаются в:
 
 - `src-tauri/target/release/club-planner.exe`;
-- `src-tauri/target/release/bundle/nsis/Club Planner_0.2.0_x64-setup.exe`.
+- `src-tauri/target/release/bundle/nsis/Club Planner_0.2.1_x64-setup.exe`.
 
 ## Основные сочетания клавиш
 
@@ -101,6 +104,7 @@ pnpm tauri build
 - [Формат проекта](docs/FILE_FORMAT.md)
 - [Импорт и редактирование распознанного плана](docs/USER_GUIDE.md)
 - [Установка на Windows](docs/INSTALLATION.md)
+- [Примечания к версии 0.2.1](docs/RELEASE_NOTES_0.2.1.md)
 - [Примечания к версии 0.2.0](docs/RELEASE_NOTES_0.2.0.md)
 - [Примечания к версии 0.1.3](docs/RELEASE_NOTES_0.1.3.md)
 - [Примечания к версии 0.1.2](docs/RELEASE_NOTES_0.1.2.md)

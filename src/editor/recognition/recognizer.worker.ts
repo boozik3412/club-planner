@@ -24,7 +24,7 @@ self.onmessage = (event: MessageEvent<RecognizerRequest>) => {
       progress({ id: request.id, type: "progress", progress: { stage: "preparing", progress: 0, message: "Подготовка изображения" } });
       const hasVectorArchitecture = (request.image.vectorLines?.length ?? 0) >= 4;
       const raster = hasVectorArchitecture
-        ? { lines: [], arcs: [], rawLines: [] }
+        ? { lines: [], arcs: [], rawLines: [], openingLines: [] }
         : await detectRasterGeometry(
           request.image.width,
           request.image.height,
@@ -70,9 +70,12 @@ self.onmessage = (event: MessageEvent<RecognizerRequest>) => {
       const draft = buildRecognitionGraph({
         source: request.source,
         lines: request.options.detectWalls ? detected.lines : [],
+        openingLines: hasVectorArchitecture ? request.image.vectorOpeningLines ?? [] : raster.openingLines,
         arcs: request.options.detectArcs ? detected.arcs : [],
         textHints,
         options: request.options,
+        engineVersion: "local-hybrid-2",
+        geometrySource: hasVectorArchitecture ? "vector" : "raster",
       });
       post({ id: request.id, type: "result", draft });
     } catch (error) {

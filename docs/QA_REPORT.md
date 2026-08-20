@@ -15,7 +15,7 @@
 | `cargo test` | 8 Rust-тестов пройдено, включая v4 ZIP safety/checksum/round-trip |
 | `cargo clippy --all-targets -- -D warnings` | пройден; локализованное сообщение MSVC linker не является Clippy warning |
 | `pnpm tauri build --debug --no-bundle` | пройден; создан `src-tauri/target/debug/club-planner.exe`, 14 132 224 байта |
-| `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.0` собраны локально без приватного CI-ключа |
+| `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.1` собраны локально без приватного CI-ключа |
 | Portable smoke | `.exe` открыл отвечающее окно и завершил процесс после закрытия |
 | NSIS smoke | silent install → launch → close → silent uninstall пройдены во временной папке |
 | Release workflow | [GitHub Actions run 31673483234](https://github.com/boozik3412/club-planner/actions/runs/31673483234) пройден; quality gates, подписанная Tauri build и публикация Release `v0.1.3` успешны |
@@ -35,7 +35,11 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 - перспективная JPEG-фикстура прошла весь мастер; исправленный OpenCV перебирает все `HoughLinesP` (`rows × cols`), выделяет 7–8 основных осей вместо одной и фильтрует границы листа, короткие текстовые штрихи и слабые ложные дуги;
 - review UI визуально проверен: заблокированная подложка, confidence-цвета, ручные стены/дуги, узлы, accept/reject, повторный анализ области и переход в рабочий 2D-план; console `error` — 0;
 - `.clubplan` v4 сохраняется атомарным ZIP-контейнером с `project.json`, исходником, выровненной PNG-подложкой и миниатюрой; SHA-256 исходника и ZIP limits проверяются до публикации состояния;
-- структурная проверка корпуса не является accuracy benchmark. F1/ошибка в сантиметрах из `PRODUCT_SPEC` пока не подтверждены и остаются обязательным отдельным release-gate на размеченном корпусе.
+- corpus manifest v2 моделирует стену через дверь как единый host wall и хранит известную четырёхточечную калибровку перспективных фото;
+- `pnpm recognition:benchmark` запускает production OpenCV detector и graph builder на 30 случаях и входит в `pnpm check`: прямые стены vector PDF F1 `1,000` при практически нулевой ошибке оси; scan F1 `0,984`, opening F1 `1,000`, средняя ошибка `2,38 см`; rectified photo F1 `0,938`, opening F1 `0,950`, средняя ошибка `2,20 см`;
+- unit-тесты дополнительно покрывают red annotation mask, отдельный слой цветной графики проёмов, text-like component removal, hatch-негативы, парные грани, дверной gap bridge, T-стыки, raster-arc fail-safe и quality-fail;
+- ручная локальная регрессия на предоставленной фотографии больше не создаёт сотни зелёных дуг/линий: найден 31 парный wall-axis, после T/L/X-разделения — 64 редактируемых участка, две изолированные стены, raster-дуги/двери из окружностей — 0; статус `review` и пакетное принятие заблокированы из-за 47 свободных концов;
+- эти цифры подтверждают синтетический gate прямых стен и устранение аварийного «спагетти», но не заменяют ещё открытые raster curved-wall метрики и разрешённый реальный holdout.
 
 ## Архитектурные высоты и 3D — этап 11
 
@@ -84,6 +88,9 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 
 ## Нативная Windows-проверка
 
+- локальная неподписанная сборка `v0.2.1`: portable 28 860 416 байт, SHA-256 `D25AE9BD78098E28CB61ED6C08B0636851B4E5742BA30412AF4AF3305B9E168B`; NSIS installer 15 780 543 байта, SHA-256 `7B4FEF1C15F619B6C586A945147502BA58C3B13E8942D3A0002B3C553EB36A95`;
+- portable `v0.2.1` открыл отдельное отвечающее окно `Club Planner — планировщик клуба`; NSIS прошёл silent install → launch → close → silent uninstall с кодами 0 и полностью удалил отдельную временную папку;
+- rendered browser QA `v0.2.1` подтвердил заголовок/версию, содержательный 2D-экран без framework overlay, добавление прямоугольника с переходом `0 → 1 предмет`, отсутствие console `error`/`warn` и корректную desktop-компоновку;
 - локальная неподписанная сборка `v0.2.0`: portable 28 856 320 байт, SHA-256 `4925E4194383518A47E5671B181EA58D150E4FB71AAC500BB6790BE9E0B07891`; NSIS installer 15 775 056 байт, SHA-256 `F0FEA8DB3B4851843D402147D0607FBBCDBC7A9206A35ECFB2FD3A3AA072B283`;
 - portable `v0.2.0` открыл отдельное отвечающее окно `Club Planner — планировщик клуба`; NSIS прошёл silent install → launch → close → silent uninstall с кодами 0 и удалил отдельную временную папку;
 - updater `.sig` и `latest.json` локально не создавались: приватный ключ отсутствует в рабочей среде и передаётся только GitHub Actions. Workflow настроен на подписанную сборку и публикацию после тега;
@@ -110,4 +117,4 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 
 ## Границы проверки
 
-Локальная `v0.2.0`, а также сборка/загрузка опубликованных предыдущих релизов, запуск portable и полный цикл installer проверены на текущей Windows-машине. Подписанный публичный Release `v0.2.0`, полный F1 benchmark и отдельная clean Windows 10/11 VM в этой среде не выполнялись; перед широкой раздачей остаются: CI release → offline install/launch → import/edit/save → restart/open → update → uninstall.
+Локальная `v0.2.1`, синтетический benchmark прямых стен/проёмов, запуск portable и полный цикл installer проверены на текущей Windows-машине. Публичный подписанный Release/updater `v0.2.1`, raster curved-wall gate, разрешённый реальный holdout и отдельная clean Windows 10/11 VM в этой среде не выполнялись; перед широкой раздачей остаются: CI release → offline install/launch → import/edit/save → restart/open → update → uninstall.

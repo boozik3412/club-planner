@@ -33,6 +33,7 @@ export interface RenderedPlanPage {
   pageCount: number;
   pageIndex: number;
   vectorLines: DetectedLine[];
+  vectorOpeningLines: DetectedLine[];
   vectorArcs: DetectedArc[];
 }
 
@@ -53,23 +54,29 @@ function affinePoint(matrix: AffineMatrix, x: number, y: number): { x: number; y
   return { x: matrix[0] * x + matrix[2] * y + matrix[4], y: matrix[1] * x + matrix[3] * y + matrix[5] };
 }
 
-async function extractVectorGeometry(page: PDFPageProxy, viewportTransform: AffineMatrix): Promise<{ lines: DetectedLine[]; arcs: DetectedArc[] }> {
+async function extractVectorGeometry(page: PDFPageProxy, viewportTransform: AffineMatrix): Promise<{ lines: DetectedLine[]; openingLines: DetectedLine[]; arcs: DetectedArc[] }> {
   const operators = await page.getOperatorList();
-  const stack: AffineMatrix[] = [];
+  const stack: Array<{ transform: AffineMatrix; strokeColor: string }> = [];
   let transform: AffineMatrix = [1, 0, 0, 1, 0, 0];
+  let strokeColor = "#000000";
   let current: { x: number; y: number } | null = null;
   const lines: DetectedLine[] = [];
+  const openingLines: DetectedLine[] = [];
   const arcs: DetectedArc[] = [];
   const transformedPoint = (point: { x: number; y: number }) => {
     const local = affinePoint(transform, point.x, point.y);
     return affinePoint(viewportTransform, local.x, local.y);
   };
   const emit = (x1: number, y1: number, x2: number, y2: number) => {
+    const color = strokeColor.match(/[\da-f]{2}/gi)?.map((value) => Number.parseInt(value, 16)) ?? [0, 0, 0];
+    const target = Math.max(...color) - Math.min(...color) >= 40 ? openingLines : lines;
     const localStart = affinePoint(transform, x1, y1);
     const localEnd = affinePoint(transform, x2, y2);
     const start = affinePoint(viewportTransform, localStart.x, localStart.y);
     const end = affinePoint(viewportTransform, localEnd.x, localEnd.y);
-    if (Math.hypot(end.x - start.x, end.y - start.y) >= 4) lines.push({ start, end, confidence: 0.98 });
+    if (Math.hypot(end.x - start.x, end.y - start.y) >= 4) {
+      target.push({ start, end, confidence: 0.98, evidence: target === openingLines ? { coloredOpeningSupport: 1 } : undefined });
+    }
   };
   const emitArc = (arc: DetectedArc) => {
     const transformed = {
@@ -82,9 +89,14 @@ async function extractVectorGeometry(page: PDFPageProxy, viewportTransform: Affi
   };
   operators.fnArray.forEach((fn, index) => {
     const args = operators.argsArray[index] as unknown[];
-    if (fn === OPS.save) stack.push([...transform]);
-    else if (fn === OPS.restore) transform = stack.pop() ?? [1, 0, 0, 1, 0, 0];
+    if (fn === OPS.save) stack.push({ transform: [...transform], strokeColor });
+    else if (fn === OPS.restore) {
+      const restored = stack.pop();
+      transform = restored?.transform ?? [1, 0, 0, 1, 0, 0];
+      strokeColor = restored?.strokeColor ?? "#000000";
+    }
     else if (fn === OPS.transform) transform = multiply(transform, args.slice(0, 6).map(Number) as AffineMatrix);
+    else if (fn === OPS.setStrokeRGBColor) strokeColor = String(args[0] ?? "#000000");
     else if (fn === OPS.moveTo) current = { x: Number(args[0]), y: Number(args[1]) };
     else if (fn === OPS.lineTo && current) {
       const next = { x: Number(args[0]), y: Number(args[1]) };
@@ -138,7 +150,7 @@ async function extractVectorGeometry(page: PDFPageProxy, viewportTransform: Affi
       }
     }
   });
-  return { lines, arcs };
+  return { lines, openingLines, arcs };
 }
 
 async function canvasPreview(canvas: HTMLCanvasElement): Promise<string> {
@@ -166,6 +178,7 @@ export async function renderPdfPage(pdfDocument: PDFDocumentProxy, pageIndex: nu
     pageCount: pdfDocument.numPages,
     pageIndex,
     vectorLines: vectorGeometry.lines,
+    vectorOpeningLines: vectorGeometry.openingLines,
     vectorArcs: vectorGeometry.arcs,
   };
 }
@@ -187,6 +200,7 @@ export async function renderImage(file: BinaryFilePayload): Promise<RenderedPlan
     pageCount: 1,
     pageIndex: 0,
     vectorLines: [],
+    vectorOpeningLines: [],
     vectorArcs: [],
   };
 }

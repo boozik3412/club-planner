@@ -16,6 +16,7 @@ import {
   type ProjectAssetPayload,
 } from "../editor/persistence/desktop-files";
 import { bulgeFromThreePoints } from "../editor/recognition/graph";
+import { assessRecognitionQuality } from "../editor/recognition/quality";
 import { createProjectFromRecognitionDraft } from "../editor/recognition/import-project";
 import { startRecognition } from "../editor/recognition/client";
 import { rectangleForQuad, transformSourcePoint } from "../editor/recognition/perspective";
@@ -54,6 +55,7 @@ interface PreparedPage {
   imageData: ImageData;
   previewUrl: string;
   vectorLines: RenderedPlanPage["vectorLines"];
+  vectorOpeningLines: RenderedPlanPage["vectorOpeningLines"];
   vectorArcs: RenderedPlanPage["vectorArcs"];
   sourceToRectified: PlanSource["perspectiveMatrix"];
 }
@@ -93,7 +95,7 @@ async function imageDataPngAsset(imageData: ImageData, path: string, maxDimensio
 }
 
 function confidenceColor(confidence = 0): string {
-  return confidence >= 0.75 ? "#22c55e" : confidence >= 0.45 ? "#f59e0b" : "#ef4444";
+  return confidence >= 0.86 ? "#22c55e" : confidence >= 0.65 ? "#f59e0b" : "#ef4444";
 }
 
 function svgPoint(event: React.MouseEvent<SVGSVGElement> | React.PointerEvent<SVGSVGElement>, width: number, height: number): SourcePoint {
@@ -223,6 +225,7 @@ export function PlanImportWizard({
         imageData,
         previewUrl: imageDataUrl(imageData),
         vectorLines: current.vectorLines.map((line) => ({ ...line, start: rotatePoint(line.start), end: rotatePoint(line.end) })),
+        vectorOpeningLines: current.vectorOpeningLines.map((line) => ({ ...line, start: rotatePoint(line.start), end: rotatePoint(line.end) })),
         vectorArcs: current.vectorArcs.map((arc) => ({
           ...arc,
           start: rotatePoint(arc.start),
@@ -280,6 +283,11 @@ export function PlanImportWizard({
         start: transformSourcePoint(line.start, result.sourceToRectified),
         end: transformSourcePoint(line.end, result.sourceToRectified),
       }));
+      const transformedOpeningLines = rendered.vectorOpeningLines.map((line) => ({
+        ...line,
+        start: transformSourcePoint(line.start, result.sourceToRectified),
+        end: transformSourcePoint(line.end, result.sourceToRectified),
+      }));
       const transformedArcs = rendered.vectorArcs.map((arc) => ({
         ...arc,
         start: transformSourcePoint(arc.start, result.sourceToRectified),
@@ -290,6 +298,7 @@ export function PlanImportWizard({
         imageData: result.imageData,
         previewUrl: imageDataUrl(result.imageData),
         vectorLines: transformedLines,
+        vectorOpeningLines: transformedOpeningLines,
         vectorArcs: transformedArcs,
         sourceToRectified: result.sourceToRectified,
       });
@@ -330,7 +339,7 @@ export function PlanImportWizard({
       metersPerSourceUnit: calibrationScale,
       locked: true,
       recognizer: {
-        engineVersion: "local-hybrid-1",
+        engineVersion: "local-hybrid-2",
         pdfEngine: "pdf.js 6.2.108",
         cvEngine: "OpenCV.js 5.0.0",
         ocrEngine: "Tesseract.js 7.0.0 rus+eng",
@@ -353,6 +362,7 @@ export function PlanImportWizard({
       outputHeight: prepared.imageData.height,
       metersPerPixel: source.metersPerSourceUnit ?? 0,
       vectorLines: prepared.vectorLines,
+      vectorOpeningLines: prepared.vectorOpeningLines,
       vectorArcs: prepared.vectorArcs,
     }, source, options, setProgress);
     recognitionRef.current = task;
@@ -380,7 +390,7 @@ export function PlanImportWizard({
       return;
     }
     const before = structuredClone(draft);
-    const regionImage = cropRecognitionImage(prepared.imageData, region, source.metersPerSourceUnit, prepared.vectorLines, prepared.vectorArcs);
+    const regionImage = cropRecognitionImage(prepared.imageData, region, source.metersPerSourceUnit, prepared.vectorLines, prepared.vectorArcs, prepared.vectorOpeningLines);
     const regionSource: PlanSource = {
       ...source,
       sourceWidth: region.width,
@@ -412,7 +422,9 @@ export function PlanImportWizard({
       if (!current) return current;
       setUndoStack((stack) => [...stack, structuredClone(current)].slice(-100));
       setRedoStack([]);
-      return change(structuredClone(current));
+      const next = change(structuredClone(current));
+      next.quality = assessRecognitionQuality(next);
+      return next;
     });
   }, []);
 
@@ -436,6 +448,16 @@ export function PlanImportWizard({
   const selectedWall = draft?.walls.find((wall) => wall.id === selectedWallId) ?? null;
   const acceptedCount = draft?.walls.filter((wall) => wall.reviewStatus === "accepted").length ?? 0;
   const blockingIssues = useMemo(() => draft ? reviewBlockingIssues(draft) : [], [draft]);
+  const reviewQuality = useMemo(() => draft ? draft.quality ?? assessRecognitionQuality(draft) : null, [draft]);
+  const visibleReviewWalls = useMemo(() => {
+    if (!draft) return [];
+    const candidates = draft.walls.filter((wall) => wall.reviewStatus !== "rejected");
+    if (!reviewQuality?.candidateExplosion || candidates.length <= 120) return candidates;
+    return [...candidates]
+      .sort((first, second) => (second.confidence ?? 0) - (first.confidence ?? 0))
+      .slice(0, 120);
+  }, [draft, reviewQuality?.candidateExplosion]);
+  const visibleReviewVertexIds = useMemo(() => new Set(visibleReviewWalls.flatMap((wall) => [wall.startVertexId, wall.endVertexId])), [visibleReviewWalls]);
 
   const addOpening = useCallback((kind: ArchitecturalOpening["kind"]) => {
     if (!selectedWallId) return;
@@ -585,7 +607,12 @@ export function PlanImportWizard({
             <aside className="review-controls">
               <h3>Проверка результата</h3>
               <p>{draft.walls.length} стен · принято {acceptedCount} · {draft.openings.length} проёмов</p>
-              <div className="button-grid button-grid--three"><button type="button" disabled={!undoStack.length} onClick={undoReview}>↶</button><button type="button" disabled={!redoStack.length} onClick={redoReview}>↷</button><button type="button" onClick={() => applyDraft((next) => { next.walls.forEach((wall) => { if ((wall.confidence ?? 0) >= 0.75) wall.reviewStatus = "accepted"; }); return next; })}>Принять зелёные</button></div>
+              {reviewQuality ? <div className={`recognition-quality recognition-quality--${reviewQuality.status}`} role={reviewQuality.status === "unreliable" ? "alert" : "status"}>
+                <strong>{reviewQuality.status === "reliable" ? "Результат устойчив" : reviewQuality.status === "review" ? "Нужна внимательная проверка" : "Распознавание ненадёжно"} · {reviewQuality.score}/100</strong>
+                {reviewQuality.reasons.length > 0 ? <ul>{reviewQuality.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul> : <span>Катастрофических признаков не найдено.</span>}
+                {reviewQuality.candidateExplosion && visibleReviewWalls.length < draft.walls.length ? <span>На холсте показаны 120 наиболее уверенных кандидатов из {draft.walls.length}.</span> : null}
+              </div> : null}
+              <div className="button-grid button-grid--three"><button type="button" disabled={!undoStack.length} onClick={undoReview}>↶</button><button type="button" disabled={!redoStack.length} onClick={redoReview}>↷</button><button type="button" disabled={!reviewQuality?.allowBatchAccept} title={reviewQuality?.allowBatchAccept ? "Принять только кандидаты с высокой измеренной уверенностью" : "Пакетное принятие заблокировано оценкой качества"} onClick={() => applyDraft((next) => { next.walls.forEach((wall) => { if ((wall.confidence ?? 0) >= 0.86) wall.reviewStatus = "accepted"; }); return next; })}>Принять надёжные</button></div>
               <div className="button-grid"><button type="button" disabled={!selectedWall} onClick={() => applyDraft((next) => { const wall = next.walls.find((candidate) => candidate.id === selectedWallId); if (wall) wall.reviewStatus = "accepted"; return next; })}>Принять</button><button type="button" disabled={!selectedWall} onClick={() => applyDraft((next) => { const wall = next.walls.find((candidate) => candidate.id === selectedWallId); if (wall) wall.reviewStatus = "rejected"; return next; })}>Отклонить</button></div>
               <div className="button-grid"><button type="button" className={manualTool === "line" ? "is-active" : ""} onClick={() => { setManualTool("line"); setManualPoints([]); }}>Стена · 2 точки</button><button type="button" className={manualTool === "arc" ? "is-active" : ""} onClick={() => { setManualTool("arc"); setManualPoints([]); }}>Дуга · 3 точки</button></div>
               <button className={manualTool === "region" ? "button button--wide is-active" : "button button--wide"} type="button" onClick={() => { setManualTool("region"); setManualPoints([]); }}>Повторить анализ области · 2 угла</button>
@@ -648,11 +675,11 @@ export function PlanImportWizard({
                 }}
               >
                 <image href={prepared.previewUrl} width={prepared.imageData.width} height={prepared.imageData.height} opacity="0.48" />
-                {draft.walls.filter((wall) => wall.reviewStatus !== "rejected").map((wall) => {
+                {visibleReviewWalls.map((wall) => {
                   const path = wallSvgPath(wall, reviewVertices, 1 / source.metersPerSourceUnit!);
                   return path ? <path key={wall.id} d={path} stroke={confidenceColor(wall.confidence)} className={`review-wall${wall.id === selectedWallId ? " is-selected" : ""}`} onClick={(event) => { if (manualTool !== "none") return; event.stopPropagation(); setSelectedWallId(wall.id); }} /> : null;
                 })}
-                {draft.vertices.filter((vertex) => vertex.reviewStatus !== "rejected").map((vertex) => <circle key={vertex.id} cx={vertex.xM / source.metersPerSourceUnit!} cy={vertex.yM / source.metersPerSourceUnit!} r={Math.max(3, prepared.imageData.width / 500)} className="review-vertex" onPointerDown={(event) => { if (manualTool !== "none") return; event.stopPropagation(); dragVertexRef.current = { id: vertex.id, before: structuredClone(draft) }; }} />)}
+                {draft.vertices.filter((vertex) => vertex.reviewStatus !== "rejected" && visibleReviewVertexIds.has(vertex.id)).map((vertex) => <circle key={vertex.id} cx={vertex.xM / source.metersPerSourceUnit!} cy={vertex.yM / source.metersPerSourceUnit!} r={Math.max(3, prepared.imageData.width / 500)} className="review-vertex" onPointerDown={(event) => { if (manualTool !== "none") return; event.stopPropagation(); dragVertexRef.current = { id: vertex.id, before: structuredClone(draft) }; }} />)}
                 {manualPoints.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r={Math.max(5, prepared.imageData.width / 400)} className="manual-point" />)}
               </svg>
             </div>
