@@ -6,8 +6,8 @@
 
 Готовые `.exe` находятся на странице [последнего релиза](https://github.com/boozik3412/club-planner/releases/latest):
 
-- [Club-Planner_0.1.3_x64-setup.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.1.3_x64-setup.exe) — рекомендуемый установщик с автообновлением;
-- [Club-Planner_0.1.3_x64-portable.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.1.3_x64-portable.exe) — запуск без установки;
+- [Club-Planner_0.2.0_x64-setup.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.2.0_x64-setup.exe) — рекомендуемый установщик с автообновлением;
+- [Club-Planner_0.2.0_x64-portable.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.2.0_x64-portable.exe) — запуск без установки;
 - [SHA256SUMS.txt](https://github.com/boozik3412/club-planner/releases/latest/download/SHA256SUMS.txt) — контрольные суммы загрузок.
 
 См. [инструкцию по установке и проверке файла](docs/INSTALLATION.md). Сборка пока не подписана коммерческим сертификатом, поэтому Windows SmartScreen может показать предупреждение издателя.
@@ -15,6 +15,8 @@
 ## Возможности
 
 - точный векторный план `assets/base_plan_new_measurement.svg`, семантические стены/двери/окна, сетка, умные привязки к стенам, объектам и совпадающим рядам, зум, панорама и поворот холста;
+- полностью локальный импорт одной страницы PDF/PNG/JPEG: перспектива, обязательная калибровка, PDF.js + OpenCV + Tesseract `rus+eng`, прогресс/отмена и цветная проверка распознанной архитектуры;
+- редактируемый архитектурный граф с общими узлами, настоящими дугами, split/merge/detach, повторным анализом области, host-дверями/окнами и вычисляемыми помещениями;
 - высоты помещений и проёмов из исходного обмера, редактируемые высота/толщина/отметка основания стен и явная маркировка измеренных и расчётных значений;
 - локальный схематичный 3D-режим в том же окне: `2D`, `3D` или совместный вид, камеры, сечение стен, потолок, синхронное выделение и диагностическая окраска;
 - 19 шаблонов предметов, включая произвольные прямоугольник, круг и овал, дверь и окно; точные размеры, физическая высота и отметка установки в метрах, drag/resize/rotate, зеркальное отражение, подписи, слои и блокировка;
@@ -24,7 +26,7 @@
 - ряды/массивы объектов, проектные составные шаблоны и сводка по местам, зонам, плотности и предупреждениям;
 - постоянные группы, редактирование элементов группы, дублирование, поворот, блокировка и разгруппировка;
 - история на 100 транзакций, recovery-autosave и предупреждение о несохранённых изменениях;
-- системные Open/Save/Save As, `.clubplan` v3 с миграцией v1/v2, legacy JSON v6 и векторный экспорт SVG/PDF;
+- системные Open/Save/Save As, самодостаточный ZIP `.clubplan` v4 с миграцией v1–v3/legacy JSON v6 и векторный экспорт SVG/PDF;
 - восстановление размера и позиции окна между запусками.
 - проверка подписанных обновлений при запуске и вручную, явная установка с прогрессом и безопасным recovery несохранённого проекта.
 
@@ -68,7 +70,7 @@ pnpm tauri build
 Артефакты создаются в:
 
 - `src-tauri/target/release/club-planner.exe`;
-- `src-tauri/target/release/bundle/nsis/Club Planner_0.1.3_x64-setup.exe`.
+- `src-tauri/target/release/bundle/nsis/Club Planner_0.2.0_x64-setup.exe`.
 
 ## Основные сочетания клавиш
 
@@ -97,7 +99,9 @@ pnpm tauri build
 ## Документация
 
 - [Формат проекта](docs/FILE_FORMAT.md)
+- [Импорт и редактирование распознанного плана](docs/USER_GUIDE.md)
 - [Установка на Windows](docs/INSTALLATION.md)
+- [Примечания к версии 0.2.0](docs/RELEASE_NOTES_0.2.0.md)
 - [Примечания к версии 0.1.3](docs/RELEASE_NOTES_0.1.3.md)
 - [Примечания к версии 0.1.2](docs/RELEASE_NOTES_0.1.2.md)
 - [Примечания к версии 0.1.1](docs/RELEASE_NOTES_0.1.1.md)
@@ -107,5 +111,6 @@ pnpm tauri build
 - [Отчёт проверки MVP](docs/QA_REPORT.md)
 - [Продуктовая спецификация](docs/PRODUCT_SPEC.md)
 - [Критерии приёмки](docs/ACCEPTANCE_CRITERIA.md)
+- [Сторонние компоненты и офлайн-обработка](docs/THIRD_PARTY_NOTICES.md)
 
 В MVP намеренно не входят вложенные группы и облачная синхронизация.
