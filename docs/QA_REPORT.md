@@ -18,7 +18,7 @@
 | `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.3` собраны локально без приватного CI-ключа |
 | Portable smoke | `.exe` открыл отвечающее окно и завершил процесс после закрытия |
 | NSIS smoke | silent install → launch → close → silent uninstall пройдены во временной папке |
-| Release workflow | [GitHub Actions run 32377950599](https://github.com/boozik3412/club-planner/actions/runs/32377950599) пройден; quality gates, подписанная Tauri build и публикация Release `v0.2.2` успешны |
+| Release workflow | [GitHub Actions run 32387883068](https://github.com/boozik3412/club-planner/actions/runs/32387883068) пройден; quality gates, подписанная Tauri build и публикация Release `v0.2.3` успешны |
 
 Production frontend `v0.2.3` собран с ленивыми chunks `PlanImportWizard` 496,60 kB (149,65 kB gzip) и `Plan3DView` 909,13 kB (245,85 kB gzip). OpenCV, OCR-модели, PDF worker и базовый SVG упакованы как локальные assets; сеть для распознавания не используется. Предупреждение Vite о крупных ленивых chunks зафиксировано и не влияет на начальный 2D-экран.
 
@@ -115,6 +115,8 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 
 - локальная неподписанная сборка `v0.2.3`: portable 28 872 704 байта, SHA-256 `294E0CDE4A087915100FC1A4855BCBD7BD7F6400730D69FEEF3A56180323811F`; NSIS installer 15 791 756 байт, SHA-256 `62991A50A8851142938FC944963B61C9A4E6A21FD64D51741BB2E0E763D89D69`;
 - portable `v0.2.3` открыл отдельное отвечающее окно `Club Planner — планировщик клуба`; NSIS прошёл silent install → launch → close → silent uninstall с кодами 0 и полностью удалил проверочную папку;
+- опубликованный [Release v0.2.3](https://github.com/boozik3412/club-planner/releases/tag/v0.2.3) содержит portable 28 875 776 байт, SHA-256 `83542CFBB7DC05A9ED379B5C79C8F9BEB66A03B18D60DA149FAFEE5B26628F2F`, и NSIS 15 789 556 байт, SHA-256 `ECBB8800F25017041DE73A01C65354BC3F71A8D95B2106E52941D8876A9F3050`;
+- публичный `latest.json` содержит `version: 0.2.3`, платформы `windows-x86_64` и `windows-x86_64-nsis`, две непустые подписи по 424 байта и API URL опубликованного installer; оба повторно скачанных EXE имеют PE-заголовок `MZ`, совпадают с `SHA256SUMS.txt`/digest GitHub и успешно прошли portable и install → launch → uninstall smoke;
 - локальная неподписанная сборка `v0.2.2`: portable 28 872 704 байта, SHA-256 `621CB3D0024B12278AF7DE4A6049772A2A5BF1197B8BE580332AD1B4B10158D5`; NSIS installer 15 790 021 байт, SHA-256 `FA10ED40B2712B880096DE531858C9C0799E3F2EE19E3C86222F362C1A084A68`;
 - portable `v0.2.2` открыл отдельное отвечающее окно `Club Planner — планировщик клуба`; NSIS прошёл silent install → launch → close → silent uninstall с кодами 0 и полностью удалил проверочную папку;
 - опубликованный [Release v0.2.2](https://github.com/boozik3412/club-planner/releases/tag/v0.2.2) содержит portable 28 875 776 байт, SHA-256 `D6B1350C64C8E650B1B003FD5B7FEF207F31B7144A37009C03A5B80EA4FBCD06`, и NSIS 15 790 800 байт, SHA-256 `C52672C112B0056F342444A78E6048788A2C6DAE79AA490A07151C28C0C7DDF8`;
@@ -148,4 +150,4 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 
 ## Границы проверки
 
-Локальная и публичная `v0.2.2`, синтетический benchmark прямых стен/проёмов, контурные curved-wall unit cases, rendered review, запуск portable, полный цикл installer и подписанный updater-манифест проверены. Разрешённый реальный holdout с эталонной разметкой дуг и отдельная clean Windows 10/11 VM в этой среде не выполнялись; перед широкой эксплуатацией на произвольных документах остаётся внешний offline-сценарий import/edit/save → restart/open → update → uninstall.
+Локальная и публичная `v0.2.3`, синтетический benchmark прямых стен/проёмов, контурные curved-wall unit cases, rendered review, плавность camera hot path, запуск portable, полный цикл installer и подписанный updater-манифест проверены. Разрешённый реальный holdout с эталонной разметкой дуг и отдельная clean Windows 10/11 VM в этой среде не выполнялись; перед широкой эксплуатацией на произвольных документах остаётся внешний offline-сценарий import/edit/save → restart/open → update → uninstall.
