@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { LayoutWarning } from "../editor/analysis/layout-analysis";
 import type { ResolvedArchitecturalWall } from "../editor/architecture/types";
+import { arcFromBulge } from "../editor/architecture/geometry";
 import type { ProjectSummary } from "../editor/analysis/project-summary";
 import { distanceMeters, formatMeters } from "../editor/measurement/measurement";
 import { MIXED_VALUE, getMixedValue } from "../editor/selection/selection";
 import { OBJECT_TEMPLATES } from "../editor/model/templates";
 import type {
   CanvasSettings,
+  ArchitecturalOpening,
   LayerId,
   ObjectType,
   PlanObject,
@@ -37,6 +39,7 @@ interface SidebarProps {
   updaterState: UpdaterViewState;
   onNew: () => void;
   onOpen: () => void;
+  onImportPlan: () => void;
   onOpenRecent: (path: string) => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -51,6 +54,14 @@ interface SidebarProps {
   onArchitectureDefaultsChange: (patch: Partial<ProjectState["architecture"]>, label: string) => void;
   onWallOverrideChange: (wallId: string, patch: { heightM?: number; thicknessM?: number; baseElevationM?: number }, label: string) => void;
   onResetWallOverride: (wallId: string) => void;
+  onResizeArchitecturalWall: (wallId: string, patch: { lengthM?: number; angleDeg?: number; radiusM?: number }, label: string) => void;
+  onSplitArchitecturalWall: (wallId: string, distanceM?: number) => void;
+  onMergeArchitecturalWalls: (firstWallId: string, secondWallId: string) => void;
+  onDetachWallEndpoint: (wallId: string, endpoint: "start" | "end") => void;
+  onAddArchitecturalOpening: (wallId: string, kind: "door" | "window") => void;
+  onUpdateArchitecturalOpening: (openingId: string, patch: Partial<Pick<ArchitecturalOpening, "offsetM" | "widthM" | "sillHeightM" | "openingHeightM" | "swing" | "openingAngleDeg" | "reviewStatus">>, label: string) => void;
+  onRemoveArchitecturalOpening: (openingId: string) => void;
+  onArchitectureReviewStatus: (wallId: string, status: "candidate" | "accepted" | "rejected") => void;
   onSelectDimension: (dimensionId: string | null) => void;
   onCheckForUpdates: () => void;
   onInstallUpdate: () => void;
@@ -219,6 +230,7 @@ export function Sidebar({
   updaterState,
   onNew,
   onOpen,
+  onImportPlan,
   onOpenRecent,
   onSave,
   onSaveAs,
@@ -233,6 +245,14 @@ export function Sidebar({
   onArchitectureDefaultsChange,
   onWallOverrideChange,
   onResetWallOverride,
+  onResizeArchitecturalWall,
+  onSplitArchitecturalWall,
+  onMergeArchitecturalWalls,
+  onDetachWallEndpoint,
+  onAddArchitecturalOpening,
+  onUpdateArchitecturalOpening,
+  onRemoveArchitecturalOpening,
+  onArchitectureReviewStatus,
   onSelectDimension,
   onCheckForUpdates,
   onInstallUpdate,
@@ -260,6 +280,10 @@ export function Sidebar({
   const [arrayDirection, setArrayDirection] = useState<"horizontal" | "vertical">("horizontal");
   const [templateName, setTemplateName] = useState("");
   const [passageWidthM, setPassageWidthM] = useState(0.9);
+  const [mergeWallId, setMergeWallId] = useState("");
+  const selectedWallOpenings = selectedWall
+    ? project.architecture.openings.filter((opening) => opening.hostWallId === selectedWall.id)
+    : [];
   const single = selectedObjects.length === 1 ? selectedObjects[0] : null;
   const width = getMixedValue(selectedObjects, "widthM");
   const depth = getMixedValue(selectedObjects, "depthM");
@@ -273,6 +297,15 @@ export function Sidebar({
     && single.kind !== "custom-circle"
     && single.kind !== "custom-oval"
     && !single.locked;
+  const selectedWallLengthM = selectedWall ? (() => {
+    if (selectedWall.curve?.kind === "arc") {
+      const arc = arcFromBulge(selectedWall.start, selectedWall.end, selectedWall.curve.bulge);
+      if (arc) return Math.abs(arc.sweepRad) * arc.radiusM;
+    }
+    return Math.hypot(selectedWall.end.xM - selectedWall.start.xM, selectedWall.end.yM - selectedWall.start.yM);
+  })() : 0;
+  const selectedWallAngleDeg = selectedWall ? Math.atan2(selectedWall.end.yM - selectedWall.start.yM, selectedWall.end.xM - selectedWall.start.xM) * 180 / Math.PI : 0;
+  const selectedWallRadiusM = selectedWall?.curve?.kind === "arc" ? arcFromBulge(selectedWall.start, selectedWall.end, selectedWall.curve.bulge)?.radiusM : undefined;
 
   return (
     <aside className="sidebar">
@@ -292,6 +325,7 @@ export function Sidebar({
         <button type="button" onClick={onUndo} disabled={!canUndo} title="Отменить · Ctrl+Z">↶</button>
         <button type="button" onClick={onRedo} disabled={!canRedo} title="Повторить · Ctrl+Y">↷</button>
       </nav>
+      <button className="button button--wide import-plan-button" type="button" onClick={onImportPlan}>Импортировать PDF / изображение…</button>
 
       <UpdaterPanel state={updaterState} onCheck={onCheckForUpdates} onInstall={onInstallUpdate} />
 
@@ -368,10 +402,10 @@ export function Sidebar({
           <NumberField label="Толщина стен по умолчанию, м" value={project.architecture.defaultWallThicknessM} min={0.01} onCommit={(value) => onArchitectureDefaultsChange({ defaultWallThicknessM: Math.max(0.01, value) }, "Толщина стен по умолчанию")} />
         </div>
         <label className="property-field property-field--wide">
-          <span>Стена базового плана</span>
+          <span>Архитектурная стена</span>
           <select value={selectedWall?.id ?? ""} onChange={(event) => onSelectedWallChange(event.target.value || null)}>
             <option value="">Выберите стену…</option>
-            {architectureWalls.filter((wall) => wall.source === "base-plan").map((wall) => (
+            {architectureWalls.filter((wall) => wall.source !== "project-object").map((wall) => (
               <option key={wall.id} value={wall.id}>{wall.id}</option>
             ))}
           </select>
@@ -387,8 +421,31 @@ export function Sidebar({
               <NumberField label="Высота стены, м" value={selectedWall.heightM} min={0.1} onCommit={(value) => onWallOverrideChange(selectedWall.id, { heightM: Math.max(0.1, value) }, "Высота стены")} />
               <NumberField label="Толщина стены, м" value={selectedWall.thicknessM} min={0.01} onCommit={(value) => onWallOverrideChange(selectedWall.id, { thicknessM: Math.max(0.01, value) }, "Толщина стены")} />
               <NumberField label="Отметка основания, м" value={selectedWall.baseElevationM} min={0} onCommit={(value) => onWallOverrideChange(selectedWall.id, { baseElevationM: Math.max(0, value) }, "Отметка основания стены")} />
+              <NumberField label="Длина / обрезка, м" value={selectedWallLengthM} min={0.05} onCommit={(value) => onResizeArchitecturalWall(selectedWall.id, { lengthM: Math.max(0.05, value) }, "Изменение длины стены")} />
+              <NumberField label="Угол хорды, °" value={selectedWallAngleDeg} step={1} onCommit={(value) => onResizeArchitecturalWall(selectedWall.id, { angleDeg: value }, "Изменение угла стены")} />
+              {selectedWallRadiusM !== undefined ? <NumberField label="Радиус дуги, м" value={selectedWallRadiusM} min={0.05} onCommit={(value) => onResizeArchitecturalWall(selectedWall.id, { radiusM: value }, "Изменение радиуса дуги")} /> : null}
             </div>
-            <button className="button button--wide" type="button" onClick={() => onResetWallOverride(selectedWall.id)}>Вернуть значения из обмера</button>
+            <div className="button-grid"><button type="button" onClick={() => onDetachWallEndpoint(selectedWall.id, "start")}>Отделить начало</button><button type="button" onClick={() => onDetachWallEndpoint(selectedWall.id, "end")}>Отделить конец</button></div>
+            <div className="button-grid"><button type="button" onClick={() => onSplitArchitecturalWall(selectedWall.id, selectedWallLengthM / 2)}>Разделить пополам</button><button type="button" onClick={() => onAddArchitecturalOpening(selectedWall.id, "door")}>Добавить дверь</button><button type="button" onClick={() => onAddArchitecturalOpening(selectedWall.id, "window")}>Добавить окно</button></div>
+            {selectedWallOpenings.map((opening) => (
+              <details className="opening-editor" key={opening.id}>
+                <summary>{opening.kind === "door" ? "Дверь" : "Окно"} · {opening.id}</summary>
+                <div className="property-grid">
+                  <NumberField label="Смещение проёма, м" value={opening.offsetM} min={0} onCommit={(value) => onUpdateArchitecturalOpening(opening.id, { offsetM: value }, "Перемещение проёма")} />
+                  <NumberField label="Ширина проёма, м" value={opening.widthM} min={0.05} onCommit={(value) => onUpdateArchitecturalOpening(opening.id, { widthM: value }, "Ширина проёма")} />
+                  <NumberField label="Высота подоконника, м" value={opening.sillHeightM} min={0} onCommit={(value) => onUpdateArchitecturalOpening(opening.id, { sillHeightM: value }, "Вертикальная отметка проёма")} />
+                  <NumberField label="Высота проёма, м" value={opening.openingHeightM} min={0.05} onCommit={(value) => onUpdateArchitecturalOpening(opening.id, { openingHeightM: value }, "Высота проёма")} />
+                  {opening.kind === "door" ? <NumberField label="Угол открывания, °" value={opening.openingAngleDeg ?? 90} min={0} step={1} onCommit={(value) => onUpdateArchitecturalOpening(opening.id, { openingAngleDeg: value }, "Угол открывания двери")} /> : null}
+                </div>
+                {opening.kind === "door" ? <label className="property-field property-field--wide"><span>Направление открывания</span><select value={opening.swing ?? "right"} onChange={(event) => onUpdateArchitecturalOpening(opening.id, { swing: event.target.value as "left" | "right" }, "Направление открывания двери")}><option value="left">Влево</option><option value="right">Вправо</option></select></label> : null}
+                {opening.reviewStatus === "candidate" ? <div className="button-grid"><button type="button" onClick={() => onUpdateArchitecturalOpening(opening.id, { reviewStatus: "accepted" }, "Принятие проёма")}>Принять</button><button type="button" onClick={() => onUpdateArchitecturalOpening(opening.id, { reviewStatus: "rejected" }, "Отклонение проёма")}>Отклонить</button></div> : null}
+                <button className="button button--wide" type="button" onClick={() => onRemoveArchitecturalOpening(opening.id)}>Удалить проём</button>
+              </details>
+            ))}
+            {selectedWall.reviewStatus === "candidate" ? <div className="button-grid"><button type="button" onClick={() => onArchitectureReviewStatus(selectedWall.id, "accepted")}>Принять</button><button type="button" onClick={() => onArchitectureReviewStatus(selectedWall.id, "rejected")}>Отклонить</button></div> : null}
+            <label className="property-field property-field--wide"><span>Объединить со следующей стеной</span><select value={mergeWallId} onChange={(event) => setMergeWallId(event.target.value)}><option value="">Выберите…</option>{architectureWalls.filter((wall) => wall.id !== selectedWall.id && wall.source !== "project-object").map((wall) => <option key={wall.id} value={wall.id}>{wall.id}</option>)}</select></label>
+            <button className="button button--wide" type="button" disabled={!mergeWallId} onClick={() => { onMergeArchitecturalWalls(selectedWall.id, mergeWallId); setMergeWallId(""); }}>Объединить совместимые стены</button>
+            {selectedWall.source === "base-plan" ? <button className="button button--wide" type="button" onClick={() => onResetWallOverride(selectedWall.id)}>Вернуть значения из обмера</button> : null}
           </div>
         ) : <p className="hint">Выберите стену в списке или щёлкните по ней в 3D. Нулевые толщины исходного плана показываются расчётной толщиной.</p>}
       </section>

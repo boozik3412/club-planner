@@ -39,4 +39,10 @@ describe("camera", () => {
     expect(center.xM).toBeCloseTo(expectedUnits.x / unitsPerMeter);
     expect(center.yM).toBeCloseTo(expectedUnits.y / unitsPerMeter);
   });
+
+  it("fits and transforms the dimensions of an imported plan", () => {
+    const camera = fitCamera({ width: 1000, height: 600 }, 0, 20, 200, 100);
+    expect(camera.zoom).toBeCloseTo(4.8);
+    expect(screenToPlanUnits(500, 300, camera, 0, 200, 100)).toEqual({ x: 100, y: 50 });
+  });
 });

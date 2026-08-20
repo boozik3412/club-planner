@@ -126,7 +126,7 @@ describe("App integration", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const wallSelect = screen.getByRole("combobox", { name: "Стена базового плана" });
+    const wallSelect = screen.getByRole("combobox", { name: "Архитектурная стена" });
     await user.selectOptions(wallSelect, "wall-main-top");
     const heightField = screen.getByRole("spinbutton", { name: "Высота стены, м" });
     await user.clear(heightField);

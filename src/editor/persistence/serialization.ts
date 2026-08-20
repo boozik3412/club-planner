@@ -20,6 +20,7 @@ import type {
   ProjectState,
   WallArchitectureOverride,
 } from "../model/types";
+import type { ProjectAssetPayload } from "./desktop-files";
 
 function toTemplateObject(source: PlanObject): CompositeTemplateItem["object"] {
   return {
@@ -150,6 +151,7 @@ function parsePlanSources(value: unknown): PlanSource[] {
       locked: asBoolean(record.locked, `planSources[${index}].locked`),
     };
     if (record.previewPath !== undefined) source.previewPath = safeEmbeddedPath(record.previewPath, `planSources[${index}].previewPath`);
+    if (record.thumbnailPath !== undefined) source.thumbnailPath = safeEmbeddedPath(record.thumbnailPath, `planSources[${index}].thumbnailPath`);
     if (record.pageIndex !== undefined) source.pageIndex = Math.max(0, Math.trunc(asFiniteNumber(record.pageIndex, `planSources[${index}].pageIndex`)));
     if (record.pageCount !== undefined) source.pageCount = Math.max(1, Math.trunc(asFiniteNumber(record.pageCount, `planSources[${index}].pageCount`)));
     if (record.sourceWidth !== undefined) source.sourceWidth = Math.max(1, asFiniteNumber(record.sourceWidth, `planSources[${index}].sourceWidth`));
@@ -170,6 +172,15 @@ function parsePlanSources(value: unknown): PlanSource[] {
           y: asFiniteNumber(pointRecord.y, `planSources[${index}].cropQuad[${pointIndex}].y`),
         };
       }) as PlanSource["cropQuad"];
+    }
+    if (record.recognizer !== undefined) {
+      const recognizer = asRecord(record.recognizer, `planSources[${index}].recognizer`);
+      source.recognizer = {
+        engineVersion: asString(recognizer.engineVersion, `planSources[${index}].recognizer.engineVersion`),
+        pdfEngine: asString(recognizer.pdfEngine, `planSources[${index}].recognizer.pdfEngine`),
+        cvEngine: asString(recognizer.cvEngine, `planSources[${index}].recognizer.cvEngine`),
+        ocrEngine: asString(recognizer.ocrEngine, `planSources[${index}].recognizer.ocrEngine`),
+      };
     }
     return source;
   });
@@ -683,16 +694,33 @@ export function encodeProject(project: ProjectState): string {
   return `${JSON.stringify(project, null, 2)}\n`;
 }
 
-export function createRecoveryEnvelope(project: ProjectState, sourcePath: string | null): string {
-  return JSON.stringify({ savedAt: new Date().toISOString(), sourcePath, project });
+export function createRecoveryEnvelope(
+  project: ProjectState,
+  sourcePath: string | null,
+  assets: readonly ProjectAssetPayload[] = [],
+): string {
+  return JSON.stringify({ savedAt: new Date().toISOString(), sourcePath, project, assets });
 }
 
-export function decodeRecoveryEnvelope(source: string): { project: ProjectState; sourcePath: string | null } {
+export function decodeRecoveryEnvelope(source: string): { project: ProjectState; sourcePath: string | null; assets: ProjectAssetPayload[] } {
   const record = asRecord(JSON.parse(source), "recovery");
   const result = parseClubplan(asRecord(record.project, "recovery.project"));
+  const assets = Array.isArray(record.assets) ? record.assets.flatMap((entry, index) => {
+    const asset = asRecord(entry, `recovery.assets[${index}]`);
+    const path = safeEmbeddedPath(asset.path, `recovery.assets[${index}].path`);
+    if (!path.startsWith("sources/") && !path.startsWith("previews/")) {
+      throw new Error(`recovery.assets[${index}].path: разрешены только sources/ и previews/`);
+    }
+    return [{
+      path,
+      mimeType: asString(asset.mimeType, `recovery.assets[${index}].mimeType`),
+      dataBase64: asString(asset.dataBase64, `recovery.assets[${index}].dataBase64`),
+    }];
+  }) : [];
   return {
     project: result.project,
     sourcePath: typeof record.sourcePath === "string" ? record.sourcePath : null,
+    assets,
   };
 }
 

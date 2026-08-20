@@ -7,6 +7,7 @@ import type {
   ResolvedArchitecturalOpening,
   ResolvedArchitecturalWall,
 } from "./types";
+import { computeRooms } from "./rooms";
 
 function polygonArea(points: readonly PointM[]): number {
   let area = 0;
@@ -123,5 +124,6 @@ export function resolveArchitecture(project: ProjectState): ResolvedArchitecture
     walls: [...graphWalls, ...projectWalls],
     openings: [...graphOpenings, ...projectOpenings],
     heightRegions: project.architecture.heightRegions,
+    rooms: computeRooms(project.architecture),
   };
 }

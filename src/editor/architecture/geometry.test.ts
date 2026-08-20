@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ArchitectureSettings, ArchitecturalWall } from "../model/types";
 import {
   architectureVertexMap,
+  nearestPointOnWallCurve,
   openingEndpoints,
   wallLengthM,
   wallPointAtDistance,
@@ -71,5 +72,17 @@ describe("architectural arc geometry", () => {
     expect(endpoints).not.toBeNull();
     expect(wallSvgPath(wall, vertices, 100)).toContain(" A ");
     expect(wallPolyline(wall, vertices, 0.01).length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("finds the analytical nearest point and tangent on an arc", () => {
+    const nearest = nearestPointOnWallCurve(
+      { xM: 0, yM: 0 },
+      { xM: 2, yM: 0 },
+      { kind: "arc", bulge: -1 },
+      { xM: 1, yM: 1.2 },
+    )!;
+    expect(nearest.point.xM).toBeCloseTo(1, 6);
+    expect(nearest.point.yM).toBeCloseTo(1, 6);
+    expect(Math.hypot(nearest.tangent.xM, nearest.tangent.yM)).toBeCloseTo(1, 6);
   });
 });

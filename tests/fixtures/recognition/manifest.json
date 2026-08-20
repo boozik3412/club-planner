@@ -1,0 +1,3775 @@
+{
+  "format": "club-planner-recognition-corpus",
+  "version": 1,
+  "license": "CC0-1.0",
+  "generator": "tools/generate_recognition_corpus.py",
+  "cases": [
+    {
+      "id": "vector-01",
+      "category": "vector",
+      "path": "tests/fixtures/recognition/vector/vector-01.pdf",
+      "mimeType": "application/pdf",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "d75393f04bc5a42e5a16a2a2f37eaab16e53063cfc5d38c5168ead1a72d7f199",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              0
+            ],
+            "end": [
+              3.2,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              3.5
+            ],
+            "end": [
+              3.2,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "scan-01",
+      "category": "scan",
+      "path": "tests/fixtures/recognition/scan/scan-01.png",
+      "mimeType": "image/png",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "80f08ffff8e9635f2db80b839d29bb67a6356bbc933465c097b4adc4e50917ab",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              0
+            ],
+            "end": [
+              3.2,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              3.5
+            ],
+            "end": [
+              3.2,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "photo-01",
+      "category": "photo",
+      "path": "tests/fixtures/recognition/photo/photo-01.jpg",
+      "mimeType": "image/jpeg",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "e123d55ecc4e43f9bd186192c4ee3f592d1988f7c2d72760836c0e9988481281",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              0
+            ],
+            "end": [
+              3.2,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              3.5
+            ],
+            "end": [
+              3.2,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "vector-02",
+      "category": "vector",
+      "path": "tests/fixtures/recognition/vector/vector-02.pdf",
+      "mimeType": "application/pdf",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "3325ef3a5250a0b1db940112a02ceedc6b088528c6ceb5424654846af0ef3df5",
+      "groundTruth": {
+        "widthM": 11.0,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              0
+            ],
+            "end": [
+              11.0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              0
+            ],
+            "end": [
+              3.5500000000000003,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              3.5
+            ],
+            "end": [
+              3.5500000000000003,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              4.25
+            ],
+            "end": [
+              11.0,
+              4.25
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              8.2,
+              4.25
+            ],
+            "end": [
+              10.6,
+              6.9
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "scan-02",
+      "category": "scan",
+      "path": "tests/fixtures/recognition/scan/scan-02.png",
+      "mimeType": "image/png",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "7312b7c83b261bb56941a88b4ce927e77aa39e5ca9972697169aff529ad257a6",
+      "groundTruth": {
+        "widthM": 11.0,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              0
+            ],
+            "end": [
+              11.0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              0
+            ],
+            "end": [
+              3.5500000000000003,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              3.5
+            ],
+            "end": [
+              3.5500000000000003,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              4.25
+            ],
+            "end": [
+              11.0,
+              4.25
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              8.2,
+              4.25
+            ],
+            "end": [
+              10.6,
+              6.9
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "photo-02",
+      "category": "photo",
+      "path": "tests/fixtures/recognition/photo/photo-02.jpg",
+      "mimeType": "image/jpeg",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "ac3754dc4b27a393418700ecbfbd49215b8d1741911bf49e6d1fee01773718b8",
+      "groundTruth": {
+        "widthM": 11.0,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              0
+            ],
+            "end": [
+              11.0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              0
+            ],
+            "end": [
+              3.5500000000000003,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              3.5
+            ],
+            "end": [
+              3.5500000000000003,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              4.25
+            ],
+            "end": [
+              11.0,
+              4.25
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              8.2,
+              4.25
+            ],
+            "end": [
+              10.6,
+              6.9
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "vector-03",
+      "category": "vector",
+      "path": "tests/fixtures/recognition/vector/vector-03.pdf",
+      "mimeType": "application/pdf",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "aa7e32613ede1e241f8758625b2e29be47f13aa558dc24b3c22a439f4546ddb8",
+      "groundTruth": {
+        "widthM": 11.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              0
+            ],
+            "end": [
+              11.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              0
+            ],
+            "end": [
+              3.9000000000000004,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              3.5
+            ],
+            "end": [
+              3.9000000000000004,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              4.5
+            ],
+            "end": [
+              11.5,
+              4.5
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "scan-03",
+      "category": "scan",
+      "path": "tests/fixtures/recognition/scan/scan-03.png",
+      "mimeType": "image/png",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "8cf68faa2fc885fdf5943a7d32feeed19cf1925a475a52ff44bc6fe6527dadc4",
+      "groundTruth": {
+        "widthM": 11.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              0
+            ],
+            "end": [
+              11.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              0
+            ],
+            "end": [
+              3.9000000000000004,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              3.5
+            ],
+            "end": [
+              3.9000000000000004,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              4.5
+            ],
+            "end": [
+              11.5,
+              4.5
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "photo-03",
+      "category": "photo",
+      "path": "tests/fixtures/recognition/photo/photo-03.jpg",
+      "mimeType": "image/jpeg",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "7d4bbeb2b372536727a495e1d47209b7141aa7ea95ff60519f98fbba5d0de7db",
+      "groundTruth": {
+        "widthM": 11.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              0
+            ],
+            "end": [
+              11.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              0
+            ],
+            "end": [
+              3.9000000000000004,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              3.5
+            ],
+            "end": [
+              3.9000000000000004,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              4.5
+            ],
+            "end": [
+              11.5,
+              4.5
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "vector-04",
+      "category": "vector",
+      "path": "tests/fixtures/recognition/vector/vector-04.pdf",
+      "mimeType": "application/pdf",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "a35a5b0ac567de0fb6b62db7ed2a6a9b0b62e4a7a26fabe91676266c9ee1da38",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              0
+            ],
+            "end": [
+              4.25,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              3.5
+            ],
+            "end": [
+              4.25,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "scan-04",
+      "category": "scan",
+      "path": "tests/fixtures/recognition/scan/scan-04.png",
+      "mimeType": "image/png",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "4c77e646ee135d05b2ae3442d6e17d1851aba0d371f03e80234de4b7f3e22e2f",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              0
+            ],
+            "end": [
+              4.25,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              3.5
+            ],
+            "end": [
+              4.25,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "photo-04",
+      "category": "photo",
+      "path": "tests/fixtures/recognition/photo/photo-04.jpg",
+      "mimeType": "image/jpeg",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "01fde2e5f8e56ef3941edd7ba62a7a6b04199a06aab12117a1cf2f1c4f1af88f",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              0
+            ],
+            "end": [
+              4.25,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              3.5
+            ],
+            "end": [
+              4.25,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "vector-05",
+      "category": "vector",
+      "path": "tests/fixtures/recognition/vector/vector-05.pdf",
+      "mimeType": "application/pdf",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "b17f4c76216fe0c15fbbba96186d0e94425f8603f92c558174c944b83ec29bd3",
+      "groundTruth": {
+        "widthM": 11.0,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              0
+            ],
+            "end": [
+              11.0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              0
+            ],
+            "end": [
+              3.2,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              3.5
+            ],
+            "end": [
+              3.2,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              4.25
+            ],
+            "end": [
+              11.0,
+              4.25
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "scan-05",
+      "category": "scan",
+      "path": "tests/fixtures/recognition/scan/scan-05.png",
+      "mimeType": "image/png",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "05e844f24279b9886a853787dc533e32fe408be2f010b6d2d27a6aacb20dcbfe",
+      "groundTruth": {
+        "widthM": 11.0,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              0
+            ],
+            "end": [
+              11.0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              0
+            ],
+            "end": [
+              3.2,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              3.5
+            ],
+            "end": [
+              3.2,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              4.25
+            ],
+            "end": [
+              11.0,
+              4.25
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "photo-05",
+      "category": "photo",
+      "path": "tests/fixtures/recognition/photo/photo-05.jpg",
+      "mimeType": "image/jpeg",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "9bf6bfd38f51590ff82103c2c27a3ae7d593d4bdbfa78d54233ac056ea031d75",
+      "groundTruth": {
+        "widthM": 11.0,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              0
+            ],
+            "end": [
+              11.0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              0
+            ],
+            "end": [
+              3.2,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              3.5
+            ],
+            "end": [
+              3.2,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              4.25
+            ],
+            "end": [
+              11.0,
+              4.25
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "vector-06",
+      "category": "vector",
+      "path": "tests/fixtures/recognition/vector/vector-06.pdf",
+      "mimeType": "application/pdf",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "248a384ce47fdb8f7a06e0b8afdaedb84e3ec4173baeeea5617d314591f1bac2",
+      "groundTruth": {
+        "widthM": 11.5,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              0
+            ],
+            "end": [
+              11.5,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              0
+            ],
+            "end": [
+              3.5500000000000003,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              3.5
+            ],
+            "end": [
+              3.5500000000000003,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              4.5
+            ],
+            "end": [
+              11.5,
+              4.5
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              8.2,
+              4.5
+            ],
+            "end": [
+              11.1,
+              6.9
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "scan-06",
+      "category": "scan",
+      "path": "tests/fixtures/recognition/scan/scan-06.png",
+      "mimeType": "image/png",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "f6c9f618cae3c5b3dd8d5691d2f85759d139a54508faa85835778a6363136de5",
+      "groundTruth": {
+        "widthM": 11.5,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              0
+            ],
+            "end": [
+              11.5,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              0
+            ],
+            "end": [
+              3.5500000000000003,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              3.5
+            ],
+            "end": [
+              3.5500000000000003,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              4.5
+            ],
+            "end": [
+              11.5,
+              4.5
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              8.2,
+              4.5
+            ],
+            "end": [
+              11.1,
+              6.9
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "photo-06",
+      "category": "photo",
+      "path": "tests/fixtures/recognition/photo/photo-06.jpg",
+      "mimeType": "image/jpeg",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "19b9e1d1b2b27599c7412c04c4151154f496af034242eab16af9075d631c15da",
+      "groundTruth": {
+        "widthM": 11.5,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              0
+            ],
+            "end": [
+              11.5,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              0
+            ],
+            "end": [
+              3.5500000000000003,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              3.5
+            ],
+            "end": [
+              3.5500000000000003,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              4.5
+            ],
+            "end": [
+              11.5,
+              4.5
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              8.2,
+              4.5
+            ],
+            "end": [
+              11.1,
+              6.9
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "vector-07",
+      "category": "vector",
+      "path": "tests/fixtures/recognition/vector/vector-07.pdf",
+      "mimeType": "application/pdf",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "ab0d5e5824749057d7c6632821a5f9b835712d384a0e4b751e5d7894bd1f53f5",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              0
+            ],
+            "end": [
+              3.9000000000000004,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              3.5
+            ],
+            "end": [
+              3.9000000000000004,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "scan-07",
+      "category": "scan",
+      "path": "tests/fixtures/recognition/scan/scan-07.png",
+      "mimeType": "image/png",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "b792b64eee15819015cd61243078c2c2d3d911be604a47a2d33bfb69c08a5892",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              0
+            ],
+            "end": [
+              3.9000000000000004,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              3.5
+            ],
+            "end": [
+              3.9000000000000004,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "photo-07",
+      "category": "photo",
+      "path": "tests/fixtures/recognition/photo/photo-07.jpg",
+      "mimeType": "image/jpeg",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "4b3b5190e2807c60ce3a486ee96d9ab37a8784ae9fb8569a82fd95c7906cd8dd",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              0
+            ],
+            "end": [
+              3.9000000000000004,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              3.5
+            ],
+            "end": [
+              3.9000000000000004,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.9000000000000004,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "vector-08",
+      "category": "vector",
+      "path": "tests/fixtures/recognition/vector/vector-08.pdf",
+      "mimeType": "application/pdf",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "ae66da583e2e569d3824fe2e8eb3735f3523f6b08d0f4bb07457d89c90619238",
+      "groundTruth": {
+        "widthM": 11.0,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              0
+            ],
+            "end": [
+              11.0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              0
+            ],
+            "end": [
+              4.25,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              3.5
+            ],
+            "end": [
+              4.25,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              4.25
+            ],
+            "end": [
+              11.0,
+              4.25
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "scan-08",
+      "category": "scan",
+      "path": "tests/fixtures/recognition/scan/scan-08.png",
+      "mimeType": "image/png",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "dcb977fd66e110d35d2786dc8758751a9d922bc532d049169e1d0fbc01917fc3",
+      "groundTruth": {
+        "widthM": 11.0,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              0
+            ],
+            "end": [
+              11.0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              0
+            ],
+            "end": [
+              4.25,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              3.5
+            ],
+            "end": [
+              4.25,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              4.25
+            ],
+            "end": [
+              11.0,
+              4.25
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "photo-08",
+      "category": "photo",
+      "path": "tests/fixtures/recognition/photo/photo-08.jpg",
+      "mimeType": "image/jpeg",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "0e2d167e040a6b7f01d9c2cb3c7a1f87111fb9255517d5478855ff43d618d926",
+      "groundTruth": {
+        "widthM": 11.0,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              0
+            ],
+            "end": [
+              11.0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.0,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              0
+            ],
+            "end": [
+              4.25,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              3.5
+            ],
+            "end": [
+              4.25,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              4.25,
+              4.25
+            ],
+            "end": [
+              11.0,
+              4.25
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "vector-09",
+      "category": "vector",
+      "path": "tests/fixtures/recognition/vector/vector-09.pdf",
+      "mimeType": "application/pdf",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "7d9d959fce913558436a966cf6ff230c2101d20895f4d7525a55f443324ac9cc",
+      "groundTruth": {
+        "widthM": 11.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              0
+            ],
+            "end": [
+              11.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              0
+            ],
+            "end": [
+              3.2,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              3.5
+            ],
+            "end": [
+              3.2,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              4.5
+            ],
+            "end": [
+              11.5,
+              4.5
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "scan-09",
+      "category": "scan",
+      "path": "tests/fixtures/recognition/scan/scan-09.png",
+      "mimeType": "image/png",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "04caa3317353f8e687099354ad45db3f4bffe3071ec5cce67d67e71e6e68fbdf",
+      "groundTruth": {
+        "widthM": 11.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              0
+            ],
+            "end": [
+              11.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              0
+            ],
+            "end": [
+              3.2,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              3.5
+            ],
+            "end": [
+              3.2,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              4.5
+            ],
+            "end": [
+              11.5,
+              4.5
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "photo-09",
+      "category": "photo",
+      "path": "tests/fixtures/recognition/photo/photo-09.jpg",
+      "mimeType": "image/jpeg",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "7ecce36bc39de7ae8ca3e448dc71191036390dd5d0ba68fd99d8b9e4a8859911",
+      "groundTruth": {
+        "widthM": 11.5,
+        "heightM": 7.0,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              11.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              0
+            ],
+            "end": [
+              11.5,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              11.5,
+              7.0
+            ],
+            "end": [
+              0,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.0
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              0
+            ],
+            "end": [
+              3.2,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              3.5
+            ],
+            "end": [
+              3.2,
+              7.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.2,
+              4.5
+            ],
+            "end": [
+              11.5,
+              4.5
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.45
+          ],
+          "second": [
+            3,
+            7.45
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "vector-10",
+      "category": "vector",
+      "path": "tests/fixtures/recognition/vector/vector-10.pdf",
+      "mimeType": "application/pdf",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "da255daebf95e091cb50a4ac262e3b42f6ae7494784637903f9be8452b54d096",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              0
+            ],
+            "end": [
+              3.5500000000000003,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              3.5
+            ],
+            "end": [
+              3.5500000000000003,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              8.2,
+              4.0
+            ],
+            "end": [
+              10.1,
+              6.9
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "scan-10",
+      "category": "scan",
+      "path": "tests/fixtures/recognition/scan/scan-10.png",
+      "mimeType": "image/png",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "4c31a385336357f5840b4b9076e8d0d52d03348633268d00c8ea97ead06118d1",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              0
+            ],
+            "end": [
+              3.5500000000000003,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              3.5
+            ],
+            "end": [
+              3.5500000000000003,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              8.2,
+              4.0
+            ],
+            "end": [
+              10.1,
+              6.9
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    },
+    {
+      "id": "photo-10",
+      "category": "photo",
+      "path": "tests/fixtures/recognition/photo/photo-10.jpg",
+      "mimeType": "image/jpeg",
+      "license": "CC0-1.0 / self-generated",
+      "sha256": "9df11d30901559909fa0c7ae75534dea3d4487380b3f39631cebeffb23fc6333",
+      "groundTruth": {
+        "widthM": 10.5,
+        "heightM": 7.4,
+        "walls": [
+          {
+            "kind": "line",
+            "start": [
+              0,
+              0
+            ],
+            "end": [
+              10.5,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              0
+            ],
+            "end": [
+              10.5,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              10.5,
+              7.4
+            ],
+            "end": [
+              0,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              0,
+              7.4
+            ],
+            "end": [
+              0,
+              0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              0
+            ],
+            "end": [
+              3.5500000000000003,
+              2.6
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              3.5
+            ],
+            "end": [
+              3.5500000000000003,
+              7.4
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              3.5500000000000003,
+              4.0
+            ],
+            "end": [
+              10.5,
+              4.0
+            ]
+          },
+          {
+            "kind": "arc",
+            "start": [
+              6.0,
+              4.0
+            ],
+            "through": [
+              7.0,
+              3.3
+            ],
+            "end": [
+              8.0,
+              4.0
+            ]
+          },
+          {
+            "kind": "line",
+            "start": [
+              8.2,
+              4.0
+            ],
+            "end": [
+              10.1,
+              6.9
+            ]
+          }
+        ],
+        "openings": [
+          {
+            "kind": "door",
+            "hostWallIndex": 4,
+            "offsetM": 2.6,
+            "widthM": 0.9
+          },
+          {
+            "kind": "window",
+            "hostWallIndex": 0,
+            "offsetM": 6.0,
+            "widthM": 1.4
+          }
+        ],
+        "calibration": {
+          "first": [
+            0,
+            7.8500000000000005
+          ],
+          "second": [
+            3,
+            7.8500000000000005
+          ],
+          "knownDistanceM": 3
+        }
+      }
+    }
+  ],
+  "manualFixtures": [
+    {
+      "id": "current-club-measurement",
+      "path": "assets/measurement_plan.pdf",
+      "license": "project-provided; do not redistribute outside this repository",
+      "purpose": "manual import and visual comparison only"
+    }
+  ]
+}

@@ -1,9 +1,19 @@
 import type { ResolvedArchitecture, ArchitectureValidationIssue } from "./types";
+import { arcFromBulge, nearestPointOnWallCurve } from "./geometry";
 
 function projectOnWall(
   point: { xM: number; yM: number },
   wall: ResolvedArchitecture["walls"][number],
 ): { alongM: number; distanceM: number; lengthM: number } {
+  const nearest = nearestPointOnWallCurve(wall.start, wall.end, wall.curve ?? { kind: "line" }, point);
+  if (nearest) {
+    const arc = wall.curve?.kind === "arc" ? arcFromBulge(wall.start, wall.end, wall.curve.bulge) : null;
+    return {
+      alongM: nearest.alongM,
+      distanceM: nearest.distanceM,
+      lengthM: arc ? Math.abs(arc.sweepRad) * arc.radiusM : Math.hypot(wall.end.xM - wall.start.xM, wall.end.yM - wall.start.yM),
+    };
+  }
   const dx = wall.end.xM - wall.start.xM;
   const dy = wall.end.yM - wall.start.yM;
   const lengthM = Math.hypot(dx, dy);

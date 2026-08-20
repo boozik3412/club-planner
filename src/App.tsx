@@ -4,6 +4,16 @@ import { BasePlanCanvas } from "./components/BasePlanCanvas";
 import { Sidebar } from "./components/Sidebar";
 import { analyzeLayout } from "./editor/analysis/layout-analysis";
 import { resolveArchitecture } from "./editor/architecture/resolve-architecture";
+import {
+  addArchitecturalOpeningCommand,
+  detachWallEndpointCommand,
+  mergeArchitecturalWallsCommand,
+  removeArchitecturalOpeningCommand,
+  resizeArchitecturalWallCommand,
+  setArchitectureReviewStatusCommand,
+  splitArchitecturalWallCommand,
+  updateArchitecturalOpeningCommand,
+} from "./editor/architecture/commands";
 import { summarizeProject } from "./editor/analysis/project-summary";
 import {
   addDimensionCommand,
@@ -44,9 +54,10 @@ import {
 import { resolveEditorShortcut } from "./editor/keyboard/shortcuts";
 import { loadBasePlan } from "./editor/load-base-plan";
 import { createEmptyProject, normalizeAngle, updateProject } from "./editor/model/project";
-import { EMPTY_SELECTION, type CameraState, type CanvasSettings, type ObjectType, type PointM, type ProjectState, type SelectionState } from "./editor/model/types";
+import { EMPTY_SELECTION, type ArchitecturalOpening, type CameraState, type CanvasSettings, type ObjectType, type PointM, type ProjectState, type SelectionState } from "./editor/model/types";
 import {
   chooseAndOpenProject,
+  choosePlanSource,
   clearRecovery,
   confirmAction,
   exitApplication,
@@ -59,6 +70,8 @@ import {
   showError,
   writeRecovery,
   type FilePayload,
+  type BinaryFilePayload,
+  type ProjectAssetPayload,
 } from "./editor/persistence/desktop-files";
 import { buildProjectPdfSvg, buildProjectSvg } from "./editor/persistence/export-svg";
 import {
@@ -81,6 +94,7 @@ import {
 
 const RECENT_KEY = "club-planner.recent-projects.v1";
 const LazyPlan3DView = lazy(() => import("./components/Plan3DView").then((module) => ({ default: module.Plan3DView })));
+const LazyPlanImportWizard = lazy(() => import("./components/PlanImportWizard").then((module) => ({ default: module.PlanImportWizard })));
 type WorkspaceMode = "2d" | "3d" | "split";
 
 function readRecentPaths(): string[] {
@@ -110,6 +124,8 @@ export default function App() {
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
   const [selectedDimensionId, setSelectedDimensionId] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
+  const [projectAssets, setProjectAssets] = useState<ProjectAssetPayload[]>([]);
+  const [importFile, setImportFile] = useState<BinaryFilePayload | null>(null);
   const [recentPaths, setRecentPaths] = useState(readRecentPaths);
   const [status, setStatus] = useState("Готово · локальный режим");
   const [updaterState, setUpdaterState] = useState<UpdaterViewState>(
@@ -132,6 +148,15 @@ export default function App() {
   const layoutWarnings = useMemo(() => analyzeLayout(project), [project]);
   const projectSummary = useMemo(() => summarizeProject(project, layoutWarnings), [layoutWarnings, project]);
   const architecture = useMemo(() => resolveArchitecture(project), [project]);
+  const activePlanSource = useMemo(
+    () => project.planSources.find((source) => source.id === project.activePlanSourceId) ?? null,
+    [project.activePlanSourceId, project.planSources],
+  );
+  const sourceImageUrl = useMemo(() => {
+    if (!activePlanSource || activePlanSource.kind === "bundled-svg" || !activePlanSource.previewPath) return undefined;
+    const asset = projectAssets.find((candidate) => candidate.path === activePlanSource.previewPath);
+    return asset ? `data:${asset.mimeType};base64,${asset.dataBase64}` : undefined;
+  }, [activePlanSource, projectAssets]);
   const selectedWall = useMemo(
     () => architecture.walls.find((wall) => wall.id === selectedWallId) ?? null,
     [architecture.walls, selectedWallId],
@@ -223,6 +248,7 @@ export default function App() {
     setSelection(EMPTY_SELECTION);
     const projectPath = decoded.legacy ? null : payload.path;
     setCurrentPath(projectPath);
+    setProjectAssets(payload.assets);
     if (projectPath) rememberPath(projectPath);
     setFitRequest((value) => value + 1);
     showStatus(decoded.legacy
@@ -241,6 +267,7 @@ export default function App() {
     setMeasureRequest(null);
     setSelection(EMPTY_SELECTION);
     setCurrentPath(null);
+    setProjectAssets([]);
     setFitRequest((value) => value + 1);
     await clearRecovery();
     showStatus("Создан новый проект");
@@ -258,6 +285,18 @@ export default function App() {
     }
   }, [confirmDiscardIfNeeded, loadPayload, showStatus]);
 
+  const handleImportPlan = useCallback(async () => {
+    if (!(await confirmDiscardIfNeeded())) return;
+    try {
+      const file = await choosePlanSource();
+      if (file) setImportFile(file);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await showError(`Не удалось открыть исходный план: ${message}`);
+      showStatus(`Ошибка импорта: ${message}`);
+    }
+  }, [confirmDiscardIfNeeded, showStatus]);
+
   const handleOpenRecent = useCallback(async (path: string) => {
     if (!(await confirmDiscardIfNeeded())) return;
     try {
@@ -271,7 +310,7 @@ export default function App() {
 
   const saveProject = useCallback(async (forceChoose: boolean) => {
     try {
-      const path = await saveProjectContents(encodeProject(history.present.project), currentPath, forceChoose);
+      const path = await saveProjectContents(encodeProject(history.present.project), currentPath, forceChoose, projectAssets);
       if (!path) return;
       setCurrentPath(path);
       rememberPath(path);
@@ -283,7 +322,7 @@ export default function App() {
       await showError(`Не удалось сохранить проект: ${message}`);
       showStatus(`Ошибка сохранения: ${message}`);
     }
-  }, [currentPath, history.present.project, rememberPath, showStatus]);
+  }, [currentPath, history.present.project, projectAssets, rememberPath, showStatus]);
 
   const handleExportSvg = useCallback(async () => {
     try {
@@ -378,6 +417,75 @@ export default function App() {
       wall.thicknessSource = wall.reference.thicknessSource;
     });
   }, [commitMutation]);
+
+  const handleResizeArchitecturalWall = useCallback((wallId: string, patch: { lengthM?: number; angleDeg?: number; radiusM?: number }, label: string) => {
+    const next = resizeArchitecturalWallCommand(history.present.project, wallId, patch);
+    if (next === history.present.project) {
+      showStatus("Не удалось изменить стену: проверьте геометрию или блокировку");
+      return;
+    }
+    commitProject(next, label);
+  }, [commitProject, history.present.project, showStatus]);
+
+  const handleSplitArchitecturalWall = useCallback((wallId: string, distanceM?: number) => {
+    const result = splitArchitecturalWallCommand(history.present.project, wallId, distanceM);
+    if (!result) {
+      showStatus("Разделение невозможно: точка попала в проём, стену или край заблокирован");
+      return;
+    }
+    commitProject(result.project, "Разделение архитектурной стены");
+    setSelectedWallId(result.wallIds?.[0] ?? wallId);
+  }, [commitProject, history.present.project, showStatus]);
+
+  const handleMergeArchitecturalWalls = useCallback((firstWallId: string, secondWallId: string) => {
+    const result = mergeArchitecturalWallsCommand(history.present.project, firstWallId, secondWallId);
+    if (!result) {
+      showStatus("Стены несовместимы: нужен общий узел и одна прямая или окружность");
+      return;
+    }
+    commitProject(result.project, "Объединение архитектурных стен");
+    setSelectedWallId(result.wallIds?.[0] ?? firstWallId);
+  }, [commitProject, history.present.project, showStatus]);
+
+  const handleDetachWallEndpoint = useCallback((wallId: string, endpoint: "start" | "end") => {
+    const result = detachWallEndpointCommand(history.present.project, wallId, endpoint);
+    if (!result) {
+      showStatus("Не удалось отделить узел заблокированной стены");
+      return;
+    }
+    commitProject(result.project, "Отделение стены от общего узла");
+  }, [commitProject, history.present.project, showStatus]);
+
+  const handleAddArchitecturalOpening = useCallback((wallId: string, kind: "door" | "window") => {
+    const result = addArchitecturalOpeningCommand(history.present.project, wallId, kind);
+    if (!result) {
+      showStatus("Проём не помещается на стене или стена заблокирована");
+      return;
+    }
+    commitProject(result.project, kind === "door" ? "Добавление двери" : "Добавление окна");
+  }, [commitProject, history.present.project, showStatus]);
+
+  const handleUpdateArchitecturalOpening = useCallback((
+    openingId: string,
+    patch: Partial<Pick<ArchitecturalOpening, "offsetM" | "widthM" | "sillHeightM" | "openingHeightM" | "swing" | "openingAngleDeg" | "reviewStatus">>,
+    label: string,
+  ) => {
+    const next = updateArchitecturalOpeningCommand(history.present.project, openingId, patch);
+    if (next === history.present.project) {
+      showStatus("Не удалось изменить проём: проверьте его положение и высоту");
+      return;
+    }
+    commitProject(next, label);
+  }, [commitProject, history.present.project, showStatus]);
+
+  const handleRemoveArchitecturalOpening = useCallback((openingId: string) => {
+    const next = removeArchitecturalOpeningCommand(history.present.project, openingId);
+    if (next !== history.present.project) commitProject(next, "Удаление архитектурного проёма");
+  }, [commitProject, history.present.project]);
+
+  const handleArchitectureReviewStatus = useCallback((wallId: string, status: "candidate" | "accepted" | "rejected") => {
+    commitProject(setArchitectureReviewStatusCommand(history.present.project, [wallId], status), status === "accepted" ? "Принятие стены" : "Отклонение стены");
+  }, [commitProject, history.present.project]);
 
   const handle3DObjectSelect = useCallback((objectId: string, additive: boolean) => {
     setSelectedWallId(null);
@@ -526,7 +634,7 @@ export default function App() {
 
     updaterBusyRef.current = true;
     try {
-      if (dirty) await writeRecovery(createRecoveryEnvelope(history.present.project, currentPath));
+      if (dirty) await writeRecovery(createRecoveryEnvelope(history.present.project, currentPath, projectAssets));
       setUpdaterState({ phase: "installing", info: candidate.info, progress: EMPTY_DOWNLOAD_PROGRESS });
       await candidate.downloadAndInstall((progress) => {
         setUpdaterState({ phase: "installing", info: candidate.info, progress });
@@ -538,7 +646,7 @@ export default function App() {
     } finally {
       updaterBusyRef.current = false;
     }
-  }, [currentPath, dirty, history.present.project]);
+  }, [currentPath, dirty, history.present.project, projectAssets]);
 
   const handleCreateArray = useCallback((count: number, stepM: number, direction: "horizontal" | "vertical") => {
     const result = createObjectArrayCommand(history.present.project, selection, count, stepM, direction);
@@ -734,12 +842,12 @@ export default function App() {
   useEffect(() => {
     if (!dirty) return;
     const timer = window.setTimeout(() => {
-      void writeRecovery(createRecoveryEnvelope(history.present.project, currentPath)).catch((error) => {
+      void writeRecovery(createRecoveryEnvelope(history.present.project, currentPath, projectAssets)).catch((error) => {
         showStatus(`Ошибка автосохранения: ${error instanceof Error ? error.message : String(error)}`);
       });
     }, 1_500);
     return () => window.clearTimeout(timer);
-  }, [currentPath, dirty, history.present.project, showStatus]);
+  }, [currentPath, dirty, history.present.project, projectAssets, showStatus]);
 
   useEffect(() => {
     if (recoveryCheckedRef.current) return;
@@ -752,6 +860,7 @@ export default function App() {
           const recovered = decodeRecoveryEnvelope(source);
           setHistory(createHistory(recovered.project, false));
           setCurrentPath(recovered.sourcePath);
+          setProjectAssets(recovered.assets);
           setSelection(EMPTY_SELECTION);
           setFitRequest((value) => value + 1);
           showStatus("Проект восстановлен из автосохранения");
@@ -784,7 +893,7 @@ export default function App() {
       try {
         if (dirty) {
           if (!(await confirmAction("Закрыть приложение и оставить несохранённые изменения только в автосохранении?"))) return;
-          await writeRecovery(createRecoveryEnvelope(history.present.project, currentPath));
+          await writeRecovery(createRecoveryEnvelope(history.present.project, currentPath, projectAssets));
         }
         closing = true;
         await exitApplication();
@@ -796,7 +905,7 @@ export default function App() {
       }
     }).then((callback) => { unlisten = callback; });
     return () => unlisten?.();
-  }, [currentPath, dirty, history.present.project, showStatus]);
+  }, [currentPath, dirty, history.present.project, projectAssets, showStatus]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -825,6 +934,7 @@ export default function App() {
         updaterState={updaterState}
         onNew={() => { void handleNew(); }}
         onOpen={() => { void handleOpen(); }}
+        onImportPlan={() => { void handleImportPlan(); }}
         onOpenRecent={(path) => { void handleOpenRecent(path); }}
         onSave={() => { void saveProject(false); }}
         onSaveAs={() => { void saveProject(true); }}
@@ -839,6 +949,14 @@ export default function App() {
         onArchitectureDefaultsChange={handleArchitectureDefaultsChange}
         onWallOverrideChange={handleWallOverrideChange}
         onResetWallOverride={handleResetWallOverride}
+        onResizeArchitecturalWall={handleResizeArchitecturalWall}
+        onSplitArchitecturalWall={handleSplitArchitecturalWall}
+        onMergeArchitecturalWalls={handleMergeArchitecturalWalls}
+        onDetachWallEndpoint={handleDetachWallEndpoint}
+        onAddArchitecturalOpening={handleAddArchitecturalOpening}
+        onUpdateArchitecturalOpening={handleUpdateArchitecturalOpening}
+        onRemoveArchitecturalOpening={handleRemoveArchitecturalOpening}
+        onArchitectureReviewStatus={handleArchitectureReviewStatus}
         onSelectDimension={handleSelectDimension}
         onCheckForUpdates={() => { void checkForUpdates(true); }}
         onInstallUpdate={() => { void handleInstallUpdate(); }}
@@ -873,6 +991,8 @@ export default function App() {
             <div className="workspace-pane workspace-pane--2d">
               <BasePlanCanvas
                 project={project}
+                sourceImageUrl={sourceImageUrl}
+                selectedWallId={selectedWallId}
                 selection={selection}
                 camera={camera}
                 fitRequest={fitRequest}
@@ -882,6 +1002,7 @@ export default function App() {
                 onCameraChange={setCamera}
                 onVisibleCenterChange={handleVisibleCenterChange}
                 onSelectionChange={(next) => { setSelectedWallId(null); setSelection(next); }}
+                onWallSelect={(wallId) => { setSelection(EMPTY_SELECTION); setSelectedWallId(wallId); }}
                 onPreviewProject={setPreviewProject}
                 onCommitProject={commitProject}
                 onGroupSelection={handleGroup}
@@ -918,6 +1039,27 @@ export default function App() {
           <span>{project.objects.length} предметов · {project.groups.length} групп · выбрано {selection.objectIds.length}</span>
         </div>
       </main>
+      {importFile ? (
+        <Suspense fallback={<div className="modal-backdrop"><div className="import-loading">Загрузка локального модуля импорта…</div></div>}>
+          <LazyPlanImportWizard
+            file={importFile}
+            defaultWallHeightM={history.present.project.architecture.defaultWallHeightM}
+            defaultWallThicknessM={history.present.project.architecture.defaultWallThicknessM}
+            onCancel={() => setImportFile(null)}
+            onComplete={(nextProject, assets) => {
+              setHistory(createHistory(nextProject, false));
+              setPreviewProject(null);
+              setSelection(EMPTY_SELECTION);
+              setSelectedWallId(null);
+              setCurrentPath(null);
+              setProjectAssets(assets);
+              setImportFile(null);
+              setFitRequest((value) => value + 1);
+              showStatus("Распознанная планировка создана · сохраните проект");
+            }}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

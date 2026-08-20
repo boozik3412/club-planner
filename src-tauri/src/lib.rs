@@ -19,6 +19,7 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             project_files::read_project_file,
+            project_files::read_plan_source,
             project_files::write_project_file,
             project_files::write_svg_file,
             project_files::write_pdf_file,

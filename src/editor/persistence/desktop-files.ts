@@ -13,6 +13,13 @@ export interface ProjectAssetPayload {
   dataBase64: string;
 }
 
+export interface BinaryFilePayload {
+  path: string;
+  name: string;
+  mimeType: "application/pdf" | "image/png" | "image/jpeg";
+  dataBase64: string;
+}
+
 export function isTauriRuntime(): boolean {
   return "__TAURI_INTERNALS__" in globalThis;
 }
@@ -81,6 +88,60 @@ export async function saveProjectContents(
   if (!path) return null;
   if (!path.toLowerCase().endsWith(".clubplan")) path += ".clubplan";
   return invoke<string>("write_project_file", { path, contents, assets });
+}
+
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function openBrowserPlanSource(): Promise<BinaryFilePayload | null> {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg";
+    input.onchange = async () => {
+      try {
+        const file = input.files?.[0];
+        if (!file) {
+          resolve(null);
+          return;
+        }
+        if (file.size > 128 * 1024 * 1024) throw new Error("Исходный план превышает безопасный размер 128 МБ");
+        const mimeType = file.type === "application/pdf" || file.type === "image/png" || file.type === "image/jpeg"
+          ? file.type
+          : file.name.toLowerCase().endsWith(".pdf") ? "application/pdf"
+            : file.name.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
+        resolve({
+          path: file.name,
+          name: file.name,
+          mimeType,
+          dataBase64: bytesToBase64(new Uint8Array(await file.arrayBuffer())),
+        });
+      } catch (error) {
+        reject(error);
+      }
+    };
+    input.click();
+  });
+}
+
+export async function choosePlanSource(): Promise<BinaryFilePayload | null> {
+  if (!isTauriRuntime()) return openBrowserPlanSource();
+  const path = await open({
+    multiple: false,
+    directory: false,
+    filters: [
+      { name: "Планы помещений", extensions: ["pdf", "png", "jpg", "jpeg"] },
+      { name: "PDF", extensions: ["pdf"] },
+      { name: "Изображения", extensions: ["png", "jpg", "jpeg"] },
+    ],
+  });
+  return typeof path === "string" ? invoke<BinaryFilePayload>("read_plan_source", { path }) : null;
 }
 
 export async function saveSvgContents(contents: string): Promise<string | null> {

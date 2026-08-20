@@ -81,6 +81,7 @@ export interface PlanSource {
   sha256: string;
   embeddedPath: string;
   previewPath?: string;
+  thumbnailPath?: string;
   pageIndex?: number;
   pageCount?: number;
   sourceWidth?: number;
@@ -92,6 +93,12 @@ export interface PlanSource {
   perspectiveMatrix?: [number, number, number, number, number, number, number, number, number];
   metersPerSourceUnit?: number;
   locked: boolean;
+  recognizer?: {
+    engineVersion: string;
+    pdfEngine: string;
+    cvEngine: string;
+    ocrEngine: string;
+  };
 }
 
 export interface CanvasSettings {

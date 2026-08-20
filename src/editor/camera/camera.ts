@@ -1,9 +1,4 @@
-import {
-  PLAN_CENTER_X,
-  PLAN_CENTER_Y,
-  PLAN_HEIGHT_UNITS,
-  PLAN_WIDTH_UNITS,
-} from "../base-plan";
+import { PLAN_HEIGHT_UNITS, PLAN_WIDTH_UNITS } from "../base-plan";
 import type { CameraState, PointM } from "../model/types";
 
 export interface ViewportSize {
@@ -18,25 +13,33 @@ interface UnitBounds {
   height: number;
 }
 
-function rotatedBounds(rotationDeg: number): UnitBounds {
+function rotatedBounds(
+  rotationDeg: number,
+  widthUnits = PLAN_WIDTH_UNITS,
+  heightUnits = PLAN_HEIGHT_UNITS,
+): UnitBounds {
+  const centerX = widthUnits / 2;
+  const centerY = heightUnits / 2;
   const normalized = ((rotationDeg % 360) + 360) % 360;
   if (normalized === 90 || normalized === 270) {
     return {
-      minX: PLAN_CENTER_X - PLAN_HEIGHT_UNITS / 2,
-      minY: PLAN_CENTER_Y - PLAN_WIDTH_UNITS / 2,
-      width: PLAN_HEIGHT_UNITS,
-      height: PLAN_WIDTH_UNITS,
+      minX: centerX - heightUnits / 2,
+      minY: centerY - widthUnits / 2,
+      width: heightUnits,
+      height: widthUnits,
     };
   }
-  return { minX: 0, minY: 0, width: PLAN_WIDTH_UNITS, height: PLAN_HEIGHT_UNITS };
+  return { minX: 0, minY: 0, width: widthUnits, height: heightUnits };
 }
 
 export function fitCamera(
   viewport: ViewportSize,
   rotationDeg: number,
   margin = 36,
+  widthUnits = PLAN_WIDTH_UNITS,
+  heightUnits = PLAN_HEIGHT_UNITS,
 ): CameraState {
-  const bounds = rotatedBounds(rotationDeg);
+  const bounds = rotatedBounds(rotationDeg, widthUnits, heightUnits);
   const availableWidth = Math.max(1, viewport.width - margin * 2);
   const availableHeight = Math.max(1, viewport.height - margin * 2);
   const zoom = Math.min(availableWidth / bounds.width, availableHeight / bounds.height);
@@ -67,15 +70,19 @@ export function screenToPlanUnits(
   screenY: number,
   camera: CameraState,
   rotationDeg: number,
+  widthUnits = PLAN_WIDTH_UNITS,
+  heightUnits = PLAN_HEIGHT_UNITS,
 ): { x: number; y: number } {
   const rotatedX = (screenX - camera.x) / camera.zoom;
   const rotatedY = (screenY - camera.y) / camera.zoom;
   const radians = (-rotationDeg * Math.PI) / 180;
-  const dx = rotatedX - PLAN_CENTER_X;
-  const dy = rotatedY - PLAN_CENTER_Y;
+  const centerX = widthUnits / 2;
+  const centerY = heightUnits / 2;
+  const dx = rotatedX - centerX;
+  const dy = rotatedY - centerY;
   return {
-    x: PLAN_CENTER_X + dx * Math.cos(radians) - dy * Math.sin(radians),
-    y: PLAN_CENTER_Y + dx * Math.sin(radians) + dy * Math.cos(radians),
+    x: centerX + dx * Math.cos(radians) - dy * Math.sin(radians),
+    y: centerY + dx * Math.sin(radians) + dy * Math.cos(radians),
   };
 }
 
@@ -84,12 +91,16 @@ export function viewportCenterToPlanMeters(
   camera: CameraState,
   rotationDeg: number,
   unitsPerMeter: number,
+  widthUnits = PLAN_WIDTH_UNITS,
+  heightUnits = PLAN_HEIGHT_UNITS,
 ): PointM {
   const center = screenToPlanUnits(
     viewport.width / 2,
     viewport.height / 2,
     camera,
     rotationDeg,
+    widthUnits,
+    heightUnits,
   );
   return {
     xM: center.x / unitsPerMeter,

@@ -1,4 +1,5 @@
 import { getObjectsBounds } from "../geometry/geometry";
+import { nearestPointOnWallCurve } from "../architecture/geometry";
 import { normalizeAngle } from "../model/project";
 import type { PlanObject, PointM } from "../model/types";
 import { resolveObjectSnap } from "./object-snap";
@@ -31,6 +32,8 @@ interface SnapCandidate {
   side: -1 | 1;
   snapType: SnapGuide["snapType"];
   rotationDeg: number | null;
+  guideTo?: PointM;
+  guideFrom?: PointM;
 }
 
 export interface ResolveMoveSnapInput {
@@ -128,6 +131,53 @@ function findBoundaryCandidates(
   autoRotateFurniture: boolean,
   autoRotatePartitions: boolean,
 ): SnapCandidate[] {
+  if (boundary.curve?.kind === "arc") {
+    const candidates: SnapCandidate[] = [];
+    for (const object of objects) {
+      const movedCenter = { xM: object.xM + rawDeltaXM, yM: object.yM + rawDeltaYM };
+      const nearest = nearestPointOnWallCurve(boundary.start, boundary.end, boundary.curve, movedCenter);
+      if (!nearest) continue;
+      const baseNormal = { xM: -nearest.tangent.yM, yM: nearest.tangent.xM };
+      for (const side of [1, -1] as const) {
+        const normal = { xM: baseNormal.xM * side, yM: baseNormal.yM * side };
+        const rotationDeg = getParallelRotation(object, nearest.tangent, objects.length, autoRotateFurniture, autoRotatePartitions);
+        const workingObject = rotationDeg === null ? object : { ...object, rotationDeg };
+        const radiusM = getObjectSupportRadius(workingObject, normal);
+        const facePoint = {
+          xM: nearest.point.xM + normal.xM * boundary.thicknessM / 2,
+          yM: nearest.point.yM + normal.yM * boundary.thicknessM / 2,
+        };
+        const targetCenter = {
+          xM: facePoint.xM + normal.xM * (radiusM + wallOffsetM),
+          yM: facePoint.yM + normal.yM * (radiusM + wallOffsetM),
+        };
+        const adjustmentXM = targetCenter.xM - movedCenter.xM;
+        const adjustmentYM = targetCenter.yM - movedCenter.yM;
+        if (Math.hypot(adjustmentXM, adjustmentYM) > toleranceM) continue;
+        candidates.push({
+          key: `${boundary.id}:${object.id}:${side}:arc:${nearest.alongM.toFixed(5)}`,
+          boundary,
+          adjustmentXM,
+          adjustmentYM,
+          normal: baseNormal,
+          tangent: nearest.tangent,
+          faceCoordinateM: 0,
+          contactTangentCoordinateM: nearest.alongM,
+          object,
+          normalRadiusM: radiusM,
+          side,
+          snapType: rotationDeg === null ? "wall" : "parallel",
+          rotationDeg,
+          guideTo: facePoint,
+          guideFrom: {
+            xM: facePoint.xM + normal.xM * wallOffsetM,
+            yM: facePoint.yM + normal.yM * wallOffsetM,
+          },
+        });
+      }
+    }
+    return candidates;
+  }
   const axes = getBoundaryAxes(boundary);
   if (!axes) return [];
   const { tangent, normal } = axes;
@@ -361,13 +411,13 @@ export function resolveMoveSnap(input: ResolveMoveSnapInput): SnapResolution {
   const candidate = uniqueCandidates[normalizedCandidateIndex];
   const deltaXM = rawDeltaXM + candidate.adjustmentXM;
   const deltaYM = rawDeltaYM + candidate.adjustmentYM;
-  const to = {
+  const to = candidate.guideTo ?? {
     xM: candidate.normal.xM * candidate.faceCoordinateM
       + candidate.tangent.xM * candidate.contactTangentCoordinateM,
     yM: candidate.normal.yM * candidate.faceCoordinateM
       + candidate.tangent.yM * candidate.contactTangentCoordinateM,
   };
-  const from = {
+  const from = candidate.guideFrom ?? {
     xM: to.xM + candidate.normal.xM * candidate.side * wallOffsetM,
     yM: to.yM + candidate.normal.yM * candidate.side * wallOffsetM,
   };

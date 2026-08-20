@@ -53,6 +53,22 @@ describe("schematic 3D geometry", () => {
     expect(solids.map((solid) => solid.heightM)).toEqual(expect.arrayContaining([0.8, 1]));
   });
 
+  it("segments a true arc with at most one-centimetre chord error", () => {
+    const arcWall: ResolvedArchitecturalWall = {
+      ...wall,
+      end: { xM: 4, yM: 0 },
+      curve: { kind: "arc", bulge: 1 },
+    };
+    const solids = buildWallSolids(arcWall, []);
+    expect(solids.length).toBeGreaterThan(10);
+    const radiusM = 2;
+    solids.forEach((solid) => {
+      const angle = 2 * Math.asin(Math.min(1, solid.lengthM / (2 * radiusM)));
+      const errorM = radiusM * (1 - Math.cos(angle / 2));
+      expect(errorM).toBeLessThanOrEqual(0.011);
+    });
+  });
+
   it("maps plan XY to scene XZ and keeps physical elevation", () => {
     const project = createEmptyProject();
     project.objects = [{

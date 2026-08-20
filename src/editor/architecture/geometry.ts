@@ -13,6 +13,56 @@ export interface WallArc {
   sweepRad: number;
 }
 
+export interface NearestWallPoint {
+  point: PointM;
+  tangent: PointM;
+  distanceM: number;
+  alongM: number;
+}
+
+function positiveAngle(angle: number): number {
+  const tau = Math.PI * 2;
+  return ((angle % tau) + tau) % tau;
+}
+
+export function nearestPointOnWallCurve(
+  start: PointM,
+  end: PointM,
+  curve: ArchitecturalWall["curve"],
+  target: PointM,
+): NearestWallPoint | null {
+  if (curve.kind === "arc") {
+    const arc = arcFromBulge(start, end, curve.bulge);
+    if (arc) {
+      const targetAngle = Math.atan2(target.yM - arc.center.yM, target.xM - arc.center.xM);
+      const angularDistance = arc.sweepRad > 0
+        ? positiveAngle(targetAngle - arc.startAngleRad)
+        : positiveAngle(arc.startAngleRad - targetAngle);
+      const clampedAngularDistance = Math.min(Math.abs(arc.sweepRad), angularDistance);
+      const angle = arc.startAngleRad + Math.sign(arc.sweepRad) * clampedAngularDistance;
+      const point = {
+        xM: arc.center.xM + Math.cos(angle) * arc.radiusM,
+        yM: arc.center.yM + Math.sin(angle) * arc.radiusM,
+      };
+      const direction = Math.sign(arc.sweepRad) || 1;
+      return {
+        point,
+        tangent: { xM: -Math.sin(angle) * direction, yM: Math.cos(angle) * direction },
+        distanceM: Math.hypot(target.xM - point.xM, target.yM - point.yM),
+        alongM: clampedAngularDistance * arc.radiusM,
+      };
+    }
+  }
+  const dx = end.xM - start.xM;
+  const dy = end.yM - start.yM;
+  const lengthM = Math.hypot(dx, dy);
+  if (lengthM <= Number.EPSILON) return null;
+  const tangent = { xM: dx / lengthM, yM: dy / lengthM };
+  const alongM = Math.min(lengthM, Math.max(0, (target.xM - start.xM) * tangent.xM + (target.yM - start.yM) * tangent.yM));
+  const point = { xM: start.xM + tangent.xM * alongM, yM: start.yM + tangent.yM * alongM };
+  return { point, tangent, distanceM: Math.hypot(target.xM - point.xM, target.yM - point.yM), alongM };
+}
+
 export function architectureVertexMap(architecture: ArchitectureSettings): Map<string, ArchitectureVertex> {
   return new Map(architecture.vertices.map((vertex) => [vertex.id, vertex]));
 }

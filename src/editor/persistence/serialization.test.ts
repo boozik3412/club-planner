@@ -72,6 +72,7 @@ describe(".clubplan serialization", () => {
 
   it("round-trips v4 architectural graph, elevations and reflections", () => {
     const project = createEmptyProject();
+    project.planSources[0].thumbnailPath = "previews/bundled-thumb.png";
     project.architecture.defaultWallHeightM = 3.2;
     const wall = project.architecture.walls.find((candidate) => candidate.id === "wall-main-top");
     if (!wall) throw new Error("fixture wall missing");
@@ -90,6 +91,7 @@ describe(".clubplan serialization", () => {
 
     const decoded = decodeProject(encodeProject(project));
     expect(decoded.project.architecture).toEqual(project.architecture);
+    expect(decoded.project.planSources[0].thumbnailPath).toBe("previews/bundled-thumb.png");
     expect(decoded.project.objects[0]).toMatchObject({ heightM: 0.75, elevationM: 0.25, flipX: true, flipY: false });
   });
 

@@ -9,6 +9,7 @@ import type {
 } from "../model/types";
 import type { BoundaryKind, BoundarySource } from "../snapping/types";
 import type { OpeningKind } from "../semantics/types";
+import type { ComputedRoom } from "./rooms";
 
 export type HeightRegion = ArchitectureHeightRegion;
 
@@ -37,6 +38,8 @@ export interface ResolvedArchitecturalOpening {
   start: PointM;
   end: PointM;
   hostWallId: string | null;
+  offsetM?: number;
+  widthM?: number;
   sillHeightM: number;
   openingHeightM: number;
   verticalSource: ArchitectureValueSource;
@@ -54,6 +57,7 @@ export interface ResolvedArchitecture {
   walls: ResolvedArchitecturalWall[];
   openings: ResolvedArchitecturalOpening[];
   heightRegions: HeightRegion[];
+  rooms: ComputedRoom[];
 }
 
 export interface ArchitectureValidationIssue {

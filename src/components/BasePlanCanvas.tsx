@@ -19,6 +19,7 @@ import {
   type ResizeHandle,
 } from "../editor/geometry/geometry";
 import { analyzeLayout, getClearanceBounds } from "../editor/analysis/layout-analysis";
+import { arcFromBulge } from "../editor/architecture/geometry";
 import { loadBasePlan, type LoadedBasePlan } from "../editor/load-base-plan";
 import { distanceMeters, formatMeters } from "../editor/measurement/measurement";
 import { snapMeters } from "../editor/model/project";
@@ -51,6 +52,8 @@ import { ObjectShape } from "./ObjectShape";
 
 interface BasePlanCanvasProps {
   project: ProjectState;
+  sourceImageUrl?: string;
+  selectedWallId?: string | null;
   selection: SelectionState;
   camera: CameraState;
   fitRequest: number;
@@ -60,6 +63,7 @@ interface BasePlanCanvasProps {
   onCameraChange: (camera: CameraState) => void;
   onVisibleCenterChange: (center: PointM) => void;
   onSelectionChange: (selection: SelectionState) => void;
+  onWallSelect?: (wallId: string) => void;
   onPreviewProject: (project: ProjectState | null) => void;
   onCommitProject: (project: ProjectState, label: string) => void;
   onGroupSelection: () => void;
@@ -72,6 +76,16 @@ interface BasePlanCanvasProps {
   onMeasurementMessage: (message: string) => void;
   onReady: (labelCount: number) => void;
   onError: (message: string) => void;
+}
+
+function boundarySvgPath(boundary: PlanBoundary, unitsPerMeter: number): string {
+  const start = `${boundary.start.xM * unitsPerMeter} ${boundary.start.yM * unitsPerMeter}`;
+  const end = `${boundary.end.xM * unitsPerMeter} ${boundary.end.yM * unitsPerMeter}`;
+  if (boundary.curve?.kind !== "arc") return `M ${start} L ${end}`;
+  const arc = arcFromBulge(boundary.start, boundary.end, boundary.curve.bulge);
+  if (!arc) return `M ${start} L ${end}`;
+  const radius = arc.radiusM * unitsPerMeter;
+  return `M ${start} A ${radius} ${radius} 0 ${Math.abs(arc.sweepRad) > Math.PI ? 1 : 0} ${arc.sweepRad > 0 ? 1 : 0} ${end}`;
 }
 
 interface ScreenPoint {
@@ -134,9 +148,11 @@ function doorSweepPath(
 const BasePlanLayer = memo(function BasePlanLayer({
   plan,
   project,
+  sourceImageUrl,
 }: {
   plan: LoadedBasePlan;
   project: ProjectState;
+  sourceImageUrl?: string;
 }) {
   const width = project.basePlan.widthM * project.basePlan.unitsPerMeter;
   const height = project.basePlan.heightM * project.basePlan.unitsPerMeter;
@@ -153,10 +169,14 @@ const BasePlanLayer = memo(function BasePlanLayer({
       {project.canvas.gridVisible ? <rect x="0" y="0" width={width} height={height} fill="url(#club-grid)" pointerEvents="none" /> : null}
       {project.canvas.basePlanVisible ? (
         <g opacity={project.canvas.basePlanOpacity} pointerEvents="none">
-          <g dangerouslySetInnerHTML={{ __html: plan.geometryMarkup }} />
-          {project.canvas.planLabelsVisible ? plan.labels.map((label) => (
-            <g key={label.id} transform={`rotate(${-project.canvas.rotationDeg} ${label.cx} ${label.cy})`} dangerouslySetInnerHTML={{ __html: label.markup }} />
-          )) : null}
+          {sourceImageUrl ? <image href={sourceImageUrl} width={width} height={height} preserveAspectRatio="none" /> : (
+            <>
+              <g dangerouslySetInnerHTML={{ __html: plan.geometryMarkup }} />
+              {project.canvas.planLabelsVisible ? plan.labels.map((label) => (
+                <g key={label.id} transform={`rotate(${-project.canvas.rotationDeg} ${label.cx} ${label.cy})`} dangerouslySetInnerHTML={{ __html: label.markup }} />
+              )) : null}
+            </>
+          )}
         </g>
       ) : null}
     </>
@@ -165,6 +185,8 @@ const BasePlanLayer = memo(function BasePlanLayer({
 
 export function BasePlanCanvas({
   project,
+  sourceImageUrl,
+  selectedWallId,
   selection,
   camera,
   fitRequest,
@@ -174,6 +196,7 @@ export function BasePlanCanvas({
   onCameraChange,
   onVisibleCenterChange,
   onSelectionChange,
+  onWallSelect,
   onPreviewProject,
   onCommitProject,
   onGroupSelection,
@@ -253,11 +276,17 @@ export function BasePlanCanvas({
   }, []);
 
   useEffect(() => {
-    const fitKey = `${viewport.width}:${viewport.height}:${project.canvas.rotationDeg}:${fitRequest}`;
+    const fitKey = `${viewport.width}:${viewport.height}:${project.canvas.rotationDeg}:${fitRequest}:${project.basePlan.widthM}:${project.basePlan.heightM}:${project.basePlan.unitsPerMeter}`;
     if (viewport.width <= 1 || viewport.height <= 1 || lastFitKeyRef.current === fitKey) return;
     lastFitKeyRef.current = fitKey;
-    onCameraChange(fitCamera(viewport, project.canvas.rotationDeg));
-  }, [fitRequest, onCameraChange, project.canvas.rotationDeg, viewport]);
+    onCameraChange(fitCamera(
+      viewport,
+      project.canvas.rotationDeg,
+      36,
+      project.basePlan.widthM * project.basePlan.unitsPerMeter,
+      project.basePlan.heightM * project.basePlan.unitsPerMeter,
+    ));
+  }, [fitRequest, onCameraChange, project.basePlan.heightM, project.basePlan.unitsPerMeter, project.basePlan.widthM, project.canvas.rotationDeg, viewport]);
 
   useEffect(() => {
     if (viewport.width <= 1 || viewport.height <= 1) return;
@@ -266,11 +295,15 @@ export function BasePlanCanvas({
       camera,
       project.canvas.rotationDeg,
       project.basePlan.unitsPerMeter,
+      project.basePlan.widthM * project.basePlan.unitsPerMeter,
+      project.basePlan.heightM * project.basePlan.unitsPerMeter,
     ));
   }, [
     camera,
     onVisibleCenterChange,
+    project.basePlan.heightM,
     project.basePlan.unitsPerMeter,
+    project.basePlan.widthM,
     project.canvas.rotationDeg,
     viewport,
   ]);
@@ -296,9 +329,16 @@ export function BasePlanCanvas({
   }, []);
 
   const planPoint = useCallback((screen: ScreenPoint): ScreenPoint => {
-    const units = screenToPlanUnits(screen.x, screen.y, camera, project.canvas.rotationDeg);
+    const units = screenToPlanUnits(
+      screen.x,
+      screen.y,
+      camera,
+      project.canvas.rotationDeg,
+      project.basePlan.widthM * project.basePlan.unitsPerMeter,
+      project.basePlan.heightM * project.basePlan.unitsPerMeter,
+    );
     return { x: units.x / project.basePlan.unitsPerMeter, y: units.y / project.basePlan.unitsPerMeter };
-  }, [camera, project.basePlan.unitsPerMeter, project.canvas.rotationDeg]);
+  }, [camera, project.basePlan.heightM, project.basePlan.unitsPerMeter, project.basePlan.widthM, project.canvas.rotationDeg]);
 
   const getVisiblePlanBounds = useCallback((): BoundsM | null => {
     if (viewport.width <= 1 || viewport.height <= 1) return null;
@@ -811,21 +851,24 @@ export function BasePlanCanvas({
       >
         <g transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>
           <g transform={`rotate(${project.canvas.rotationDeg} ${project.basePlan.widthM * project.basePlan.unitsPerMeter / 2} ${project.basePlan.heightM * project.basePlan.unitsPerMeter / 2})`}>
-            {plan ? <BasePlanLayer plan={plan} project={project} /> : null}
+            {plan ? <BasePlanLayer plan={plan} project={project} sourceImageUrl={sourceImageUrl} /> : null}
             {project.canvas.semanticLayerVisible ? (
-              <g className="semantic-layer" pointerEvents="none">
+              <g className="semantic-layer">
                 {semanticBoundaries.map((boundary) => (
-                  <line
+                  <path
                     key={boundary.id}
-                    className={`semantic-boundary semantic-boundary--${boundary.kind}`}
-                    x1={boundary.start.xM * unitsPerMeter}
-                    y1={boundary.start.yM * unitsPerMeter}
-                    x2={boundary.end.xM * unitsPerMeter}
-                    y2={boundary.end.yM * unitsPerMeter}
+                    className={`semantic-boundary semantic-boundary--${boundary.kind}${selectedWallId === boundary.id ? " is-selected" : ""}`}
+                    d={boundarySvgPath(boundary, unitsPerMeter)}
                     vectorEffect="non-scaling-stroke"
+                    pointerEvents={onWallSelect && boundary.source !== "project-object" ? "stroke" : "none"}
+                    onPointerDown={(event) => {
+                      if (!onWallSelect || boundary.source === "project-object") return;
+                      event.stopPropagation();
+                      onWallSelect(boundary.id);
+                    }}
                   />
                 ))}
-                {semanticOpenings.map((opening) => {
+                <g pointerEvents="none">{semanticOpenings.map((opening) => {
                   const sweepPath = opening.kind === "door"
                     ? doorSweepPath(opening, unitsPerMeter)
                     : null;
@@ -841,7 +884,7 @@ export function BasePlanCanvas({
                       />
                     </g>
                   );
-                })}
+                })}</g>
               </g>
             ) : null}
             {project.canvas.clearanceWarningsVisible ? (
