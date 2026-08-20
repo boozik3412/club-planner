@@ -157,6 +157,50 @@ function mergeDuplicateWallAxes(lines: readonly DetectedLine[]): DetectedLine[] 
   return result;
 }
 
+function pointToSegmentDistance(point: { x: number; y: number }, line: DetectedLine): number {
+  const dx = line.end.x - line.start.x;
+  const dy = line.end.y - line.start.y;
+  const squaredLength = dx * dx + dy * dy;
+  if (squaredLength <= Number.EPSILON) return Math.hypot(point.x - line.start.x, point.y - line.start.y);
+  const ratio = Math.max(0, Math.min(1, ((point.x - line.start.x) * dx + (point.y - line.start.y) * dy) / squaredLength));
+  return Math.hypot(point.x - (line.start.x + dx * ratio), point.y - (line.start.y + dy * ratio));
+}
+
+/** Recovers long single-stroke partitions only when the accepted double-face
+ * wall axes provide topological support at both ends. The lower confidence is
+ * intentional: review can accept it, while the guide layer always remains
+ * available for manual tracing. */
+export function recoverTopologySupportedLines(
+  fragments: readonly DetectedLine[],
+  wallAxes: readonly DetectedLine[],
+  minimumDimension: number,
+  minimumLengthPx: number,
+): DetectedLine[] {
+  if (wallAxes.length === 0) return [];
+  const junctionTolerancePx = Math.max(7, minimumDimension * 0.014);
+  const minimumRecoveredLengthPx = Math.max(minimumLengthPx * 1.15, minimumDimension * 0.085);
+  return fragments.flatMap((line): DetectedLine[] => {
+    const item = candidate(line);
+    if (!item || item.length < minimumRecoveredLengthPx) return [];
+    const supportedAt = (point: { x: number; y: number }) => wallAxes.some((axis) => pointToSegmentDistance(point, axis) <= junctionTolerancePx);
+    if (!supportedAt(line.start) || !supportedAt(line.end)) return [];
+    const duplicatesAxis = wallAxes.some((axis) => {
+      const reference = candidate(axis);
+      if (!reference || !parallel(reference, item, 0.04)) return false;
+      const [start, end] = intervalOn(reference, line);
+      const overlap = Math.min(reference.endProjection, end) - Math.max(reference.startProjection, start);
+      return overlap >= item.length * 0.65
+        && Math.abs(normalOn(reference, line.start) - reference.normalProjection) <= junctionTolerancePx;
+    });
+    if (duplicatesAxis) return [];
+    return [{
+      ...line,
+      confidence: Math.min(0.76, Math.max(0.61, line.confidence * 0.82)),
+      evidence: { ...line.evidence, topologySupported: true },
+    }];
+  });
+}
+
 /** Convert noisy Hough segments into wall axes by pairing parallel wall faces. */
 export function consolidateWallLines(
   rawLines: readonly DetectedLine[],
@@ -166,7 +210,9 @@ export function consolidateWallLines(
 ): DetectedLine[] {
   const minimumDimension = Math.min(imageWidth, imageHeight);
   const maximumDimension = Math.max(imageWidth, imageHeight);
-  const boundaryMarginPx = minimumDimension * 0.08;
+  // Only suppress the literal crop/paper frame. A broad edge band used to
+  // discard legitimate exterior walls in tightly cropped plans.
+  const boundaryMarginPx = Math.max(3, minimumDimension * 0.012);
   const followsImageBoundary = (line: DetectedLine) => [
     [line.start.x, line.end.x, 0], [line.start.x, line.end.x, imageWidth],
     [line.start.y, line.end.y, 0], [line.start.y, line.end.y, imageHeight],
@@ -225,9 +271,15 @@ export function consolidateWallLines(
     });
   });
 
-  // A long unpaired stroke is more often a dimension, hatch or table line than
-  // a wall. Thin one-line partitions will use a separate topology-backed path.
-  return mergeDuplicateWallAxes(result)
+  const pairedAxes = mergeDuplicateWallAxes(result);
+  const unpairedFragments = fragments.filter((_line, index) => !paired.has(index) && !hatchIndices.has(index));
+  const recovered = recoverTopologySupportedLines(
+    unpairedFragments,
+    pairedAxes,
+    minimumDimension,
+    minimumLengthPx,
+  );
+  return mergeDuplicateWallAxes([...pairedAxes, ...recovered])
     .filter((line) => !followsImageBoundary(line))
     .sort((first, second) => {
       const firstLength = Math.hypot(first.end.x - first.start.x, first.end.y - first.start.y);

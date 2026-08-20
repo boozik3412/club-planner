@@ -60,10 +60,17 @@ function pairedRasterWallArcs(candidates: readonly AcceptedArcCandidate[]): Acce
         second.through.yM - second.geometry.center.yM,
         second.through.xM - second.geometry.center.xM,
       );
-      if (centerDistance > Math.max(0.08, Math.min(first.geometry.radiusM, second.geometry.radiusM) * 0.05)) return;
-      if (radiusDifference < 0.04 || radiusDifference > 0.6) return;
-      if (normalizedAngleDifference(firstThroughAngle, secondThroughAngle) > Math.PI / 10) return;
-      if (Math.abs(Math.abs(first.geometry.sweepRad) - Math.abs(second.geometry.sweepRad)) > Math.PI / 6) return;
+      const strongGradientPair = (first.arc.evidence?.gradientSupport ?? 0) >= 0.9
+        && (second.arc.evidence?.gradientSupport ?? 0) >= 0.9
+        && Math.min(first.geometry.radiusM, second.geometry.radiusM) >= 1.2
+        && Math.min(Math.abs(first.geometry.sweepRad), Math.abs(second.geometry.sweepRad)) >= Math.PI / 3;
+      const centerToleranceM = strongGradientPair
+        ? Math.max(1.15, Math.min(first.geometry.radiusM, second.geometry.radiusM) * 0.42)
+        : Math.max(0.08, Math.min(first.geometry.radiusM, second.geometry.radiusM) * 0.05);
+      if (centerDistance > centerToleranceM) return;
+      if (radiusDifference < 0.04 || radiusDifference > (strongGradientPair ? 1.15 : 0.6)) return;
+      if (normalizedAngleDifference(firstThroughAngle, secondThroughAngle) > (strongGradientPair ? Math.PI / 5.5 : Math.PI / 10)) return;
+      if (Math.abs(Math.abs(first.geometry.sweepRad) - Math.abs(second.geometry.sweepRad)) > (strongGradientPair ? Math.PI / 4 : Math.PI / 6)) return;
       const score = centerDistance + radiusDifference * 0.05
         + normalizedAngleDifference(firstThroughAngle, secondThroughAngle);
       if (score < bestScore) {

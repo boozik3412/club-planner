@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { consolidateWallLines } from "./raster-lines";
+import { consolidateWallLines, recoverTopologySupportedLines } from "./raster-lines";
 import type { DetectedLine } from "./types";
 
 const line = (x1: number, y1: number, x2: number, y2: number): DetectedLine => ({
@@ -57,5 +57,15 @@ describe("raster wall-line consolidation", () => {
     ], 500, 400, 24);
     expect(result).toHaveLength(1);
     expect((result[0].start.y + result[0].end.y) / 2).toBeCloseTo(47, 0);
+  });
+
+  it("recovers a long single-stroke partition only when both ends join trusted axes", () => {
+    const axes = [line(40, 20, 40, 260), line(300, 20, 300, 260)];
+    const supported = recoverTopologySupportedLines([line(42, 140, 298, 140)], axes, 400, 24);
+    const floating = recoverTopologySupportedLines([line(80, 180, 260, 180)], axes, 400, 24);
+    expect(supported).toHaveLength(1);
+    expect(supported[0].evidence?.topologySupported).toBe(true);
+    expect(supported[0].confidence).toBeLessThan(0.8);
+    expect(floating).toHaveLength(0);
   });
 });

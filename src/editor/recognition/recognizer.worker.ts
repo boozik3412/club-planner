@@ -2,6 +2,7 @@
 import { buildRecognitionGraph } from "./graph";
 import { detectRasterGeometry } from "./opencv-detector";
 import { recognizeText } from "./ocr";
+import { buildRecognitionGuideSet } from "./review-guides";
 import type { RecognizedTextHint, RecognizerRequest, RecognizerResponse } from "./types";
 
 const cancelled = new Set<string>();
@@ -74,8 +75,15 @@ self.onmessage = (event: MessageEvent<RecognizerRequest>) => {
         arcs: request.options.detectArcs ? detected.arcs : [],
         textHints,
         options: request.options,
-        engineVersion: "local-hybrid-2",
+        engineVersion: "local-hybrid-3",
         geometrySource: hasVectorArchitecture ? "vector" : "raster",
+      });
+      draft.guides = buildRecognitionGuideSet({
+        axes: detected.lines,
+        rawLines: hasVectorArchitecture ? request.image.vectorLines ?? [] : raster.rawLines,
+        arcs: detected.arcs,
+        vector: hasVectorArchitecture,
+        minimumLengthPx: Math.max(12, request.options.minimumWallLengthM / Math.max(request.image.metersPerPixel, 1e-6) * 0.45),
       });
       post({ id: request.id, type: "result", draft });
     } catch (error) {

@@ -1,6 +1,6 @@
 import type { DetectedArc, DetectedLine, RecognitionProgress } from "./types";
 import { consolidateWallLines } from "./raster-lines";
-import { deduplicateDetectedArcs, isMeaningfulRasterArc } from "./raster-arcs";
+import { deduplicateDetectedArcs, detectContourArcCandidates, isMeaningfulRasterArc } from "./raster-arcs";
 
 type ProgressCallback = (progress: RecognitionProgress) => void;
 
@@ -108,6 +108,20 @@ function isColoredOpeningPixel(red: number, green: number, blue: number): boolea
   return blue >= 70
     && blue >= red + 28
     && (blue >= green + 12 || green >= red + 28);
+}
+
+function sameHoughSegment(first: DetectedLine, second: DetectedLine): boolean {
+  const firstAngle = Math.atan2(first.end.y - first.start.y, first.end.x - first.start.x);
+  const secondAngle = Math.atan2(second.end.y - second.start.y, second.end.x - second.start.x);
+  const angleDifference = Math.abs(Math.sin(firstAngle - secondAngle));
+  if (angleDifference > 0.045) return false;
+  const firstMidpoint = { x: (first.start.x + first.end.x) / 2, y: (first.start.y + first.end.y) / 2 };
+  const secondMidpoint = { x: (second.start.x + second.end.x) / 2, y: (second.start.y + second.end.y) / 2 };
+  return Math.hypot(firstMidpoint.x - secondMidpoint.x, firstMidpoint.y - secondMidpoint.y)
+    <= Math.max(12, Math.min(
+      Math.hypot(first.end.x - first.start.x, first.end.y - first.start.y),
+      Math.hypot(second.end.x - second.start.x, second.end.y - second.start.y),
+    ) * 0.22);
 }
 
 export function createColoredOpeningMask(width: number, height: number, rgba: Uint8ClampedArray): Uint8Array {
@@ -247,9 +261,13 @@ export async function detectRasterGeometry(
   const gray = new cv.Mat();
   const binary = new cv.Mat();
   const lineMatrix = new cv.Mat();
+  const fineLineMatrix = new cv.Mat();
   const circles = new cv.Mat();
+  const arcGray = new cv.Mat();
   const gradientX = new cv.Mat();
   const gradientY = new cv.Mat();
+  const contourVector = new cv.MatVector();
+  const contourHierarchy = new cv.Mat();
   const coloredOpeningBinary = cv.matFromArray(height, width, cv.CV_8UC1, createColoredOpeningMask(width, height, rgba));
   const coloredLineMatrix = new cv.Mat();
   try {
@@ -281,6 +299,7 @@ export async function detectRasterGeometry(
         start: { x: x1, y: y1 },
         end: { x: x2, y: y2 },
         confidence: Math.min(0.98, 0.55 + normalizedLength * 1.5),
+        evidence: { scaleCount: 1 },
       };
       const coloredOpeningSupport = lineColoredOpeningSupport(line, width, height, rgba);
       if (coloredOpeningSupport >= 0.3) {
@@ -292,7 +311,43 @@ export async function detectRasterGeometry(
         rawLines.push(line);
       }
     }
-    const lines = consolidateWallLines(rawLines, width, height, minimumLineLengthPx);
+    const primaryRawLines = new Set(rawLines);
+    // A second, finer Hough pass recovers faint or interrupted wall faces. A
+    // segment observed at both scales gains confidence; single-scale results
+    // remain guides unless wall pairing/topology supports them later.
+    cv.HoughLinesP(
+      binary,
+      fineLineMatrix,
+      1,
+      Math.PI / 720,
+      18,
+      Math.max(14, Math.round(minimumLineLengthPx * 0.7)),
+      Math.max(16, Math.round(minimumLineLengthPx * 0.72)),
+    );
+    const fineLineCount = fineLineMatrix.rows * fineLineMatrix.cols;
+    for (let index = 0; index < fineLineCount; index += 1) {
+      const offset = index * 4;
+      const fine: DetectedLine = {
+        start: { x: fineLineMatrix.data32S[offset], y: fineLineMatrix.data32S[offset + 1] },
+        end: { x: fineLineMatrix.data32S[offset + 2], y: fineLineMatrix.data32S[offset + 3] },
+        confidence: 0.52,
+        evidence: { scaleCount: 1 },
+      };
+      const coloredOpeningSupport = lineColoredOpeningSupport(fine, width, height, rgba);
+      if (coloredOpeningSupport >= 0.3) {
+        openingLines.push({ ...fine, evidence: { ...fine.evidence, coloredOpeningSupport } });
+        continue;
+      }
+      const existing = rawLines.find((line) => sameHoughSegment(line, fine));
+      if (existing) {
+        existing.confidence = Math.min(0.99, existing.confidence + 0.06);
+        existing.evidence = { ...existing.evidence, scaleCount: 2 };
+      } else {
+        rawLines.push(fine);
+      }
+    }
+    const automaticLineEvidence = rawLines.filter((line) => primaryRawLines.has(line) || (line.evidence?.scaleCount ?? 0) >= 2);
+    const lines = consolidateWallLines(automaticLineEvidence, width, height, minimumLineLengthPx);
     const coloredMinimumLength = Math.max(14, Math.round(Math.min(width, height) * 0.015));
     cv.HoughLinesP(coloredOpeningBinary, coloredLineMatrix, 1, Math.PI / 360, 14, coloredMinimumLength, 12);
     const coloredLineCount = coloredLineMatrix.rows * coloredLineMatrix.cols;
@@ -310,9 +365,43 @@ export async function detectRasterGeometry(
     const arcs: DetectedArc[] = [];
     if (detectArcs) {
       onProgress({ stage: "raster", progress: 0.65, message: "Поиск дуговых стен и дуг открывания" });
-      cv.Sobel(gray, gradientX, cv.CV_32F, 1, 0, 3);
-      cv.Sobel(gray, gradientY, cv.CV_32F, 0, 1, 3);
-      cv.HoughCircles(gray, circles, cv.HOUGH_GRADIENT, 1.5, Math.max(24, Math.min(width, height) * 0.05), 120, 42, 10, Math.round(Math.min(width, height) * 0.45));
+      cv.findContours(binary, contourVector, contourHierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_NONE);
+      const contourPoints: Array<Array<{ x: number; y: number }>> = [];
+      for (let contourIndex = 0; contourIndex < contourVector.size(); contourIndex += 1) {
+        const contour = contourVector.get(contourIndex);
+        try {
+          if (contour.rows < 18 || contour.rows > 4_500) continue;
+          const points: Array<{ x: number; y: number }> = [];
+          for (let pointIndex = 0; pointIndex < contour.data32S.length; pointIndex += 2) {
+            points.push({ x: contour.data32S[pointIndex], y: contour.data32S[pointIndex + 1] });
+          }
+          contourPoints.push(points);
+        } finally {
+          contour.delete();
+        }
+      }
+      arcs.push(...detectContourArcCandidates(contourPoints, Math.min(width, height)));
+      // Circle voting is the most expensive CV stage. It does not need full
+      // scan resolution because every accepted hypothesis is verified against
+      // gradient direction; cap it and map the resulting geometry back.
+      const arcScale = Math.min(1, 620 / Math.max(width, height));
+      const arcWidth = Math.max(1, Math.round(width * arcScale));
+      const arcHeight = Math.max(1, Math.round(height * arcScale));
+      if (arcScale < 1) cv.resize(gray, arcGray, new cv.Size(arcWidth, arcHeight), 0, 0, cv.INTER_AREA);
+      else gray.copyTo(arcGray);
+      cv.Sobel(arcGray, gradientX, cv.CV_32F, 1, 0, 3);
+      cv.Sobel(arcGray, gradientY, cv.CV_32F, 0, 1, 3);
+      cv.HoughCircles(
+        arcGray,
+        circles,
+        cv.HOUGH_GRADIENT,
+        1.5,
+        Math.max(18, Math.min(arcWidth, arcHeight) * 0.05),
+        120,
+        40,
+        Math.max(7, Math.round(10 * arcScale)),
+        Math.round(Math.min(arcWidth, arcHeight) * 0.45),
+      );
       const samples = 180;
       for (let index = 0; index < circles.cols; index += 1) {
         const offset = index * 3;
@@ -325,8 +414,8 @@ export async function detectRasterGeometry(
           for (let radialOffset = -3; radialOffset <= 3; radialOffset += 1) {
             const x = Math.round(centerX + Math.cos(angle) * (radius + radialOffset));
             const y = Math.round(centerY + Math.sin(angle) * (radius + radialOffset));
-            if (x < 0 || y < 0 || x >= width || y >= height) continue;
-            const pixelIndex = y * width + x;
+            if (x < 0 || y < 0 || x >= arcWidth || y >= arcHeight) continue;
+            const pixelIndex = y * arcWidth + x;
             const gx = gradientX.data32F[pixelIndex];
             const gy = gradientY.data32F[pixelIndex];
             const magnitude = Math.hypot(gx, gy);
@@ -338,13 +427,13 @@ export async function detectRasterGeometry(
         });
         const occupied = support.map((value) => value >= 0.58);
         const run = longestCircularRun(closeSmallCircularGaps(occupied));
-        if (!run || run.length > samples * 0.92 || !isMeaningfulRasterArc(radius, run.length, samples, Math.min(width, height))) continue;
+        if (!run || run.length > samples * 0.92 || !isMeaningfulRasterArc(radius, run.length, samples, Math.min(arcWidth, arcHeight))) continue;
         const meanGradientSupport = Array.from({ length: run.length }, (_, offsetIndex) => support[(run.start + offsetIndex) % samples])
           .reduce((sum, value) => sum + value, 0) / run.length;
         if (meanGradientSupport < 0.58) continue;
         const point = (sample: number) => {
           const angle = sample / samples * Math.PI * 2;
-          return { x: centerX + Math.cos(angle) * radius, y: centerY + Math.sin(angle) * radius };
+          return { x: (centerX + Math.cos(angle) * radius) / arcScale, y: (centerY + Math.sin(angle) * radius) / arcScale };
         };
         arcs.push({
           start: point(run.start),
@@ -360,7 +449,7 @@ export async function detectRasterGeometry(
       lines,
       arcs: deduplicateDetectedArcs(arcs)
         .sort((first, second) => second.confidence - first.confidence)
-        .slice(0, 24),
+        .slice(0, 72),
       rawLines,
       openingLines,
     };
@@ -369,9 +458,13 @@ export async function detectRasterGeometry(
     gray.delete();
     binary.delete();
     lineMatrix.delete();
+    fineLineMatrix.delete();
     circles.delete();
+    arcGray.delete();
     gradientX.delete();
     gradientY.delete();
+    contourVector.delete();
+    contourHierarchy.delete();
     coloredOpeningBinary.delete();
     coloredLineMatrix.delete();
   }

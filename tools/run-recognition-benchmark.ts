@@ -539,6 +539,8 @@ ${acceptedAxes}
     openingLines: detected.openingLines,
     arcs: detected.arcs,
     graphLines,
+    graphWalls: draft.walls,
+    graphVertices: draft.vertices,
     openings: actualOpenings(draft.vertices, draft.walls, draft.openings),
     quality: draft.quality,
   }, null, 2)}\n`, "utf8");

@@ -133,6 +133,35 @@ export function mergeRegionRecognition(
         point: issue.point ? { x: issue.point.x + xOffsetM, y: issue.point.y + yOffsetM } : undefined,
       })),
     ],
+    guides: recognized.guides ? {
+      lines: [
+        ...(current.guides?.lines.filter((guide) => !inside({
+          x: (guide.start.x + guide.end.x) / 2,
+          y: (guide.start.y + guide.end.y) / 2,
+        }, region)) ?? []),
+        ...recognized.guides.lines.map((guide) => ({
+        ...guide,
+        start: { x: guide.start.x + region.x, y: guide.start.y + region.y },
+        end: { x: guide.end.x + region.x, y: guide.end.y + region.y },
+        })),
+      ],
+      arcs: [
+        ...(current.guides?.arcs.filter((guide) => !inside(guide.through, region)) ?? []),
+        ...recognized.guides.arcs.map((guide) => ({
+        ...guide,
+        start: { x: guide.start.x + region.x, y: guide.start.y + region.y },
+        through: { x: guide.through.x + region.x, y: guide.through.y + region.y },
+        end: { x: guide.end.x + region.x, y: guide.end.y + region.y },
+        })),
+      ],
+      points: [
+        ...(current.guides?.points.filter((guide) => !inside(guide.point, region)) ?? []),
+        ...recognized.guides.points.map((guide) => ({
+        ...guide,
+        point: { x: guide.point.x + region.x, y: guide.point.y + region.y },
+        })),
+      ],
+    } : current.guides,
   };
   next.quality = assessRecognitionQuality(next);
   return next;

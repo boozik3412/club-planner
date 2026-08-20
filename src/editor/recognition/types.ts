@@ -55,6 +55,8 @@ export interface DetectedLine {
     thicknessConsistency?: number;
     pixelSupport?: number;
     coloredOpeningSupport?: number;
+    topologySupported?: boolean;
+    scaleCount?: number;
   };
 }
 
@@ -66,7 +68,43 @@ export interface DetectedArc {
   evidence?: {
     gradientSupport?: number;
     concentricPair?: boolean;
+    contourSupport?: number;
+    fitResidualPx?: number;
   };
+}
+
+export interface RecognitionLineGuide {
+  id: string;
+  kind: "line";
+  start: SourcePoint;
+  end: SourcePoint;
+  confidence: number;
+  source: "wall-axis" | "raw-line" | "vector-line";
+  pairedFaces?: boolean;
+}
+
+export interface RecognitionArcGuide {
+  id: string;
+  kind: "arc";
+  start: SourcePoint;
+  through: SourcePoint;
+  end: SourcePoint;
+  confidence: number;
+  source: "contour" | "hough" | "vector-arc";
+  fitResidualPx?: number;
+}
+
+export interface RecognitionPointGuide {
+  id: string;
+  kind: "intersection";
+  point: SourcePoint;
+  confidence: number;
+}
+
+export interface RecognitionGuideSet {
+  lines: RecognitionLineGuide[];
+  arcs: RecognitionArcGuide[];
+  points: RecognitionPointGuide[];
 }
 
 export interface RecognizedTextHint {
@@ -111,6 +149,7 @@ export interface RecognitionDraft {
   openings: ArchitecturalOpening[];
   textHints: RecognizedTextHint[];
   issues: RecognitionIssue[];
+  guides?: RecognitionGuideSet;
   quality?: RecognitionQualityReport;
 }
 
@@ -127,7 +166,7 @@ export type RecognizerResponse =
 export const DEFAULT_RECOGNITION_OPTIONS: RecognitionOptions = {
   detectWalls: true,
   detectOpenings: true,
-  detectArcs: false,
+  detectArcs: true,
   recognizeText: true,
   defaultWallHeightM: 3,
   defaultWallThicknessM: 0.15,

@@ -127,6 +127,28 @@ describe("recognition graph", () => {
     expect(paired.walls[0].curve.kind).toBe("arc");
   });
 
+  it("keeps a strongly supported curved wall when partial Hough runs make the two faces imprecise", () => {
+    const draft = buildRecognitionGraph({
+      source: { ...source, metersPerSourceUnit: 0.017 },
+      lines: [],
+      arcs: [
+        {
+          start: { x: 166, y: 400 }, through: { x: 194, y: 279 }, end: { x: 316, y: 256 },
+          confidence: 0.9, evidence: { gradientSupport: 0.96 },
+        },
+        {
+          start: { x: 166, y: 498 }, through: { x: 163, y: 318 }, end: { x: 321, y: 230 },
+          confidence: 0.87, evidence: { gradientSupport: 0.97 },
+        },
+      ],
+      options: { ...DEFAULT_RECOGNITION_OPTIONS, detectOpenings: false },
+      geometrySource: "raster",
+    });
+    expect(draft.walls).toHaveLength(1);
+    expect(draft.walls[0].curve.kind).toBe("arc");
+    expect(draft.walls[0].confidence).toBeGreaterThan(0.9);
+  });
+
   it("prunes short isolated raster graphics but keeps connected wall chains", () => {
     const draft = buildRecognitionGraph({
       source,
