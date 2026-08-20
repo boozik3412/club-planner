@@ -9,6 +9,7 @@ import {
   type ProjectState,
 } from "./types";
 import { APP_VERSION } from "../../app-version";
+import { createBundledArchitecture } from "../architecture/base-architecture";
 import { createStableId } from "./templates";
 
 export const PLAN_UNITS_PER_METER = 377.952755906;
@@ -32,19 +33,33 @@ export function createEmptyProject(
   now = new Date().toISOString(),
   projectId = createStableId("project"),
 ): ProjectState {
+  const basePlan = {
+    id: BASE_PLAN_ID,
+    asset: BASE_PLAN_ASSET,
+    widthM: PLAN_WIDTH_M,
+    heightM: PLAN_HEIGHT_M,
+    unitsPerMeter: PLAN_UNITS_PER_METER,
+    sha256: BASE_PLAN_SHA256,
+  };
   return {
     format: CLUBPLAN_FORMAT,
     formatVersion: CLUBPLAN_FORMAT_VERSION,
     generator: { name: "Club Planner", version: APP_VERSION },
     project: { id: projectId, createdAt: now, modifiedAt: now },
-    basePlan: {
+    basePlan,
+    planSources: [{
       id: BASE_PLAN_ID,
-      asset: BASE_PLAN_ASSET,
+      kind: "bundled-svg",
+      name: "Актуальный обмер 2026",
+      mimeType: "image/svg+xml",
+      sha256: BASE_PLAN_SHA256,
+      embeddedPath: `sources/${BASE_PLAN_ASSET}`,
       widthM: PLAN_WIDTH_M,
       heightM: PLAN_HEIGHT_M,
-      unitsPerMeter: PLAN_UNITS_PER_METER,
-      sha256: BASE_PLAN_SHA256,
-    },
+      rotationDeg: 0,
+      locked: true,
+    }],
+    activePlanSourceId: BASE_PLAN_ID,
     canvas: {
       rotationDeg: 0,
       gridVisible: true,
@@ -62,11 +77,7 @@ export function createEmptyProject(
       objectLabelsVisible: true,
       basePlanOpacity: 0.82,
     },
-    architecture: {
-      defaultWallHeightM: 3.04,
-      defaultWallThicknessM: 0.15,
-      wallOverrides: {},
-    },
+    architecture: createBundledArchitecture(basePlan),
     layers: [
       { id: "equipment", name: "Оборудование", visible: true, locked: false },
       { id: "furniture", name: "Мебель", visible: true, locked: false },

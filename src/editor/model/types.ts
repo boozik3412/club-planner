@@ -1,5 +1,5 @@
 export const CLUBPLAN_FORMAT = "clubplan" as const;
-export const CLUBPLAN_FORMAT_VERSION = 3 as const;
+export const CLUBPLAN_FORMAT_VERSION = 4 as const;
 export const BASE_PLAN_ID = "measurement-2026-08-10";
 export const BASE_PLAN_ASSET = "base_plan_new_measurement.svg";
 export const BASE_PLAN_SHA256 =
@@ -64,6 +64,36 @@ export interface BasePlanRef {
   sha256: string;
 }
 
+export type PlanSourceKind = "bundled-svg" | "pdf" | "image";
+export type ArchitectureProvenance = "bundled" | "vector-pdf" | "raster" | "manual";
+export type RecognitionReviewStatus = "candidate" | "accepted" | "rejected";
+
+export interface SourcePoint {
+  x: number;
+  y: number;
+}
+
+export interface PlanSource {
+  id: string;
+  kind: PlanSourceKind;
+  name: string;
+  mimeType: string;
+  sha256: string;
+  embeddedPath: string;
+  previewPath?: string;
+  pageIndex?: number;
+  pageCount?: number;
+  sourceWidth?: number;
+  sourceHeight?: number;
+  widthM: number;
+  heightM: number;
+  cropQuad?: [SourcePoint, SourcePoint, SourcePoint, SourcePoint];
+  rotationDeg: number;
+  perspectiveMatrix?: [number, number, number, number, number, number, number, number, number];
+  metersPerSourceUnit?: number;
+  locked: boolean;
+}
+
 export interface CanvasSettings {
   rotationDeg: number;
   gridVisible: boolean;
@@ -90,10 +120,79 @@ export interface WallArchitectureOverride {
   baseElevationM?: number;
 }
 
+export interface ArchitectureVertex {
+  id: string;
+  xM: number;
+  yM: number;
+  provenance: ArchitectureProvenance;
+  confidence?: number;
+  reviewStatus: RecognitionReviewStatus;
+  locked: boolean;
+}
+
+export type ArchitecturalWallCurve =
+  | { kind: "line" }
+  | { kind: "arc"; bulge: number };
+
+export interface ArchitecturalWallReference {
+  thicknessM: number;
+  heightM: number;
+  baseElevationM: number;
+  heightSource: ArchitectureValueSource;
+  thicknessSource: ArchitectureValueSource;
+}
+
+export interface ArchitecturalWall {
+  id: string;
+  kind: "wall" | "partition";
+  startVertexId: string;
+  endVertexId: string;
+  curve: ArchitecturalWallCurve;
+  thicknessM: number;
+  heightM: number;
+  baseElevationM: number;
+  heightSource: ArchitectureValueSource;
+  thicknessSource: ArchitectureValueSource;
+  provenance: ArchitectureProvenance;
+  confidence?: number;
+  reviewStatus: RecognitionReviewStatus;
+  locked: boolean;
+  reference?: ArchitecturalWallReference;
+}
+
+export interface ArchitecturalOpening {
+  id: string;
+  kind: "door" | "window";
+  hostWallId: string;
+  offsetM: number;
+  widthM: number;
+  sillHeightM: number;
+  openingHeightM: number;
+  verticalSource: ArchitectureValueSource;
+  swing?: "left" | "right";
+  openingAngleDeg?: number;
+  provenance: ArchitectureProvenance;
+  confidence?: number;
+  reviewStatus: RecognitionReviewStatus;
+  locked: boolean;
+}
+
+export interface ArchitectureHeightRegion {
+  id: string;
+  name: string;
+  polygon: PointM[];
+  floorElevationM: number;
+  ceilingHeightM: number;
+  source: Extract<ArchitectureValueSource, "measurement" | "user">;
+}
+
 export interface ArchitectureSettings {
   defaultWallHeightM: number;
   defaultWallThicknessM: number;
-  wallOverrides: Record<string, WallArchitectureOverride>;
+  vertices: ArchitectureVertex[];
+  walls: ArchitecturalWall[];
+  openings: ArchitecturalOpening[];
+  heightRegions: ArchitectureHeightRegion[];
 }
 
 export interface Layer {
@@ -164,6 +263,8 @@ export interface ProjectState {
   };
   project: ProjectMetadata;
   basePlan: BasePlanRef;
+  planSources: PlanSource[];
+  activePlanSourceId: string;
   canvas: CanvasSettings;
   architecture: ArchitectureSettings;
   layers: Layer[];

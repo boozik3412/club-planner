@@ -353,14 +353,29 @@ export default function App() {
     label: string,
   ) => {
     commitMutation(label, (draft) => {
-      const current = draft.architecture.wallOverrides[wallId] ?? {};
-      draft.architecture.wallOverrides[wallId] = { ...current, ...patch };
+      const wall = draft.architecture.walls.find((candidate) => candidate.id === wallId);
+      if (!wall) return;
+      if (patch.heightM !== undefined) {
+        wall.heightM = patch.heightM;
+        wall.heightSource = "user";
+      }
+      if (patch.thicknessM !== undefined) {
+        wall.thicknessM = patch.thicknessM;
+        wall.thicknessSource = "user";
+      }
+      if (patch.baseElevationM !== undefined) wall.baseElevationM = patch.baseElevationM;
     });
   }, [commitMutation]);
 
   const handleResetWallOverride = useCallback((wallId: string) => {
     commitMutation("Сброс параметров стены", (draft) => {
-      delete draft.architecture.wallOverrides[wallId];
+      const wall = draft.architecture.walls.find((candidate) => candidate.id === wallId);
+      if (!wall?.reference) return;
+      wall.heightM = wall.reference.heightM;
+      wall.thicknessM = wall.reference.thicknessM;
+      wall.baseElevationM = wall.reference.baseElevationM;
+      wall.heightSource = wall.reference.heightSource;
+      wall.thicknessSource = wall.reference.thicknessSource;
     });
   }, [commitMutation]);
 

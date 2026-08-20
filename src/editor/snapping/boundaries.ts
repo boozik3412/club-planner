@@ -1,51 +1,22 @@
-import boundaryData from "../../../assets/base_plan_boundaries.json";
 import type { BasePlanRef, ObjectId, PlanObject, ProjectState } from "../model/types";
-import type { BoundaryKind, PlanBoundary } from "./types";
-
-interface BoundaryFileEntry {
-  id: string;
-  kind: BoundaryKind;
-  start: { xM: number; yM: number };
-  end: { xM: number; yM: number };
-  thicknessM: number;
-}
-
-interface BoundaryFile {
-  basePlanId: string;
-  basePlanSha256: string;
-  boundaries: BoundaryFileEntry[];
-}
-
-const file = boundaryData as BoundaryFile;
-
-function assertFinite(value: number, label: string): void {
-  if (!Number.isFinite(value)) throw new Error(`Некорректная координата границы: ${label}`);
-}
-
-function validateBoundary(entry: BoundaryFileEntry): void {
-  if (!entry.id || (entry.kind !== "wall" && entry.kind !== "partition")) {
-    throw new Error("Некорректная семантическая граница базового плана");
-  }
-  assertFinite(entry.start.xM, `${entry.id}.start.xM`);
-  assertFinite(entry.start.yM, `${entry.id}.start.yM`);
-  assertFinite(entry.end.xM, `${entry.id}.end.xM`);
-  assertFinite(entry.end.yM, `${entry.id}.end.yM`);
-  assertFinite(entry.thicknessM, `${entry.id}.thicknessM`);
-  if (entry.thicknessM < 0 || (entry.start.xM === entry.end.xM && entry.start.yM === entry.end.yM)) {
-    throw new Error(`Некорректная геометрия границы ${entry.id}`);
-  }
-}
-
-file.boundaries.forEach(validateBoundary);
+import { createBundledArchitecture } from "../architecture/base-architecture";
+import { architectureVertexMap, wallEndpoints } from "../architecture/geometry";
+import type { PlanBoundary } from "./types";
 
 export function getBasePlanBoundaries(basePlan: BasePlanRef): PlanBoundary[] {
-  if (file.basePlanId !== basePlan.id || file.basePlanSha256 !== basePlan.sha256) {
-    throw new Error("Семантические стены не соответствуют актуальному базовому плану");
-  }
-  return file.boundaries.map((entry) => ({
-    ...structuredClone(entry),
-    source: "base-plan",
-  }));
+  const architecture = createBundledArchitecture(basePlan);
+  const vertices = architectureVertexMap(architecture);
+  return architecture.walls.flatMap((wall) => {
+    const endpoints = wallEndpoints(wall, vertices);
+    return endpoints ? [{
+      id: wall.id,
+      kind: wall.kind,
+      ...endpoints,
+      thicknessM: wall.thicknessM,
+      curve: wall.curve,
+      source: "base-plan" as const,
+    }] : [];
+  });
 }
 
 export function boundaryFromPartitionObject(object: PlanObject): PlanBoundary {
@@ -59,6 +30,7 @@ export function boundaryFromPartitionObject(object: PlanObject): PlanBoundary {
     start: { xM: object.xM - dx, yM: object.yM - dy },
     end: { xM: object.xM + dx, yM: object.yM + dy },
     thicknessM: object.depthM,
+    curve: { kind: "line" },
     source: "project-object",
     sourceObjectId: object.id,
   };
@@ -79,9 +51,21 @@ export function getPlanBoundaries(
   project: ProjectState,
   excludedObjectIds: ReadonlySet<ObjectId> = new Set(),
 ): PlanBoundary[] {
+  const vertices = architectureVertexMap(project.architecture);
+  const architectureBoundaries = project.architecture.walls.flatMap((wall) => {
+    if (wall.reviewStatus !== "accepted") return [];
+    const endpoints = wallEndpoints(wall, vertices);
+    return endpoints ? [{
+      id: wall.id,
+      kind: wall.kind,
+      ...endpoints,
+      thicknessM: wall.thicknessM,
+      curve: wall.curve,
+      source: wall.provenance === "bundled" ? "base-plan" as const : "project-architecture" as const,
+    }] : [];
+  });
   return [
-    ...getBasePlanBoundaries(project.basePlan),
+    ...architectureBoundaries,
     ...getProjectPartitionBoundaries(project.objects, excludedObjectIds),
   ];
 }
-

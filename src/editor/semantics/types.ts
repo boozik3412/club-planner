@@ -7,7 +7,7 @@ export interface SemanticOpening {
   kind: OpeningKind;
   start: PointM;
   end: PointM;
-  source: "base-plan" | "project-object";
+  source: "base-plan" | "project-architecture" | "project-object";
   sourceObjectId?: ObjectId;
   swing?: "left" | "right";
   openingAngleDeg?: number;

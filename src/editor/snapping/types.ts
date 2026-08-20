@@ -1,7 +1,7 @@
-import type { ObjectId, PointM } from "../model/types";
+import type { ArchitecturalWallCurve, ObjectId, PointM } from "../model/types";
 
 export type BoundaryKind = "wall" | "partition";
-export type BoundarySource = "base-plan" | "project-object";
+export type BoundarySource = "base-plan" | "project-architecture" | "project-object";
 
 export interface PlanBoundary {
   id: string;
@@ -9,6 +9,7 @@ export interface PlanBoundary {
   start: PointM;
   end: PointM;
   thicknessM: number;
+  curve?: ArchitecturalWallCurve;
   source: BoundarySource;
   sourceObjectId?: ObjectId;
 }

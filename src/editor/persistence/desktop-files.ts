@@ -4,6 +4,13 @@ import { confirm, message, open, save } from "@tauri-apps/plugin-dialog";
 export interface FilePayload {
   path: string;
   contents: string;
+  assets: ProjectAssetPayload[];
+}
+
+export interface ProjectAssetPayload {
+  path: string;
+  mimeType: string;
+  dataBase64: string;
 }
 
 export function isTauriRuntime(): boolean {
@@ -27,7 +34,7 @@ function openBrowserFile(extensions: string): Promise<FilePayload | null> {
     input.onchange = async () => {
       try {
         const file = input.files?.[0];
-        resolve(file ? { path: file.name, contents: await file.text() } : null);
+        resolve(file ? { path: file.name, contents: await file.text(), assets: [] } : null);
       } catch (error) {
         reject(error);
       }
@@ -58,6 +65,7 @@ export async function saveProjectContents(
   contents: string,
   currentPath: string | null,
   forceChoose: boolean,
+  assets: readonly ProjectAssetPayload[] = [],
 ): Promise<string | null> {
   if (!isTauriRuntime()) {
     downloadText("club-layout.clubplan", contents, "application/json");
@@ -72,7 +80,7 @@ export async function saveProjectContents(
   }
   if (!path) return null;
   if (!path.toLowerCase().endsWith(".clubplan")) path += ".clubplan";
-  return invoke<string>("write_project_file", { path, contents });
+  return invoke<string>("write_project_file", { path, contents, assets });
 }
 
 export async function saveSvgContents(contents: string): Promise<string | null> {

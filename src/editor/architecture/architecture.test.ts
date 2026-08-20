@@ -20,13 +20,15 @@ describe("architectural height resolution", () => {
     expect(measured).toMatchObject({ thicknessM: 0.32004, thicknessSource: "measurement" });
   });
 
-  it("applies per-wall overrides without changing the semantic centerline", () => {
+  it("edits a project-owned wall without changing the semantic centerline", () => {
     const project = createEmptyProject();
-    project.architecture.wallOverrides["wall-main-top"] = {
-      heightM: 2.7,
-      thicknessM: 0.22,
-      baseElevationM: 0.15,
-    };
+    const storedWall = project.architecture.walls.find((wall) => wall.id === "wall-main-top");
+    if (!storedWall) throw new Error("fixture wall missing");
+    storedWall.heightM = 2.7;
+    storedWall.thicknessM = 0.22;
+    storedWall.baseElevationM = 0.15;
+    storedWall.heightSource = "user";
+    storedWall.thicknessSource = "user";
     const wall = resolveArchitecture(project).walls.find((candidate) => candidate.id === "wall-main-top");
 
     expect(wall).toMatchObject({

@@ -1,6 +1,6 @@
 import type { PointM, ProjectState } from "../model/types";
 import { boundaryFromPartitionObject } from "../snapping/boundaries";
-import { getBaseArchitecture } from "./base-architecture";
+import { architectureVertexMap, openingEndpoints, wallEndpoints } from "./geometry";
 import type {
   HeightRegion,
   ResolvedArchitecture,
@@ -51,36 +51,16 @@ export function findHeightRegion(
 }
 
 export function resolveArchitecture(project: ProjectState): ResolvedArchitecture {
-  const base = getBaseArchitecture(project.basePlan);
-  const baseWalls: ResolvedArchitecturalWall[] = base.boundaries.map((boundary) => {
-    const override = project.architecture.wallOverrides[boundary.id];
-    const midpoint = {
-      xM: (boundary.start.xM + boundary.end.xM) / 2,
-      yM: (boundary.start.yM + boundary.end.yM) / 2,
-    };
-    const region = findHeightRegion(midpoint, base.heightRegions);
-    return {
-      ...boundary,
-      thicknessM: override?.thicknessM ?? (boundary.thicknessM > 0
-        ? boundary.thicknessM
-        : project.architecture.defaultWallThicknessM),
-      heightM: override?.heightM ?? boundary.heightM ?? region?.ceilingHeightM
-        ?? project.architecture.defaultWallHeightM,
-      baseElevationM: override?.baseElevationM ?? region?.floorElevationM ?? 0,
-      heightSource: override?.heightM !== undefined
-        ? "user"
-        : boundary.heightM !== undefined
-          ? "measurement"
-          : region
-            ? "region"
-            : "default",
-      thicknessSource: override?.thicknessM !== undefined
-        ? "user"
-        : boundary.thicknessM > 0
-          ? "measurement"
-          : "default",
-      source: "base-plan",
-    };
+  const vertices = architectureVertexMap(project.architecture);
+  const graphWalls: ResolvedArchitecturalWall[] = project.architecture.walls.flatMap((wall) => {
+    if (wall.reviewStatus !== "accepted") return [];
+    const endpoints = wallEndpoints(wall, vertices);
+    if (!endpoints) return [];
+    return [{
+      ...wall,
+      ...endpoints,
+      source: wall.provenance === "bundled" ? "base-plan" as const : "project-architecture" as const,
+    }];
   });
 
   const projectWalls: ResolvedArchitecturalWall[] = project.objects
@@ -89,18 +69,31 @@ export function resolveArchitecture(project: ProjectState): ResolvedArchitecture
       const boundary = boundaryFromPartitionObject(object);
       return {
         ...boundary,
+        curve: { kind: "line" },
         thicknessM: object.depthM,
         heightM: object.heightM,
         baseElevationM: object.elevationM,
         heightSource: "user",
         thicknessSource: "user",
+        provenance: "project-object",
+        reviewStatus: "accepted",
+        locked: object.locked,
       };
     });
 
-  const baseOpenings: ResolvedArchitecturalOpening[] = base.openings.map((opening) => ({
-    ...opening,
-    source: "base-plan",
-  }));
+  const graphWallMap = new Map(project.architecture.walls.map((wall) => [wall.id, wall]));
+  const graphOpenings: ResolvedArchitecturalOpening[] = project.architecture.openings.flatMap((opening) => {
+    if (opening.reviewStatus !== "accepted") return [];
+    const wall = graphWallMap.get(opening.hostWallId);
+    if (!wall) return [];
+    const endpoints = openingEndpoints(opening, wall, vertices);
+    if (!endpoints) return [];
+    return [{
+      ...opening,
+      ...endpoints,
+      source: opening.provenance === "bundled" ? "base-plan" as const : "project-architecture" as const,
+    }];
+  });
   const projectOpenings: ResolvedArchitecturalOpening[] = project.objects
     .filter((object) => object.kind === "door" || object.kind === "window")
     .map((object) => {
@@ -117,6 +110,9 @@ export function resolveArchitecture(project: ProjectState): ResolvedArchitecture
         openingHeightM: object.heightM,
         verticalSource: "user",
         source: "project-object",
+        provenance: "project-object",
+        reviewStatus: "accepted",
+        locked: object.locked,
         sourceObjectId: object.id,
         swing: object.kind === "door" ? object.properties?.doorSwing ?? "right" : undefined,
         openingAngleDeg: object.kind === "door" ? object.properties?.openingAngleDeg ?? 90 : undefined,
@@ -124,8 +120,8 @@ export function resolveArchitecture(project: ProjectState): ResolvedArchitecture
     });
 
   return {
-    walls: [...baseWalls, ...projectWalls],
-    openings: [...baseOpenings, ...projectOpenings],
-    heightRegions: base.heightRegions,
+    walls: [...graphWalls, ...projectWalls],
+    openings: [...graphOpenings, ...projectOpenings],
+    heightRegions: project.architecture.heightRegions,
   };
 }

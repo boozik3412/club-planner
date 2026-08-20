@@ -3,11 +3,20 @@ import { getObjectTemplate, OBJECT_TYPE_SET, createStableId } from "../model/tem
 import type {
   CompositeTemplate,
   CompositeTemplateItem,
+  ArchitectureHeightRegion,
+  ArchitectureProvenance,
+  ArchitectureSettings,
+  ArchitectureVertex,
+  ArchitecturalOpening,
+  ArchitecturalWall,
+  BasePlanRef,
   Layer,
   ObjectGroup,
   ObjectType,
   PlanObject,
   ProjectDimension,
+  PlanSource,
+  RecognitionReviewStatus,
   ProjectState,
   WallArchitectureOverride,
 } from "../model/types";
@@ -70,6 +79,251 @@ function asBoolean(value: unknown, label: string): boolean {
 
 function optionalBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
+}
+
+function parseReviewStatus(value: unknown, label: string): RecognitionReviewStatus {
+  if (value === "candidate" || value === "accepted" || value === "rejected") return value;
+  throw new Error(`${label}: неизвестное состояние проверки`);
+}
+
+function parseProvenance(value: unknown, label: string): ArchitectureProvenance {
+  if (value === "bundled" || value === "vector-pdf" || value === "raster" || value === "manual") return value;
+  throw new Error(`${label}: неизвестное происхождение геометрии`);
+}
+
+function parseConfidence(value: unknown, label: string): number | undefined {
+  if (value === undefined) return undefined;
+  const confidence = asFiniteNumber(value, label);
+  if (confidence < 0 || confidence > 1) throw new Error(`${label}: значение должно быть от 0 до 1`);
+  return confidence;
+}
+
+function parseBasePlan(value: unknown): BasePlanRef {
+  const record = asRecord(value, "basePlan");
+  const result = {
+    id: asString(record.id, "basePlan.id"),
+    asset: asString(record.asset, "basePlan.asset"),
+    widthM: asFiniteNumber(record.widthM, "basePlan.widthM"),
+    heightM: asFiniteNumber(record.heightM, "basePlan.heightM"),
+    unitsPerMeter: asFiniteNumber(record.unitsPerMeter, "basePlan.unitsPerMeter"),
+    sha256: asString(record.sha256, "basePlan.sha256"),
+  };
+  if (result.widthM <= 0 || result.heightM <= 0 || result.unitsPerMeter <= 0) {
+    throw new Error("basePlan: размеры и масштаб должны быть положительными");
+  }
+  return result;
+}
+
+function safeEmbeddedPath(value: unknown, label: string): string {
+  const path = asString(value, label).replace(/\\/g, "/");
+  if (path.startsWith("/") || path.split("/").some((part) => part === ".." || part === "")) {
+    throw new Error(`${label}: небезопасный путь внутри проекта`);
+  }
+  return path;
+}
+
+function parsePlanSources(value: unknown): PlanSource[] {
+  const ids = new Set<string>();
+  const result = asArray(value, "planSources").map((entry, index): PlanSource => {
+    const record = asRecord(entry, `planSources[${index}]`);
+    const id = asString(record.id, `planSources[${index}].id`);
+    if (ids.has(id)) throw new Error(`Повторяющийся ID источника плана: ${id}`);
+    ids.add(id);
+    const kind = record.kind;
+    if (kind !== "bundled-svg" && kind !== "pdf" && kind !== "image") {
+      throw new Error(`planSources[${index}].kind: неизвестный тип`);
+    }
+    const rotationDeg = normalizeAngle(asFiniteNumber(record.rotationDeg, `planSources[${index}].rotationDeg`));
+    const widthM = asFiniteNumber(record.widthM, `planSources[${index}].widthM`);
+    const heightM = asFiniteNumber(record.heightM, `planSources[${index}].heightM`);
+    if (widthM <= 0 || heightM <= 0) throw new Error(`Источник ${id} имеет некорректный размер`);
+    const source: PlanSource = {
+      id,
+      kind,
+      name: asString(record.name, `planSources[${index}].name`),
+      mimeType: asString(record.mimeType, `planSources[${index}].mimeType`),
+      sha256: asString(record.sha256, `planSources[${index}].sha256`),
+      embeddedPath: safeEmbeddedPath(record.embeddedPath, `planSources[${index}].embeddedPath`),
+      widthM,
+      heightM,
+      rotationDeg,
+      locked: asBoolean(record.locked, `planSources[${index}].locked`),
+    };
+    if (record.previewPath !== undefined) source.previewPath = safeEmbeddedPath(record.previewPath, `planSources[${index}].previewPath`);
+    if (record.pageIndex !== undefined) source.pageIndex = Math.max(0, Math.trunc(asFiniteNumber(record.pageIndex, `planSources[${index}].pageIndex`)));
+    if (record.pageCount !== undefined) source.pageCount = Math.max(1, Math.trunc(asFiniteNumber(record.pageCount, `planSources[${index}].pageCount`)));
+    if (record.sourceWidth !== undefined) source.sourceWidth = Math.max(1, asFiniteNumber(record.sourceWidth, `planSources[${index}].sourceWidth`));
+    if (record.sourceHeight !== undefined) source.sourceHeight = Math.max(1, asFiniteNumber(record.sourceHeight, `planSources[${index}].sourceHeight`));
+    if (record.metersPerSourceUnit !== undefined) source.metersPerSourceUnit = Math.max(Number.EPSILON, asFiniteNumber(record.metersPerSourceUnit, `planSources[${index}].metersPerSourceUnit`));
+    if (record.perspectiveMatrix !== undefined) {
+      const matrix = asArray(record.perspectiveMatrix, `planSources[${index}].perspectiveMatrix`);
+      if (matrix.length !== 9) throw new Error(`planSources[${index}].perspectiveMatrix: ожидалось 9 чисел`);
+      source.perspectiveMatrix = matrix.map((item, matrixIndex) => asFiniteNumber(item, `planSources[${index}].perspectiveMatrix[${matrixIndex}]`)) as PlanSource["perspectiveMatrix"];
+    }
+    if (record.cropQuad !== undefined) {
+      const points = asArray(record.cropQuad, `planSources[${index}].cropQuad`);
+      if (points.length !== 4) throw new Error(`planSources[${index}].cropQuad: ожидалось 4 точки`);
+      source.cropQuad = points.map((point, pointIndex) => {
+        const pointRecord = asRecord(point, `planSources[${index}].cropQuad[${pointIndex}]`);
+        return {
+          x: asFiniteNumber(pointRecord.x, `planSources[${index}].cropQuad[${pointIndex}].x`),
+          y: asFiniteNumber(pointRecord.y, `planSources[${index}].cropQuad[${pointIndex}].y`),
+        };
+      }) as PlanSource["cropQuad"];
+    }
+    return source;
+  });
+  if (result.length === 0) throw new Error("Проект не содержит источника планировки");
+  return result;
+}
+
+function parseArchitecture(value: unknown): ArchitectureSettings {
+  const record = asRecord(value, "architecture");
+  const vertexIds = new Set<string>();
+  const vertices = asArray(record.vertices, "architecture.vertices").map((entry, index): ArchitectureVertex => {
+    const vertex = asRecord(entry, `architecture.vertices[${index}]`);
+    const id = asString(vertex.id, `architecture.vertices[${index}].id`);
+    if (vertexIds.has(id)) throw new Error(`Повторяющийся ID вершины: ${id}`);
+    vertexIds.add(id);
+    return {
+      id,
+      xM: asFiniteNumber(vertex.xM, `architecture.vertices[${index}].xM`),
+      yM: asFiniteNumber(vertex.yM, `architecture.vertices[${index}].yM`),
+      provenance: parseProvenance(vertex.provenance, `architecture.vertices[${index}].provenance`),
+      confidence: parseConfidence(vertex.confidence, `architecture.vertices[${index}].confidence`),
+      reviewStatus: parseReviewStatus(vertex.reviewStatus, `architecture.vertices[${index}].reviewStatus`),
+      locked: asBoolean(vertex.locked, `architecture.vertices[${index}].locked`),
+    };
+  });
+  const wallIds = new Set<string>();
+  const walls = asArray(record.walls, "architecture.walls").map((entry, index): ArchitecturalWall => {
+    const wall = asRecord(entry, `architecture.walls[${index}]`);
+    const id = asString(wall.id, `architecture.walls[${index}].id`);
+    if (wallIds.has(id)) throw new Error(`Повторяющийся ID стены: ${id}`);
+    wallIds.add(id);
+    const kind = wall.kind;
+    if (kind !== "wall" && kind !== "partition") throw new Error(`Стена ${id}: неизвестный тип`);
+    const startVertexId = asString(wall.startVertexId, `architecture.walls[${index}].startVertexId`);
+    const endVertexId = asString(wall.endVertexId, `architecture.walls[${index}].endVertexId`);
+    if (!vertexIds.has(startVertexId) || !vertexIds.has(endVertexId) || startVertexId === endVertexId) {
+      throw new Error(`Стена ${id} ссылается на некорректные вершины`);
+    }
+    const curveRecord = asRecord(wall.curve, `architecture.walls[${index}].curve`);
+    const curve = curveRecord.kind === "line"
+      ? { kind: "line" as const }
+      : curveRecord.kind === "arc"
+        ? { kind: "arc" as const, bulge: asFiniteNumber(curveRecord.bulge, `architecture.walls[${index}].curve.bulge`) }
+        : null;
+    if (!curve || (curve.kind === "arc" && Math.abs(curve.bulge) < 1e-8)) throw new Error(`Стена ${id}: некорректная кривая`);
+    const thicknessM = asFiniteNumber(wall.thicknessM, `architecture.walls[${index}].thicknessM`);
+    const heightM = asFiniteNumber(wall.heightM, `architecture.walls[${index}].heightM`);
+    const baseElevationM = asFiniteNumber(wall.baseElevationM, `architecture.walls[${index}].baseElevationM`);
+    if (thicknessM <= 0 || heightM <= 0 || baseElevationM < 0) throw new Error(`Стена ${id}: некорректные размеры`);
+    const heightSource = wall.heightSource;
+    const thicknessSource = wall.thicknessSource;
+    const validValueSource = (candidate: unknown): candidate is ArchitecturalWall["heightSource"] =>
+      candidate === "measurement" || candidate === "region" || candidate === "default" || candidate === "user";
+    if (!validValueSource(heightSource) || !validValueSource(thicknessSource)) throw new Error(`Стена ${id}: неизвестный источник значения`);
+    const parsed: ArchitecturalWall = {
+      id,
+      kind,
+      startVertexId,
+      endVertexId,
+      curve,
+      thicknessM,
+      heightM,
+      baseElevationM,
+      heightSource,
+      thicknessSource,
+      provenance: parseProvenance(wall.provenance, `architecture.walls[${index}].provenance`),
+      confidence: parseConfidence(wall.confidence, `architecture.walls[${index}].confidence`),
+      reviewStatus: parseReviewStatus(wall.reviewStatus, `architecture.walls[${index}].reviewStatus`),
+      locked: asBoolean(wall.locked, `architecture.walls[${index}].locked`),
+    };
+    if (wall.reference !== undefined) {
+      const reference = asRecord(wall.reference, `architecture.walls[${index}].reference`);
+      const referenceHeightSource = reference.heightSource;
+      const referenceThicknessSource = reference.thicknessSource;
+      if (!validValueSource(referenceHeightSource) || !validValueSource(referenceThicknessSource)) throw new Error(`Стена ${id}: некорректный reference`);
+      parsed.reference = {
+        thicknessM: asFiniteNumber(reference.thicknessM, `architecture.walls[${index}].reference.thicknessM`),
+        heightM: asFiniteNumber(reference.heightM, `architecture.walls[${index}].reference.heightM`),
+        baseElevationM: asFiniteNumber(reference.baseElevationM, `architecture.walls[${index}].reference.baseElevationM`),
+        heightSource: referenceHeightSource,
+        thicknessSource: referenceThicknessSource,
+      };
+    }
+    return parsed;
+  });
+  const openingIds = new Set<string>();
+  const openings = asArray(record.openings, "architecture.openings").map((entry, index): ArchitecturalOpening => {
+    const opening = asRecord(entry, `architecture.openings[${index}]`);
+    const id = asString(opening.id, `architecture.openings[${index}].id`);
+    if (openingIds.has(id)) throw new Error(`Повторяющийся ID проёма: ${id}`);
+    openingIds.add(id);
+    const kind = opening.kind;
+    if (kind !== "door" && kind !== "window") throw new Error(`Проём ${id}: неизвестный тип`);
+    const hostWallId = asString(opening.hostWallId, `architecture.openings[${index}].hostWallId`);
+    if (!wallIds.has(hostWallId)) throw new Error(`Проём ${id} ссылается на неизвестную стену`);
+    const offsetM = asFiniteNumber(opening.offsetM, `architecture.openings[${index}].offsetM`);
+    const widthM = asFiniteNumber(opening.widthM, `architecture.openings[${index}].widthM`);
+    const sillHeightM = asFiniteNumber(opening.sillHeightM, `architecture.openings[${index}].sillHeightM`);
+    const openingHeightM = asFiniteNumber(opening.openingHeightM, `architecture.openings[${index}].openingHeightM`);
+    if (offsetM < 0 || widthM < 0.1 || sillHeightM < 0 || openingHeightM <= 0) throw new Error(`Проём ${id}: некорректные размеры`);
+    const verticalSource = opening.verticalSource;
+    if (verticalSource !== "measurement" && verticalSource !== "region" && verticalSource !== "default" && verticalSource !== "user") {
+      throw new Error(`Проём ${id}: неизвестный источник высоты`);
+    }
+    return {
+      id,
+      kind,
+      hostWallId,
+      offsetM,
+      widthM,
+      sillHeightM,
+      openingHeightM,
+      verticalSource,
+      swing: opening.swing === "left" || opening.swing === "right" ? opening.swing : undefined,
+      openingAngleDeg: opening.openingAngleDeg === undefined ? undefined : Math.min(180, Math.max(0, asFiniteNumber(opening.openingAngleDeg, `architecture.openings[${index}].openingAngleDeg`))),
+      provenance: parseProvenance(opening.provenance, `architecture.openings[${index}].provenance`),
+      confidence: parseConfidence(opening.confidence, `architecture.openings[${index}].confidence`),
+      reviewStatus: parseReviewStatus(opening.reviewStatus, `architecture.openings[${index}].reviewStatus`),
+      locked: asBoolean(opening.locked, `architecture.openings[${index}].locked`),
+    };
+  });
+  const regionIds = new Set<string>();
+  const heightRegions = asArray(record.heightRegions, "architecture.heightRegions").map((entry, index): ArchitectureHeightRegion => {
+    const region = asRecord(entry, `architecture.heightRegions[${index}]`);
+    const id = asString(region.id, `architecture.heightRegions[${index}].id`);
+    if (regionIds.has(id)) throw new Error(`Повторяющийся ID высотной зоны: ${id}`);
+    regionIds.add(id);
+    const polygon = asArray(region.polygon, `architecture.heightRegions[${index}].polygon`).map((point, pointIndex) => {
+      const pointRecord = asRecord(point, `architecture.heightRegions[${index}].polygon[${pointIndex}]`);
+      return {
+        xM: asFiniteNumber(pointRecord.xM, `architecture.heightRegions[${index}].polygon[${pointIndex}].xM`),
+        yM: asFiniteNumber(pointRecord.yM, `architecture.heightRegions[${index}].polygon[${pointIndex}].yM`),
+      };
+    });
+    if (polygon.length < 3) throw new Error(`Высотная зона ${id} не образует полигон`);
+    const source = region.source;
+    if (source !== "measurement" && source !== "user") throw new Error(`Высотная зона ${id}: неизвестный источник`);
+    return {
+      id,
+      name: asString(region.name, `architecture.heightRegions[${index}].name`),
+      polygon,
+      floorElevationM: asFiniteNumber(region.floorElevationM, `architecture.heightRegions[${index}].floorElevationM`),
+      ceilingHeightM: asFiniteNumber(region.ceilingHeightM, `architecture.heightRegions[${index}].ceilingHeightM`),
+      source,
+    };
+  });
+  return {
+    defaultWallHeightM: Math.max(0.1, asFiniteNumber(record.defaultWallHeightM, "architecture.defaultWallHeightM")),
+    defaultWallThicknessM: Math.max(0.01, asFiniteNumber(record.defaultWallThicknessM, "architecture.defaultWallThicknessM")),
+    vertices,
+    walls,
+    openings,
+    heightRegions,
+  };
 }
 
 function parseObject(
@@ -156,11 +410,11 @@ function parseObject(
 function parseClubplan(root: Record<string, unknown>): DecodeResult {
   if (root.format !== "clubplan") throw new Error("Файл не является проектом Club Planner");
   const version = asFiniteNumber(root.formatVersion, "formatVersion");
-  if (version > 3) throw new Error(`Файл создан более новой версией Club Planner (${version})`);
-  if (version !== 1 && version !== 2 && version !== 3) throw new Error(`Неподдерживаемая версия формата: ${version}`);
+  if (version > 4) throw new Error(`Файл создан более новой версией Club Planner (${version})`);
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) throw new Error(`Неподдерживаемая версия формата: ${version}`);
 
   const warnings: string[] = [];
-  if (version < 3) warnings.push(`Проект автоматически обновлён из формата v${version} в v3`);
+  if (version < 4) warnings.push(`Проект автоматически обновлён из формата v${version} в v4`);
   const next = createEmptyProject();
   const projectMeta = asRecord(root.project, "project");
   next.project = {
@@ -203,7 +457,15 @@ function parseClubplan(root: Record<string, unknown>): DecodeResult {
     basePlanOpacity: Math.min(1, Math.max(0, asFiniteNumber(canvas.basePlanOpacity, "canvas.basePlanOpacity"))),
   };
 
-  if (version >= 2) {
+  if (version === 4) {
+    next.basePlan = parseBasePlan(root.basePlan);
+    next.planSources = parsePlanSources(root.planSources);
+    next.activePlanSourceId = asString(root.activePlanSourceId, "activePlanSourceId");
+    if (!next.planSources.some((source) => source.id === next.activePlanSourceId)) {
+      throw new Error("activePlanSourceId ссылается на отсутствующий источник");
+    }
+    next.architecture = parseArchitecture(root.architecture);
+  } else if (version >= 2) {
     const architecture = asRecord(root.architecture, "architecture");
     const wallOverridesRecord = architecture.wallOverrides === undefined
       ? {}
@@ -223,11 +485,24 @@ function parseClubplan(root: Record<string, unknown>): DecodeResult {
       }
       wallOverrides[wallId] = override;
     }
-    next.architecture = {
-      defaultWallHeightM: Math.max(0.1, asFiniteNumber(architecture.defaultWallHeightM, "architecture.defaultWallHeightM")),
-      defaultWallThicknessM: Math.max(0.01, asFiniteNumber(architecture.defaultWallThicknessM, "architecture.defaultWallThicknessM")),
-      wallOverrides,
-    };
+    next.architecture.defaultWallHeightM = Math.max(0.1, asFiniteNumber(architecture.defaultWallHeightM, "architecture.defaultWallHeightM"));
+    next.architecture.defaultWallThicknessM = Math.max(0.01, asFiniteNumber(architecture.defaultWallThicknessM, "architecture.defaultWallThicknessM"));
+    for (const [wallId, override] of Object.entries(wallOverrides)) {
+      const wall = next.architecture.walls.find((candidate) => candidate.id === wallId);
+      if (!wall) {
+        warnings.push(`Переопределение неизвестной стены ${wallId} пропущено`);
+        continue;
+      }
+      if (override.heightM !== undefined) {
+        wall.heightM = override.heightM;
+        wall.heightSource = "user";
+      }
+      if (override.thicknessM !== undefined) {
+        wall.thicknessM = override.thicknessM;
+        wall.thicknessSource = "user";
+      }
+      if (override.baseElevationM !== undefined) wall.baseElevationM = override.baseElevationM;
+    }
   }
 
   const layerIds = new Set<string>();
@@ -334,7 +609,7 @@ function parseClubplan(root: Record<string, unknown>): DecodeResult {
         return { id, name: asString(template.name, `customTemplates[${index}].name`), items };
       });
 
-  if (root.basePlan && asRecord(root.basePlan, "basePlan").sha256 !== next.basePlan.sha256) {
+  if (version < 4 && root.basePlan && asRecord(root.basePlan, "basePlan").sha256 !== next.basePlan.sha256) {
     warnings.push("Ссылка на базовый план обновлена до актуального замера");
   }
   return { project: next, legacy: false, warnings };

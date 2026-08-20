@@ -54,8 +54,8 @@ describe(".clubplan serialization", () => {
     delete legacyV1Object.elevationM;
     source.objects = [legacyV1Object];
     const decoded = decodeProject(JSON.stringify(source));
-    expect(decoded.warnings).toContain("Проект автоматически обновлён из формата v1 в v3");
-    expect(decoded.project.formatVersion).toBe(3);
+    expect(decoded.warnings).toContain("Проект автоматически обновлён из формата v1 в v4");
+    expect(decoded.project.formatVersion).toBe(4);
     expect(decoded.project.canvas).toMatchObject({
       wallSnapOffsetM: 0,
       autoRotateFurnitureToWall: false,
@@ -70,14 +70,18 @@ describe(".clubplan serialization", () => {
     expect(decoded.project.objects[0]).toMatchObject({ heightM: 0.75, elevationM: 0 });
   });
 
-  it("round-trips v3 architectural overrides, elevations and reflections", () => {
+  it("round-trips v4 architectural graph, elevations and reflections", () => {
     const project = createEmptyProject();
     project.architecture.defaultWallHeightM = 3.2;
-    project.architecture.wallOverrides["wall-main-top"] = {
+    const wall = project.architecture.walls.find((candidate) => candidate.id === "wall-main-top");
+    if (!wall) throw new Error("fixture wall missing");
+    Object.assign(wall, {
       heightM: 2.75,
       thicknessM: 0.2,
       baseElevationM: 0.1,
-    };
+      heightSource: "user",
+      thicknessSource: "user",
+    });
     project.objects = [{
       ...createObjectFromTemplate("table", 2, 3, "raised-table"),
       elevationM: 0.25,
@@ -89,10 +93,37 @@ describe(".clubplan serialization", () => {
     expect(decoded.project.objects[0]).toMatchObject({ heightM: 0.75, elevationM: 0.25, flipX: true, flipY: false });
   });
 
-  it("keeps v3 architecture in the recovery envelope", () => {
+  it("migrates v3 wall overrides into editable v4 walls", () => {
+    const source = JSON.parse(encodeProject(createEmptyProject()));
+    source.formatVersion = 3;
+    delete source.planSources;
+    delete source.activePlanSourceId;
+    source.architecture = {
+      defaultWallHeightM: 3.2,
+      defaultWallThicknessM: 0.18,
+      wallOverrides: {
+        "wall-main-top": { heightM: 2.7, thicknessM: 0.21, baseElevationM: 0.1 },
+      },
+    };
+    const decoded = decodeProject(JSON.stringify(source));
+    const wall = decoded.project.architecture.walls.find((candidate) => candidate.id === "wall-main-top");
+    expect(decoded.warnings).toContain("Проект автоматически обновлён из формата v3 в v4");
+    expect(wall).toMatchObject({
+      heightM: 2.7,
+      thicknessM: 0.21,
+      baseElevationM: 0.1,
+      heightSource: "user",
+      thicknessSource: "user",
+    });
+  });
+
+  it("keeps v4 architecture in the recovery envelope", () => {
     const project = createEmptyProject();
     project.architecture.defaultWallHeightM = 3.4;
-    project.architecture.wallOverrides["wall-main-top"] = { heightM: 2.9 };
+    const wall = project.architecture.walls.find((candidate) => candidate.id === "wall-main-top");
+    if (!wall) throw new Error("fixture wall missing");
+    wall.heightM = 2.9;
+    wall.heightSource = "user";
 
     const recovered = decodeRecoveryEnvelope(createRecoveryEnvelope(project, "C:\\plans\\club.clubplan"));
 
@@ -102,7 +133,7 @@ describe(".clubplan serialization", () => {
 
   it("rejects projects from a future format version", () => {
     const source = JSON.parse(encodeProject(createEmptyProject()));
-    source.formatVersion = 4;
+    source.formatVersion = 5;
 
     expect(() => decodeProject(JSON.stringify(source))).toThrow(/более новой версией/);
   });

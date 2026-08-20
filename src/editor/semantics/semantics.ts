@@ -1,44 +1,24 @@
-import semanticData from "../../../assets/base_plan_boundaries.json";
 import type { BasePlanRef, PlanObject, ProjectState } from "../model/types";
+import { createBundledArchitecture } from "../architecture/base-architecture";
+import { architectureVertexMap, openingEndpoints } from "../architecture/geometry";
 import type { DoorSwingGeometry, SemanticOpening } from "./types";
 
-interface OpeningFileEntry {
-  id: string;
-  kind: "door" | "window";
-  start: { xM: number; yM: number };
-  end: { xM: number; yM: number };
-  swing?: "left" | "right";
-  openingAngleDeg?: number;
-}
-
-interface SemanticFile {
-  basePlanId: string;
-  basePlanSha256: string;
-  openings: OpeningFileEntry[];
-}
-
-const file = semanticData as SemanticFile;
-
-function validateOpening(opening: OpeningFileEntry): void {
-  const values = [opening.start.xM, opening.start.yM, opening.end.xM, opening.end.yM];
-  if (!opening.id || !values.every(Number.isFinite)) {
-    throw new Error("Некорректный семантический проём базового плана");
-  }
-  if (opening.start.xM === opening.end.xM && opening.start.yM === opening.end.yM) {
-    throw new Error(`Семантический проём ${opening.id} не имеет длины`);
-  }
-}
-
-file.openings.forEach(validateOpening);
-
 export function getBasePlanOpenings(basePlan: BasePlanRef): SemanticOpening[] {
-  if (file.basePlanId !== basePlan.id || file.basePlanSha256 !== basePlan.sha256) {
-    throw new Error("Семантические проёмы не соответствуют актуальному базовому плану");
-  }
-  return file.openings.map((opening) => ({
-    ...structuredClone(opening),
-    source: "base-plan",
-  }));
+  const architecture = createBundledArchitecture(basePlan);
+  const vertices = architectureVertexMap(architecture);
+  const walls = new Map(architecture.walls.map((wall) => [wall.id, wall]));
+  return architecture.openings.flatMap((opening) => {
+    const wall = walls.get(opening.hostWallId);
+    const endpoints = wall ? openingEndpoints(opening, wall, vertices) : null;
+    return endpoints ? [{
+      id: opening.id,
+      kind: opening.kind,
+      ...endpoints,
+      source: "base-plan" as const,
+      swing: opening.swing,
+      openingAngleDeg: opening.openingAngleDeg,
+    }] : [];
+  });
 }
 
 export function openingFromProjectObject(object: PlanObject): SemanticOpening | null {
@@ -66,8 +46,23 @@ export function openingFromProjectObject(object: PlanObject): SemanticOpening | 
 }
 
 export function getPlanOpenings(project: ProjectState): SemanticOpening[] {
+  const vertices = architectureVertexMap(project.architecture);
+  const walls = new Map(project.architecture.walls.map((wall) => [wall.id, wall]));
+  const architectureOpenings = project.architecture.openings.flatMap((opening) => {
+    if (opening.reviewStatus !== "accepted") return [];
+    const wall = walls.get(opening.hostWallId);
+    const endpoints = wall ? openingEndpoints(opening, wall, vertices) : null;
+    return endpoints ? [{
+      id: opening.id,
+      kind: opening.kind,
+      ...endpoints,
+      source: opening.provenance === "bundled" ? "base-plan" as const : "project-architecture" as const,
+      swing: opening.swing,
+      openingAngleDeg: opening.openingAngleDeg,
+    }] : [];
+  });
   return [
-    ...getBasePlanOpenings(project.basePlan),
+    ...architectureOpenings,
     ...project.objects.flatMap((object) => {
       const opening = openingFromProjectObject(object);
       return opening ? [opening] : [];
