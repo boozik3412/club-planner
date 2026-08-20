@@ -6,18 +6,19 @@
 
 Готовые `.exe` находятся на странице [последнего релиза](https://github.com/boozik3412/club-planner/releases/latest):
 
-- [Club-Planner_0.2.0_x64-setup.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.2.0_x64-setup.exe) — рекомендуемый установщик с автообновлением;
-- [Club-Planner_0.2.0_x64-portable.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.2.0_x64-portable.exe) — запуск без установки;
+- [Club-Planner_0.2.2_x64-setup.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.2.2_x64-setup.exe) — рекомендуемый установщик с автообновлением;
+- [Club-Planner_0.2.2_x64-portable.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.2.2_x64-portable.exe) — запуск без установки;
 - [SHA256SUMS.txt](https://github.com/boozik3412/club-planner/releases/latest/download/SHA256SUMS.txt) — контрольные суммы загрузок.
 
-Опубликованная стабильная версия сейчас `0.2.0`; исходники `0.2.1` содержат новую итерацию распознавания и до публикации доступны только через локальную сборку.
+Опубликованная стабильная версия — `0.2.2`.
 
 См. [инструкцию по установке и проверке файла](docs/INSTALLATION.md). Сборка пока не подписана коммерческим сертификатом, поэтому Windows SmartScreen может показать предупреждение издателя.
 
 ## Возможности
 
 - точный векторный план `assets/base_plan_new_measurement.svg`, семантические стены/двери/окна, сетка, умные привязки к стенам, объектам и совпадающим рядам, зум, панорама и поворот холста;
-- полностью локальный импорт одной страницы PDF/PNG/JPEG: перспектива, обязательная калибровка, PDF.js + OpenCV + Tesseract `rus+eng`, прогресс/отмена и цветная проверка распознанной архитектуры;
+- полностью локальный импорт одной страницы PDF/PNG/JPEG: перспектива, обязательная калибровка, PDF.js + OpenCV + Tesseract `rus+eng`, многомасштабные линии/контурные дуги, прогресс/отмена и цветная проверка распознанной архитектуры;
+- магнитное дочерчивание прямых и настоящих дуговых стен на этапе проверки: живые длина/угол/радиус, точный ввод, общие узлы, безопасное разделение host wall, Delete и единый Undo/Redo;
 - редактируемый архитектурный граф с общими узлами, настоящими дугами, split/merge/detach, повторным анализом области, host-дверями/окнами и вычисляемыми помещениями;
 - высоты помещений и проёмов из исходного обмера, редактируемые высота/толщина/отметка основания стен и явная маркировка измеренных и расчётных значений;
 - локальный схематичный 3D-режим в том же окне: `2D`, `3D` или совместный вид, камеры, сечение стен, потолок, синхронное выделение и диагностическая окраска;
@@ -73,7 +74,7 @@ pnpm tauri build
 Артефакты создаются в:
 
 - `src-tauri/target/release/club-planner.exe`;
-- `src-tauri/target/release/bundle/nsis/Club Planner_0.2.1_x64-setup.exe`.
+- `src-tauri/target/release/bundle/nsis/Club Planner_0.2.2_x64-setup.exe`.
 
 ## Основные сочетания клавиш
 
@@ -104,6 +105,7 @@ pnpm tauri build
 - [Формат проекта](docs/FILE_FORMAT.md)
 - [Импорт и редактирование распознанного плана](docs/USER_GUIDE.md)
 - [Установка на Windows](docs/INSTALLATION.md)
+- [Примечания к версии 0.2.2](docs/RELEASE_NOTES_0.2.2.md)
 - [Примечания к версии 0.2.1](docs/RELEASE_NOTES_0.2.1.md)
 - [Примечания к версии 0.2.0](docs/RELEASE_NOTES_0.2.0.md)
 - [Примечания к версии 0.1.3](docs/RELEASE_NOTES_0.1.3.md)

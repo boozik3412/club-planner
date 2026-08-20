@@ -20,7 +20,7 @@ previews/<sha-prefix>-p<page>-thumb.png
 {
   "format": "clubplan",
   "formatVersion": 4,
-  "generator": { "name": "Club Planner", "version": "0.2.1" },
+  "generator": { "name": "Club Planner", "version": "0.2.2" },
   "project": { "id": "project-uuid", "createdAt": "...", "modifiedAt": "..." },
   "basePlan": { "id": "source-id", "asset": "previews/source.png", "widthM": 24.6, "heightM": 12.1, "unitsPerMeter": 100, "sha256": "..." },
   "planSources": [],
@@ -61,7 +61,7 @@ previews/<sha-prefix>-p<page>-thumb.png
   "metersPerSourceUnit": 0.005,
   "locked": true,
   "recognizer": {
-    "engineVersion": "local-hybrid-2",
+    "engineVersion": "local-hybrid-3",
     "pdfEngine": "pdf.js 6.2.108",
     "cvEngine": "OpenCV.js 5.0.0",
     "ocrEngine": "Tesseract.js 7.0.0 rus+eng"
