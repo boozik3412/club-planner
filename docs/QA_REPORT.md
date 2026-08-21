@@ -123,6 +123,9 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 
 ## Нативная Windows-проверка
 
+- опубликованный [Release v0.2.4](https://github.com/boozik3412/club-planner/releases/tag/v0.2.4) создан успешным [Windows release workflow](https://github.com/boozik3412/club-planner/actions/runs/32460111818): frontend quality gate, Rust format/test/Clippy, подписанная Tauri/NSIS-сборка и загрузка всех артефактов прошли;
+- публичный `latest.json` отвечает `HTTP 200`, содержит `version: 0.2.4`, платформы `windows-x86_64` и `windows-x86_64-nsis`, две подписи по 424 байта и API URL опубликованного installer;
+- опубликованный portable имеет размер 28 860 416 байт и SHA-256 `4CA8EBCB1C0C9F6B062798AC40785E8F50D83F9E37B93CBE0C0C199731BC5C62`; NSIS installer — 15 805 826 байт и SHA-256 `7A03AF7D859ED5868617D20EC697862C60AEDD2112CF3CAB877BECE10E9D9843`; оба GitHub digest совпадают с `SHA256SUMS.txt`;
 - локальная неподписанная сборка `v0.2.3`: portable 28 872 704 байта, SHA-256 `294E0CDE4A087915100FC1A4855BCBD7BD7F6400730D69FEEF3A56180323811F`; NSIS installer 15 791 756 байт, SHA-256 `62991A50A8851142938FC944963B61C9A4E6A21FD64D51741BB2E0E763D89D69`;
 - portable `v0.2.3` открыл отдельное отвечающее окно `Club Planner — планировщик клуба`; NSIS прошёл silent install → launch → close → silent uninstall с кодами 0 и полностью удалил проверочную папку;
 - опубликованный [Release v0.2.3](https://github.com/boozik3412/club-planner/releases/tag/v0.2.3) содержит portable 28 875 776 байт, SHA-256 `83542CFBB7DC05A9ED379B5C79C8F9BEB66A03B18D60DA149FAFEE5B26628F2F`, и NSIS 15 789 556 байт, SHA-256 `ECBB8800F25017041DE73A01C65354BC3F71A8D95B2106E52941D8876A9F3050`;
@@ -160,4 +163,4 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 
 ## Границы проверки
 
-Локальная и публичная `v0.2.3`, синтетический benchmark прямых стен/проёмов, контурные curved-wall unit cases, rendered review, плавность camera hot path, запуск portable, полный цикл installer и подписанный updater-манифест проверены. Разрешённый реальный holdout с эталонной разметкой дуг и отдельная clean Windows 10/11 VM в этой среде не выполнялись; перед широкой эксплуатацией на произвольных документах остаётся внешний offline-сценарий import/edit/save → restart/open → update → uninstall.
+Локальная и публичная `v0.2.4`, синтетический benchmark прямых стен/проёмов, контурные curved-wall unit cases, rendered review, плавность camera hot path, запуск portable, полный цикл локального installer и подписанный updater-манифест проверены. Разрешённый реальный holdout с эталонной разметкой дуг и отдельная clean Windows 10/11 VM в этой среде не выполнялись; перед широкой эксплуатацией на произвольных документах остаётся внешний offline-сценарий import/edit/save → restart/open → update → uninstall.
