@@ -20,5 +20,8 @@ describe("createProjectFromRecognitionDraft", () => {
     expect(project.basePlan.widthM).toBe(10);
     expect(project.architecture.walls).toHaveLength(1);
     expect(project.architecture.walls[0].reviewStatus).toBe("accepted");
+    expect(project.canvas.basePlanOpacity).toBe(0.24);
+    expect(project.canvas.basePlanVisible).toBe(true);
+    expect(project.canvas.semanticLayerVisible).toBe(true);
   });
 });

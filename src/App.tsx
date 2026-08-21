@@ -1075,12 +1075,14 @@ export default function App() {
           canRedo={canRedo(history)}
           snapEnabled={project.canvas.snapEnabled}
           gridVisible={project.canvas.gridVisible}
+          basePlanVisible={project.canvas.basePlanVisible}
           onUndo={handleUndo}
           onRedo={handleRedo}
           onToolChange={handleWorkspaceToolChange}
           onFit={() => setFitRequest((value) => value + 1)}
           onSnapToggle={() => handleCanvasChange({ snapEnabled: !project.canvas.snapEnabled }, project.canvas.snapEnabled ? "Привязки выключены" : "Привязки включены")}
           onGridToggle={() => handleCanvasChange({ gridVisible: !project.canvas.gridVisible }, project.canvas.gridVisible ? "Сетка скрыта" : "Сетка показана")}
+          onBasePlanToggle={() => handleCanvasChange({ basePlanVisible: !project.canvas.basePlanVisible }, project.canvas.basePlanVisible ? "Подложка скрыта" : "Подложка показана")}
           onWorkspaceModeChange={setWorkspaceMode}
         />
         <div className={`workspace-content workspace-content--${workspaceMode}`}>
@@ -1158,7 +1160,11 @@ export default function App() {
               setProjectAssets(assets);
               setImportFile(null);
               setFitRequest((value) => value + 1);
-              showStatus("Распознанная планировка создана · сохраните проект");
+              const acceptedWalls = nextProject.architecture.walls.filter((wall) => wall.reviewStatus === "accepted");
+              const wallCount = acceptedWalls.filter((wall) => wall.kind === "wall").length;
+              const partitionCount = acceptedWalls.length - wallCount;
+              const openingCount = nextProject.architecture.openings.filter((opening) => opening.reviewStatus === "accepted").length;
+              showStatus(`Создано: ${wallCount} стен, ${partitionCount} перегородок, ${openingCount} проёмов · сохраните проект`);
             }}
           />
         </Suspense>

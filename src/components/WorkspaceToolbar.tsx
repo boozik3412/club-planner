@@ -5,6 +5,7 @@ import {
   Grid3X3,
   Hand,
   House,
+  Image as ImageIcon,
   Magnet,
   MousePointer2,
   Redo2,
@@ -25,12 +26,14 @@ interface WorkspaceToolbarProps {
   canRedo: boolean;
   snapEnabled: boolean;
   gridVisible: boolean;
+  basePlanVisible: boolean;
   onUndo: () => void;
   onRedo: () => void;
   onToolChange: (tool: WorkspaceTool) => void;
   onFit: () => void;
   onSnapToggle: () => void;
   onGridToggle: () => void;
+  onBasePlanToggle: () => void;
   onWorkspaceModeChange: (mode: WorkspaceMode) => void;
 }
 
@@ -73,12 +76,14 @@ export function WorkspaceToolbar({
   canRedo,
   snapEnabled,
   gridVisible,
+  basePlanVisible,
   onUndo,
   onRedo,
   onToolChange,
   onFit,
   onSnapToggle,
   onGridToggle,
+  onBasePlanToggle,
   onWorkspaceModeChange,
 }: WorkspaceToolbarProps) {
   return (
@@ -100,6 +105,7 @@ export function WorkspaceToolbar({
         <ToolButton label="Вписать" shortcut="F" onClick={onFit}><Scan aria-hidden="true" /></ToolButton>
         <ToolButton label="Привязки" active={snapEnabled} onClick={onSnapToggle}><Magnet aria-hidden="true" /></ToolButton>
         <ToolButton label="Сетка" active={gridVisible} onClick={onGridToggle}><Grid3X3 aria-hidden="true" /></ToolButton>
+        <ToolButton label="Подложка" active={basePlanVisible} onClick={onBasePlanToggle}><ImageIcon aria-hidden="true" /></ToolButton>
       </div>
       <div className="workspace-toolbar__spacer" />
       <div className="workspace-toolbar__group workspace-toolbar__modes" aria-label="Режим рабочей области">

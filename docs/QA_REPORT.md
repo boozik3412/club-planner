@@ -8,19 +8,29 @@
 |---|---|
 | `pnpm typecheck` | пройден |
 | `pnpm lint` | пройден без предупреждений |
-| `pnpm test` | 47 файлов, 200 тестов пройдено |
+| `pnpm test` | 47 файлов, 203 теста пройдено |
 | `pnpm corpus:validate` | 30/30 fixtures: 10 vector PDF, 10 scan PNG, 10 perspective JPEG; SHA-256 и ground truth валидны |
 | `pnpm build` | production bundle собран вместе с локальными PDF.js/OpenCV.js/Tesseract `rus+eng` ресурсами |
 | `cargo fmt --check` | пройден |
 | `cargo test` | 8 Rust-тестов пройдено, включая v4 ZIP safety/checksum/round-trip |
 | `cargo clippy --all-targets -- -D warnings` | пройден; локализованное сообщение MSVC linker не является Clippy warning |
 | `pnpm tauri build --debug --no-bundle` | пройден; создан `src-tauri/target/debug/club-planner.exe`, 14 132 224 байта |
-| `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.5` собраны локально без приватного CI-ключа |
+| `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.6` собраны локально без приватного CI-ключа |
 | Portable smoke | `.exe` открыл отвечающее окно и завершил процесс после закрытия |
 | NSIS smoke | silent install → launch → close → silent uninstall пройдены во временной папке |
 | Release workflow | [GitHub Actions run 32387883068](https://github.com/boozik3412/club-planner/actions/runs/32387883068) пройден; quality gates, подписанная Tauri build и публикация Release `v0.2.3` успешны |
 
-Production frontend `v0.2.5` собран с ленивыми chunks `PlanImportWizard` 500,84 kB (150,99 kB gzip) и `Plan3DView` 909,13 kB (245,84 kB gzip). OpenCV, OCR-модели, PDF worker, пиктограммы интерфейса и совместимый базовый SVG упакованы как локальные assets; сеть для распознавания не используется. Предупреждение Vite о крупных ленивых chunks зафиксировано и не влияет на начальный 2D-экран.
+Production frontend `v0.2.6` собран с ленивыми chunks `PlanImportWizard` 500,84 kB (150,99 kB gzip) и `Plan3DView` 909,13 kB (245,84 kB gzip). OpenCV, OCR-модели, PDF worker, Tesseract `rus+eng`, пиктограммы интерфейса и совместимый базовый SVG упакованы как локальные assets; сеть для распознавания не используется. Предупреждение Vite о крупных ленивых chunks зафиксировано и не влияет на начальный 2D-экран.
+
+### Читаемые импортированные стены `v0.2.6`
+
+- компонентные тесты проверяют физическую толщину SVG-body, фиксированную 18 px hit-area, выбор стены, две ручки выбранного сегмента и один commit после drag общей вершины;
+- новый импорт использует подложку 24%, сохраняет включённый семантический слой и показывает итоговые количества стен, перегородок и проёмов;
+- rendered Browser QA на `http://127.0.0.1:1420/` при desktop viewport создал помещение из четырёх стен: получены 4 контрастных body, 4 области выбора и 2 ручки выбранной стены;
+- drag крайней ручки переместил её с `(923,4; 251,8)` в `(968,9; 283,3)` px, обновил длину стены до `22,074 м` и активировал Undo; console `error`/`warn` — 0;
+- верхняя кнопка «Подложка» изменила `aria-pressed` с `false` на `true` без ошибки или перезагрузки;
+- локальный portable: 28 880 896 байт, SHA-256 `D79B8AEBE637B877941F8B09C802EAD35AF732FE8DEA05F37E4AC5D7098564AE`;
+- локальный NSIS: 15 801 135 байт, SHA-256 `53BD03E1D6BD8FFD967A37EF08C3DE11E8FBE9C6C3EEDF61E41EB88DE30932BA`; silent install → responding launch → close → silent uninstall пройдены, коды 0.
 
 ### Пустой проект, помещения, двери и review-дуги `v0.2.5`
 

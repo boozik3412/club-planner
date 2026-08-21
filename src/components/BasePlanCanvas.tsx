@@ -20,6 +20,7 @@ import {
   type ResizeHandle,
 } from "../editor/geometry/geometry";
 import { analyzeLayout, getClearanceBounds } from "../editor/analysis/layout-analysis";
+import { moveArchitectureVertexCommand } from "../editor/architecture/commands";
 import { arcFromBulge } from "../editor/architecture/geometry";
 import { resolveDoorPlacement, type DoorPlacement } from "../editor/architecture/door-placement";
 import { computeRooms } from "../editor/architecture/rooms";
@@ -130,6 +131,7 @@ type Gesture =
   | { mode: "resize"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; object: PlanObject; handle: ResizeHandle; preview: ProjectState | null }
   | { mode: "rotate"; pointerId: number; center: ScreenPoint; startAngle: number; baseProject: ProjectState; objectId: ObjectId | null; groupId: string | null; startObjectAngle: number; preview: ProjectState | null }
   | { mode: "dimension"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; dimension: ProjectDimension; handle: "start" | "end" | "move"; preview: ProjectDimension | null }
+  | { mode: "architecture-vertex"; pointerId: number; vertexId: string; baseProject: ProjectState; preview: ProjectState | null }
   | { mode: "room"; pointerId: number; start: PointM; current: PointM };
 
 type MoveGesture = Extract<Gesture, { mode: "move" }>;
@@ -278,6 +280,16 @@ export function BasePlanCanvas({
   );
   const semanticBoundaries = useMemo(() => getPlanBoundaries(project), [project]);
   const semanticOpenings = useMemo(() => getPlanOpenings(project), [project]);
+  const selectedArchitectureWall = useMemo(
+    () => project.architecture.walls.find((wall) => wall.id === selectedWallId && wall.reviewStatus === "accepted") ?? null,
+    [project.architecture.walls, selectedWallId],
+  );
+  const selectedArchitectureVertices = useMemo(() => {
+    if (!selectedArchitectureWall || selectedArchitectureWall.locked) return [];
+    const start = project.architecture.vertices.find((vertex) => vertex.id === selectedArchitectureWall.startVertexId);
+    const end = project.architecture.vertices.find((vertex) => vertex.id === selectedArchitectureWall.endVertexId);
+    return [start, end].filter((vertex): vertex is NonNullable<typeof vertex> => Boolean(vertex && !vertex.locked));
+  }, [project.architecture.vertices, selectedArchitectureWall]);
   const rooms = useMemo(() => computeRooms(project.architecture), [project.architecture]);
   const doorBoundary = useMemo(
     () => doorPlacement ? semanticBoundaries.find((boundary) => boundary.id === doorPlacement.boundaryId) ?? null : null,
@@ -1014,6 +1026,15 @@ export function BasePlanCanvas({
       setDimensionPreview(preview);
       return;
     }
+    if (gesture.mode === "architecture-vertex") {
+      const point = event.altKey
+        ? { xM: currentPlan.x, yM: currentPlan.y }
+        : snappedPlanPoint(screen);
+      const preview = moveArchitectureVertexCommand(gesture.baseProject, gesture.vertexId, point);
+      gesture.preview = preview === gesture.baseProject ? null : preview;
+      onPreviewProject(gesture.preview);
+      return;
+    }
     const pointerAngle = Math.atan2(currentPlan.y - gesture.center.y, currentPlan.x - gesture.center.x);
     let deltaDeg = (pointerAngle - gesture.startAngle) * 180 / Math.PI;
     if (event.shiftKey) deltaDeg = Math.round(deltaDeg / 15) * 15;
@@ -1109,6 +1130,11 @@ export function BasePlanCanvas({
       if (next !== gesture.baseProject) onCommitProject(next, "Изменение размера");
       return;
     }
+    if (gesture.mode === "architecture-vertex") {
+      if (event.type === "pointercancel" || !gesture.preview) onPreviewProject(null);
+      else onCommitProject(gesture.preview, "Перемещение узла стены");
+      return;
+    }
     if (gesture.mode === "move" || gesture.mode === "resize" || gesture.mode === "rotate") {
       setSnapGuide(null);
       setMovePreviewActive(false);
@@ -1181,17 +1207,55 @@ export function BasePlanCanvas({
                     </g>;
                   })}
                 </g>
-                {semanticBoundaries.map((boundary) => (
-                  <path
-                    key={boundary.id}
-                    className={`semantic-boundary semantic-boundary--${boundary.kind}${selectedWallId === boundary.id ? " is-selected" : ""}`}
-                    d={boundarySvgPath(boundary, unitsPerMeter)}
-                    vectorEffect="non-scaling-stroke"
-                    pointerEvents={!doorToolActive && onWallSelect && boundary.source !== "project-object" ? "stroke" : "none"}
+                {semanticBoundaries.map((boundary) => {
+                  const selected = selectedWallId === boundary.id;
+                  const physicalWidth = Math.max(0.04, boundary.thicknessM) * unitsPerMeter;
+                  const visibleWidth = Math.max(physicalWidth, 4 / Math.max(camera.zoom, 0.001));
+                  const path = boundarySvgPath(boundary, unitsPerMeter);
+                  const interactive = !doorToolActive && Boolean(onWallSelect) && boundary.source !== "project-object";
+                  return (
+                    <g key={boundary.id} className={`semantic-boundary semantic-boundary--${boundary.kind}${selected ? " is-selected" : ""}`}>
+                      <path className="semantic-boundary__outline" d={path} strokeWidth={visibleWidth + 2.5 / Math.max(camera.zoom, 0.001)} />
+                      <path className="semantic-boundary__body" d={path} strokeWidth={visibleWidth} />
+                      <path className="semantic-boundary__centerline" d={path} vectorEffect="non-scaling-stroke" />
+                      <path
+                        className="semantic-boundary__hit"
+                        d={path}
+                        data-boundary-id={boundary.id}
+                        role={interactive ? "button" : undefined}
+                        aria-label={interactive ? `${boundary.kind === "partition" ? "Перегородка" : "Стена"} ${boundary.id}` : undefined}
+                        vectorEffect="non-scaling-stroke"
+                        pointerEvents={interactive ? "stroke" : "none"}
+                        onPointerDown={(event) => {
+                          if (!interactive || !onWallSelect) return;
+                          event.stopPropagation();
+                          onWallSelect(boundary.id);
+                        }}
+                      />
+                    </g>
+                  );
+                })}
+                {selectedArchitectureVertices.map((vertex) => (
+                  <circle
+                    key={vertex.id}
+                    className="architecture-vertex-handle"
+                    data-architecture-vertex-id={vertex.id}
+                    cx={vertex.xM * unitsPerMeter}
+                    cy={vertex.yM * unitsPerMeter}
+                    r={7 / Math.max(camera.zoom, 0.001)}
+                    strokeWidth={2 / Math.max(camera.zoom, 0.001)}
                     onPointerDown={(event) => {
-                      if (doorToolActive || !onWallSelect || boundary.source === "project-object") return;
+                      if (event.button !== 0) return;
+                      event.preventDefault();
                       event.stopPropagation();
-                      onWallSelect(boundary.id);
+                      gestureRef.current = {
+                        mode: "architecture-vertex",
+                        pointerId: event.pointerId,
+                        vertexId: vertex.id,
+                        baseProject: project,
+                        preview: null,
+                      };
+                      capture(event.pointerId);
                     }}
                   />
                 ))}

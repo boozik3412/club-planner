@@ -1047,15 +1047,53 @@ button:disabled {
 
 .semantic-boundary {
   fill: none;
-  stroke: #168ae2;
-  stroke-width: 1.4;
-  stroke-dasharray: 4 5;
-  opacity: 0.48;
+  color: #d8e5ea;
 }
 
 .semantic-boundary--partition {
-  stroke: #7757c6;
-  opacity: 0.65;
+  color: #b7a7e7;
+}
+
+.semantic-boundary__outline,
+.semantic-boundary__body,
+.semantic-boundary__centerline,
+.semantic-boundary__hit {
+  fill: none;
+  stroke-linecap: square;
+  stroke-linejoin: round;
+}
+
+.semantic-boundary__outline {
+  stroke: #18323d;
+  opacity: 0.96;
+  pointer-events: none;
+}
+
+.semantic-boundary__body {
+  stroke: currentColor;
+  opacity: 0.98;
+  pointer-events: none;
+}
+
+.semantic-boundary__centerline {
+  stroke: #426474;
+  stroke-width: 1.2;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.semantic-boundary--partition .semantic-boundary__outline {
+  stroke: #352a55;
+}
+
+.semantic-boundary--partition .semantic-boundary__centerline {
+  stroke: #5f4d90;
+}
+
+.semantic-boundary__hit {
+  stroke: transparent;
+  stroke-width: 18;
+  cursor: pointer;
 }
 
 .semantic-opening line {
@@ -1514,10 +1552,23 @@ button:disabled {
 }
 
 .semantic-boundary.is-selected {
-  stroke: #e62e84;
-  stroke-width: 3.2;
-  stroke-dasharray: none;
-  opacity: 1;
+  color: #ffb15a;
+}
+
+.semantic-boundary.is-selected .semantic-boundary__outline {
+  stroke: #9f3f12;
+}
+
+.semantic-boundary.is-selected .semantic-boundary__centerline {
+  stroke: #fff6df;
+  stroke-width: 2.2;
+}
+
+.architecture-vertex-handle {
+  fill: #fffdf5;
+  stroke: #d95717;
+  cursor: move;
+  filter: drop-shadow(0 1px 2px rgba(20, 29, 33, 0.55));
 }
 
 .import-plan-button {

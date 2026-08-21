@@ -16,10 +16,6 @@ vi.mock("../editor/load-base-plan", () => ({
   }),
 }));
 
-vi.mock("../editor/snapping/boundaries", () => ({
-  getPlanBoundaries: vi.fn(() => []),
-}));
-
 class ResizeObserverMock {
   observe() {}
   disconnect() {}
@@ -230,6 +226,93 @@ describe("BasePlanCanvas pointer navigation", () => {
 
     expect(onCommitProject).not.toHaveBeenCalled();
     expect(screen.getAllByText("3.00 м").length).toBeGreaterThan(0);
+  });
+
+  it("renders imported architecture with physical thickness and a stable hit area", () => {
+    const project = createEmptyProject();
+    project.architecture.vertices = [
+      { id: "v1", xM: 1, yM: 1, provenance: "raster", reviewStatus: "accepted", locked: false },
+      { id: "v2", xM: 5, yM: 1, provenance: "raster", reviewStatus: "accepted", locked: false },
+    ];
+    project.architecture.walls = [{
+      id: "imported-wall", kind: "wall", startVertexId: "v1", endVertexId: "v2", curve: { kind: "line" },
+      thicknessM: 0.2, heightM: 3.2, baseElevationM: 0, heightSource: "default", thicknessSource: "default",
+      provenance: "raster", reviewStatus: "accepted", locked: false,
+    }];
+    const onWallSelect = vi.fn();
+    const { container } = renderCanvas({ project, camera: { x: 20, y: 30, zoom: 1 }, onWallSelect });
+
+    expect(container.querySelector(".semantic-boundary__body")).toHaveAttribute("stroke-width", "20");
+    const hitArea = screen.getByRole("button", { name: "Стена imported-wall" });
+    expect(hitArea).toHaveClass("semantic-boundary__hit");
+    fireEvent.pointerDown(hitArea, { button: 0, pointerId: 31 });
+    expect(onWallSelect).toHaveBeenCalledWith("imported-wall");
+  });
+
+  it("moves a shared architecture vertex with live preview and one commit", () => {
+    const project = createEmptyProject();
+    project.canvas.snapEnabled = false;
+    project.architecture.vertices = [
+      { id: "v1", xM: 1, yM: 1, provenance: "raster", reviewStatus: "accepted", locked: false },
+      { id: "shared", xM: 3, yM: 1, provenance: "raster", reviewStatus: "accepted", locked: false },
+      { id: "v3", xM: 3, yM: 4, provenance: "raster", reviewStatus: "accepted", locked: false },
+    ];
+    project.architecture.walls = [
+      {
+        id: "wall-a", kind: "wall", startVertexId: "v1", endVertexId: "shared", curve: { kind: "line" },
+        thicknessM: 0.15, heightM: 3.2, baseElevationM: 0, heightSource: "default", thicknessSource: "default",
+        provenance: "raster", reviewStatus: "accepted", locked: false,
+      },
+      {
+        id: "wall-b", kind: "partition", startVertexId: "shared", endVertexId: "v3", curve: { kind: "line" },
+        thicknessM: 0.1, heightM: 3.2, baseElevationM: 0, heightSource: "default", thicknessSource: "default",
+        provenance: "manual", reviewStatus: "accepted", locked: false,
+      },
+    ];
+    const { container, onPreviewProject, onCommitProject } = renderCanvas({
+      project,
+      selectedWallId: "wall-a",
+      camera: { x: 20, y: 30, zoom: 1 },
+      onWallSelect: vi.fn(),
+    });
+    const canvas = screen.getByRole("img", { name: "Актуальная планировка компьютерного клуба" });
+    const handle = container.querySelector('[data-architecture-vertex-id="shared"]') as SVGElement;
+
+    expect(container.querySelectorAll(".architecture-vertex-handle")).toHaveLength(2);
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 32, clientX: 320, clientY: 130 });
+    fireEvent.pointerMove(canvas, { buttons: 1, pointerId: 32, clientX: 370, clientY: 180, altKey: true });
+
+    const preview = onPreviewProject.mock.lastCall?.[0];
+    expect(preview.architecture.vertices.find((vertex: { id: string }) => vertex.id === "shared")).toMatchObject({ xM: 3.5, yM: 1.5 });
+    expect(onCommitProject).not.toHaveBeenCalled();
+
+    fireEvent.pointerUp(canvas, { button: 0, pointerId: 32, clientX: 370, clientY: 180 });
+    expect(onCommitProject).toHaveBeenCalledOnce();
+    expect(onCommitProject).toHaveBeenCalledWith(expect.any(Object), "Перемещение узла стены");
+  });
+
+  it("cancels an architecture vertex drag without changing history", () => {
+    const project = createEmptyProject();
+    project.canvas.snapEnabled = false;
+    project.architecture.vertices = [
+      { id: "v1", xM: 1, yM: 1, provenance: "manual", reviewStatus: "accepted", locked: false },
+      { id: "v2", xM: 3, yM: 1, provenance: "manual", reviewStatus: "accepted", locked: false },
+    ];
+    project.architecture.walls = [{
+      id: "wall", kind: "wall", startVertexId: "v1", endVertexId: "v2", curve: { kind: "line" },
+      thicknessM: 0.15, heightM: 3, baseElevationM: 0, heightSource: "user", thicknessSource: "user",
+      provenance: "manual", reviewStatus: "accepted", locked: false,
+    }];
+    const { container, onPreviewProject, onCommitProject } = renderCanvas({ project, selectedWallId: "wall" });
+    const canvas = screen.getByRole("img", { name: "Актуальная планировка компьютерного клуба" });
+    const handle = container.querySelector('[data-architecture-vertex-id="v2"]') as SVGElement;
+
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 33, clientX: 35, clientY: 35 });
+    fireEvent.pointerMove(canvas, { buttons: 1, pointerId: 33, clientX: 45, clientY: 45, altKey: true });
+    fireEvent.pointerCancel(canvas, { pointerId: 33, clientX: 45, clientY: 45 });
+
+    expect(onCommitProject).not.toHaveBeenCalled();
+    expect(onPreviewProject).toHaveBeenLastCalledWith(null);
   });
 
   it("shows a long smart guide and aligns two matching visible rows", () => {

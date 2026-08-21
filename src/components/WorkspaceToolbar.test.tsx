@@ -10,6 +10,7 @@ describe("WorkspaceToolbar", () => {
     const onToolChange = vi.fn();
     const onSnapToggle = vi.fn();
     const onGridToggle = vi.fn();
+    const onBasePlanToggle = vi.fn();
     render(<WorkspaceToolbar
       activeTool="measure"
       workspaceMode="2d"
@@ -17,12 +18,14 @@ describe("WorkspaceToolbar", () => {
       canRedo
       snapEnabled
       gridVisible={false}
+      basePlanVisible
       onUndo={vi.fn()}
       onRedo={vi.fn()}
       onToolChange={onToolChange}
       onFit={vi.fn()}
       onSnapToggle={onSnapToggle}
       onGridToggle={onGridToggle}
+      onBasePlanToggle={onBasePlanToggle}
       onWorkspaceModeChange={vi.fn()}
     />);
 
@@ -31,12 +34,15 @@ describe("WorkspaceToolbar", () => {
     expect(screen.getByRole("button", { name: "Линейка (M)" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Привязки" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Сетка" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Подложка" })).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "Рука (H)" }));
     fireEvent.click(screen.getByRole("button", { name: "Привязки" }));
     fireEvent.click(screen.getByRole("button", { name: "Сетка" }));
+    fireEvent.click(screen.getByRole("button", { name: "Подложка" }));
     expect(onToolChange).toHaveBeenCalledWith("pan");
     expect(onSnapToggle).toHaveBeenCalledOnce();
     expect(onGridToggle).toHaveBeenCalledOnce();
+    expect(onBasePlanToggle).toHaveBeenCalledOnce();
   });
 });

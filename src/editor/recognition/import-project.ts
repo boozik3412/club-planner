@@ -22,7 +22,7 @@ export function createProjectFromRecognitionDraft(draft: RecognitionDraft): Proj
   project.architecture.defaultWallThicknessM = draft.walls[0]?.thicknessM ?? project.architecture.defaultWallThicknessM;
   project.canvas.semanticLayerVisible = true;
   project.canvas.basePlanVisible = true;
-  project.canvas.basePlanOpacity = 0.45;
+  project.canvas.basePlanOpacity = 0.24;
   project.project.modifiedAt = new Date().toISOString();
   return project;
 }
