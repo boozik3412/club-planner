@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyProject } from "../model/project";
+import { createBundledProject, createEmptyProject } from "../model/project";
 import { createObjectFromTemplate } from "../model/templates";
 import {
   boundaryFromPartitionObject,
@@ -9,7 +9,7 @@ import {
 
 describe("semantic plan boundaries", () => {
   it("loads checked boundaries only for the matching base plan", () => {
-    const project = createEmptyProject();
+    const project = createBundledProject();
     const boundaries = getBasePlanBoundaries(project.basePlan);
     expect(boundaries.length).toBeGreaterThanOrEqual(20);
     expect(boundaries.filter((boundary) => boundary.kind === "partition")).toHaveLength(6);
@@ -41,4 +41,3 @@ describe("semantic plan boundaries", () => {
     expect(getPlanBoundaries(project, new Set(["partition"])).some((boundary) => boundary.sourceObjectId === "partition")).toBe(false);
   });
 });
-

@@ -7,6 +7,7 @@ import { analyzeLayout } from "./editor/analysis/layout-analysis";
 import { resolveArchitecture } from "./editor/architecture/resolve-architecture";
 import {
   addArchitecturalOpeningCommand,
+  createRectangularRoomCommand,
   detachWallEndpointCommand,
   mergeArchitecturalWallsCommand,
   removeArchitecturalOpeningCommand,
@@ -15,6 +16,7 @@ import {
   splitArchitecturalWallCommand,
   updateArchitecturalOpeningCommand,
 } from "./editor/architecture/commands";
+import type { DoorPlacement } from "./editor/architecture/door-placement";
 import { summarizeProject } from "./editor/analysis/project-summary";
 import {
   addDimensionCommand,
@@ -31,6 +33,7 @@ import {
   deleteSelectionCommand,
   duplicateSelectionCommand,
   groupObjectsCommand,
+  insertDoorIntoPartitionCommand,
   mirrorSelectionCommand,
   moveObjectsCommand,
   pasteObjectClipboardCommand,
@@ -249,7 +252,10 @@ export default function App() {
     setPreviewProject(null);
     setBetweenRequest(null);
     setMeasureRequest(null);
+    setWorkspaceTool("select");
     setSelection(EMPTY_SELECTION);
+    setSelectedWallId(null);
+    setSelectedDimensionId(null);
     const projectPath = decoded.legacy ? null : payload.path;
     setCurrentPath(projectPath);
     setProjectAssets(payload.assets);
@@ -269,7 +275,10 @@ export default function App() {
     setPreviewProject(null);
     setBetweenRequest(null);
     setMeasureRequest(null);
+    setWorkspaceTool("select");
     setSelection(EMPTY_SELECTION);
+    setSelectedWallId(null);
+    setSelectedDimensionId(null);
     setCurrentPath(null);
     setProjectAssets([]);
     setFitRequest((value) => value + 1);
@@ -467,6 +476,51 @@ export default function App() {
       return;
     }
     commitProject(result.project, kind === "door" ? "Добавление двери" : "Добавление окна");
+  }, [commitProject, history.present.project, showStatus]);
+
+  const handleAddRoom = useCallback((first: PointM, second: PointM) => {
+    const result = createRectangularRoomCommand(history.present.project, first, second);
+    if (!result) {
+      showStatus("Помещение должно быть не меньше 0,20 × 0,20 м");
+      return;
+    }
+    commitProject(result.project, "Добавление помещения");
+    setSelection(EMPTY_SELECTION);
+    setSelectedDimensionId(null);
+    setSelectedWallId(result.wallIds?.[0] ?? null);
+  }, [commitProject, history.present.project, showStatus]);
+
+  const handlePlaceDoor = useCallback((placement: DoorPlacement) => {
+    if (placement.source === "project-object") {
+      if (!placement.sourceObjectId) return;
+      const result = insertDoorIntoPartitionCommand(
+        history.present.project,
+        placement.sourceObjectId,
+        placement.alongM,
+      );
+      if (!result) {
+        showStatus("Дверь не помещается: оставьте не менее 0,10 м перегородки с каждой стороны");
+        return;
+      }
+      commitProject(result.project, "Установка двери в перегородку");
+      setSelectedWallId(null);
+      setSelection({ objectIds: [result.doorId], groupIds: [], groupEditId: null });
+      return;
+    }
+    const result = addArchitecturalOpeningCommand(
+      history.present.project,
+      placement.boundaryId,
+      "door",
+      0.9,
+      placement.alongM,
+    );
+    if (!result) {
+      showStatus("Дверь не помещается или пересекает существующий проём");
+      return;
+    }
+    commitProject(result.project, "Установка двери на стену");
+    setSelection(EMPTY_SELECTION);
+    setSelectedWallId(placement.boundaryId);
   }, [commitProject, history.present.project, showStatus]);
 
   const handleUpdateArchitecturalOpening = useCallback((
@@ -813,6 +867,8 @@ export default function App() {
         case "select-tool": handleWorkspaceToolChange("select"); break;
         case "pan-tool": handleWorkspaceToolChange("pan"); break;
         case "measure": handleStartMeasure(); break;
+        case "room-tool": handleWorkspaceToolChange("room"); break;
+        case "door-tool": handleWorkspaceToolChange("door"); break;
         case "mirror-horizontal": handleMirrorSelection("horizontal"); break;
         case "mirror-vertical": handleMirrorSelection("vertical"); break;
         case "delete":
@@ -820,7 +876,8 @@ export default function App() {
           else handleDelete();
           break;
         case "escape":
-          if (selectedDimensionId) setSelectedDimensionId(null);
+          if (workspaceTool !== "select") handleWorkspaceToolChange("select");
+          else if (selectedDimensionId) setSelectedDimensionId(null);
           else if (selection.groupEditId) handleExitGroup();
           else setSelection(EMPTY_SELECTION);
           break;
@@ -858,7 +915,7 @@ export default function App() {
       window.removeEventListener("contextmenu", blockContextMenu);
       window.removeEventListener("auxclick", blockAuxNavigation);
     };
-  }, [commitProject, handleCopy, handleDelete, handleDeleteDimension, handleDuplicate, handleExitGroup, handleExportPdf, handleExportSvg, handleGroup, handleMirrorSelection, handleNew, handleOpen, handlePaste, handleRedo, handleRotateSelection, handleStartMeasure, handleToggleLock, handleUndo, handleUngroup, handleWorkspaceToolChange, history.present.project, saveProject, selectedDimensionId, selection]);
+  }, [commitProject, handleCopy, handleDelete, handleDeleteDimension, handleDuplicate, handleExitGroup, handleExportPdf, handleExportSvg, handleGroup, handleMirrorSelection, handleNew, handleOpen, handlePaste, handleRedo, handleRotateSelection, handleStartMeasure, handleToggleLock, handleUndo, handleUngroup, handleWorkspaceToolChange, history.present.project, saveProject, selectedDimensionId, selection, workspaceTool]);
 
   useEffect(() => {
     if (selection.objectIds.length > 0 || selection.groupIds.length > 0) setSelectedDimensionId(null);
@@ -1040,6 +1097,8 @@ export default function App() {
                 measureRequest={measureRequest}
                 selectedDimensionId={selectedDimensionId}
                 panToolActive={workspaceTool === "pan"}
+                roomToolActive={workspaceTool === "room"}
+                doorToolActive={workspaceTool === "door"}
                 onCameraChange={setCamera}
                 onVisibleCenterChange={handleVisibleCenterChange}
                 onSelectionChange={(next) => { setSelectedWallId(null); setSelection(next); }}
@@ -1055,7 +1114,9 @@ export default function App() {
                 onDimensionSelect={handleSelectDimension}
                 onMeasurementCancel={handleCancelMeasure}
                 onMeasurementMessage={showStatus}
-                onReady={(count) => showStatus(`Базовый план готов · ${count} подписей`)}
+                onAddRoom={handleAddRoom}
+                onPlaceDoor={handlePlaceDoor}
+                onReady={(count) => showStatus(project.activePlanSourceId === "blank-canvas" ? "Пустой лист готов" : `Базовый план готов · ${count} подписей`)}
                 onError={(message) => showStatus(`Ошибка базового плана: ${message}`)}
               />
             </div>

@@ -12,17 +12,21 @@ export function normalizeQuarterTurn(rotationDeg: number): number {
   return Math.round(normalized / 90) * 90 % 360;
 }
 
-export function getRotatedViewBox(rotationDeg: number): ViewBox {
+export function getRotatedViewBox(
+  rotationDeg: number,
+  widthUnits = PLAN_WIDTH_UNITS,
+  heightUnits = PLAN_HEIGHT_UNITS,
+): ViewBox {
   const rotation = normalizeQuarterTurn(rotationDeg);
 
   if (rotation === 90 || rotation === 270) {
     return [
-      PLAN_CENTER_X - PLAN_HEIGHT_UNITS / 2,
-      PLAN_CENTER_Y - PLAN_WIDTH_UNITS / 2,
-      PLAN_HEIGHT_UNITS,
-      PLAN_WIDTH_UNITS,
+      widthUnits / 2 - heightUnits / 2,
+      heightUnits / 2 - widthUnits / 2,
+      heightUnits,
+      widthUnits,
     ];
   }
 
-  return [0, 0, PLAN_WIDTH_UNITS, PLAN_HEIGHT_UNITS];
+  return [0, 0, widthUnits, heightUnits];
 }

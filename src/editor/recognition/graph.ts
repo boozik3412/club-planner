@@ -157,7 +157,10 @@ export function bulgeFromThreePoints(start: PointM, through: PointM, end: PointM
   const ccwSweep = positive(endAngle - startAngle);
   const throughSweep = positive(throughAngle - startAngle);
   const sweep = throughSweep <= ccwSweep ? ccwSweep : ccwSweep - tau;
-  if (Math.abs(sweep) < 1e-5 || Math.abs(sweep) >= tau - 1e-5) return null;
+  // A three-point wall arc must remain an editable open arc. Near-complete
+  // circles are unstable when an endpoint moves a few pixels and belong to a
+  // dedicated circle tool rather than a wall segment.
+  if (Math.abs(sweep) < 1e-5 || Math.abs(sweep) > Math.PI * 1.75) return null;
   return Math.tan(sweep / 4);
 }
 

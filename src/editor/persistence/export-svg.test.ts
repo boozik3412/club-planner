@@ -36,6 +36,17 @@ describe("SVG export", () => {
     const svg = buildProjectPdfSvg(project, { source: "<svg/>", defsMarkup: "", geometryMarkup: "", labels: [] });
     expect(svg).toContain('width="1122" height="793" viewBox="0 0 1122 793"');
     expect(svg).toContain('preserveAspectRatio="xMidYMid meet"');
-    expect(svg).toContain(`<svg x="28"`);
+    expect(svg).toContain('y="28"');
+  });
+
+  it("keeps a blank source blank even when its underlay checkbox is enabled", () => {
+    const project = createEmptyProject();
+    project.canvas.basePlanVisible = true;
+    const marker = "legacy-base-plan-marker";
+    const svg = buildProjectSvg(project, { source: "<svg/>", defsMarkup: "", geometryMarkup: marker, labels: [] });
+
+    expect(svg).not.toContain(marker);
+    expect(svg).toContain('viewBox="0 0 4000 3000"');
+    expect(svg).toContain('pattern id="club-export-grid" width="50" height="50"');
   });
 });

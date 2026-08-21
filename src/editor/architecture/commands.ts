@@ -22,6 +22,48 @@ export interface ArchitectureCommandResult {
   openingId?: string;
 }
 
+export function createRectangularRoomCommand(
+  project: ProjectState,
+  first: PointM,
+  second: PointM,
+): ArchitectureCommandResult | null {
+  if (![first.xM, first.yM, second.xM, second.yM].every(Number.isFinite)) return null;
+  const minXM = Math.min(first.xM, second.xM);
+  const minYM = Math.min(first.yM, second.yM);
+  const maxXM = Math.max(first.xM, second.xM);
+  const maxYM = Math.max(first.yM, second.yM);
+  if (maxXM - minXM < 0.2 || maxYM - minYM < 0.2) return null;
+  const vertices = [
+    acceptedManualVertex({ xM: minXM, yM: minYM }),
+    acceptedManualVertex({ xM: maxXM, yM: minYM }),
+    acceptedManualVertex({ xM: maxXM, yM: maxYM }),
+    acceptedManualVertex({ xM: minXM, yM: maxYM }),
+  ];
+  const walls = vertices.map((vertex, index): ArchitecturalWall => ({
+    id: createStableId("wall"),
+    kind: "wall",
+    startVertexId: vertex.id,
+    endVertexId: vertices[(index + 1) % vertices.length].id,
+    curve: { kind: "line" },
+    thicknessM: project.architecture.defaultWallThicknessM,
+    heightM: project.architecture.defaultWallHeightM,
+    baseElevationM: 0,
+    heightSource: "user",
+    thicknessSource: "user",
+    provenance: "manual",
+    confidence: 1,
+    reviewStatus: "accepted",
+    locked: false,
+  }));
+  return {
+    project: updateProject(project, (draft) => {
+      draft.architecture.vertices.push(...vertices);
+      draft.architecture.walls.push(...walls);
+    }),
+    wallIds: walls.map((wall) => wall.id),
+  };
+}
+
 function acceptedManualVertex(point: PointM): ArchitectureVertex {
   return {
     id: createStableId("vertex"),
@@ -245,13 +287,24 @@ export function addArchitecturalOpeningCommand(
   wallId: string,
   kind: "door" | "window",
   widthM = kind === "door" ? 0.9 : 1.2,
+  centerDistanceM?: number,
 ): ArchitectureCommandResult | null {
   const wall = editableWall(project, wallId);
   if (!wall || widthM <= 0.1) return null;
   const lengthM = wallLengthM(wall, architectureVertexMap(project.architecture));
   if (widthM > lengthM - 0.02) return null;
+  const safeCenterM = Math.min(
+    lengthM - widthM / 2 - 0.01,
+    Math.max(widthM / 2 + 0.01, centerDistanceM ?? lengthM / 2),
+  );
+  const offsetM = safeCenterM - widthM / 2;
+  const overlaps = project.architecture.openings.some((opening) => opening.hostWallId === wallId
+    && opening.reviewStatus !== "rejected"
+    && offsetM < opening.offsetM + opening.widthM + 0.02
+    && offsetM + widthM + 0.02 > opening.offsetM);
+  if (overlaps) return null;
   const opening: ArchitecturalOpening = {
-    id: createStableId("opening"), kind, hostWallId: wallId, offsetM: (lengthM - widthM) / 2, widthM,
+    id: createStableId("opening"), kind, hostWallId: wallId, offsetM, widthM,
     sillHeightM: kind === "door" ? 0 : 0.9, openingHeightM: kind === "door" ? Math.min(2.1, wall.heightM) : Math.min(1.2, Math.max(0.1, wall.heightM - 0.9)),
     verticalSource: "user", swing: kind === "door" ? "right" : undefined, openingAngleDeg: kind === "door" ? 90 : undefined,
     provenance: "manual", reviewStatus: "accepted", confidence: 1, locked: false,

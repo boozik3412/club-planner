@@ -101,7 +101,7 @@ describe("App integration", () => {
 
     expect(screen.getByText(/2 предметов · 0 групп/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Выбрано: 1" })).toBeInTheDocument();
-    expect(screen.getByRole("spinbutton", { name: "X, м" })).toHaveValue(31.55);
+    expect(screen.getByRole("spinbutton", { name: "X, м" })).toHaveValue(20.35);
   });
 
   it("clears the pending status timer when the application view closes", async () => {
@@ -122,20 +122,13 @@ describe("App integration", () => {
     clearTimeoutSpy.mockRestore();
   });
 
-  it("edits a base wall as one undoable transaction and opens the lazy 3D view", async () => {
+  it("starts without bundled walls and opens the lazy 3D view", async () => {
     const user = userEvent.setup();
     render(<App />);
 
     const wallSelect = screen.getByRole("combobox", { name: "Архитектурная стена" });
-    await user.selectOptions(wallSelect, "wall-main-top");
-    const heightField = screen.getByRole("spinbutton", { name: "Высота стены, м" });
-    await user.clear(heightField);
-    await user.type(heightField, "2.7");
-    fireEvent.blur(heightField);
-    expect(screen.getByRole("spinbutton", { name: "Высота стены, м" })).toHaveValue(2.7);
-
-    await user.click(screen.getByRole("button", { name: "↶" }));
-    expect(screen.getByRole("spinbutton", { name: "Высота стены, м" })).toHaveValue(3.04);
+    expect(wallSelect).toHaveValue("");
+    expect(wallSelect).toHaveTextContent("Выберите стену…");
 
     await user.click(screen.getAllByRole("button", { name: "3D" })[0]);
     expect(await screen.findByRole("region", { name: "Тестовый 3D-вид" })).toHaveTextContent("3D-сцена загружена");

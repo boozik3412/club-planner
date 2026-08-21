@@ -907,6 +907,11 @@ button:disabled {
   cursor: grab;
 }
 
+.plan-canvas.is-room-tool,
+.plan-canvas.is-door-tool {
+  cursor: crosshair;
+}
+
 .plan-canvas.is-pan-tool.is-panning {
   cursor: grabbing;
 }
@@ -1063,6 +1068,67 @@ button:disabled {
 
 .semantic-opening--door line {
   stroke: #c2893a;
+}
+
+.computed-room polygon {
+  fill: rgba(63, 164, 118, 0.09);
+  stroke: rgba(63, 164, 118, 0.58);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+  pointer-events: none;
+}
+
+.computed-room text {
+  fill: #236f50;
+  stroke: #fff;
+  stroke-width: 3;
+  paint-order: stroke;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+.door-placement-preview .door-placement-boundary {
+  fill: none;
+  stroke: #10a6d2;
+  stroke-width: 4;
+  stroke-dasharray: 8 5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.door-placement-preview .door-placement-opening {
+  stroke: #ffb247;
+  stroke-width: 7;
+  stroke-linecap: square;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.door-placement-preview circle {
+  fill: #fff;
+  stroke: #ff9b21;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.room-creation-preview rect {
+  fill: rgba(41, 190, 229, 0.12);
+  stroke: #16a6d4;
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.room-creation-preview text {
+  fill: #0b627d;
+  stroke: #fff;
+  stroke-width: 3;
+  paint-order: stroke;
+  text-anchor: middle;
+  pointer-events: none;
 }
 
 .door-exclusion-zone {
@@ -1802,6 +1868,29 @@ button:disabled {
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
   cursor: move;
+}
+
+.review-vertex.is-selected {
+  fill: #fff2b8;
+  stroke: #e89a18;
+  stroke-width: 3;
+}
+
+.review-arc-handle {
+  fill: #fff;
+  stroke: #e89a18;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+  cursor: move;
+}
+
+.review-selection-marquee {
+  fill: rgba(22, 138, 226, 0.16);
+  stroke: #168ae2;
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
 .review-canvas {

@@ -217,3 +217,19 @@ export function deleteReviewWallFromDraft(current: RecognitionDraft, wallId: str
   });
   return { draft };
 }
+
+export function deleteReviewWallsFromDraft(
+  current: RecognitionDraft,
+  wallIds: readonly string[],
+): ReviewDraftCommandResult {
+  const ids = [...new Set(wallIds)];
+  if (ids.length === 0) return { draft: current };
+  let draft = current;
+  for (const wallId of ids) {
+    if (!draft.walls.some((wall) => wall.id === wallId && !wall.locked)) continue;
+    const result = deleteReviewWallFromDraft(draft, wallId);
+    if (result.error) return result;
+    draft = result.draft;
+  }
+  return { draft };
+}

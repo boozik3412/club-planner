@@ -243,6 +243,67 @@ export interface SplitPartitionResult {
   partIds: [ObjectId, ObjectId];
 }
 
+export interface InsertDoorIntoPartitionResult {
+  project: ProjectState;
+  partIds: [ObjectId, ObjectId];
+  doorId: ObjectId;
+}
+
+export function insertDoorIntoPartitionCommand(
+  project: ProjectState,
+  objectId: ObjectId,
+  centerDistanceM: number,
+  doorWidthM = 0.9,
+): InsertDoorIntoPartitionResult | null {
+  const source = project.objects.find((object) => object.id === objectId);
+  const group = project.groups.find((candidate) => candidate.objectIds.includes(objectId));
+  if (!source || source.kind !== "partition" || source.locked || group?.locked) return null;
+  if (!Number.isFinite(centerDistanceM) || !Number.isFinite(doorWidthM) || doorWidthM <= 0.1) return null;
+  const minimumPierM = 0.1;
+  if (source.widthM < doorWidthM + minimumPierM * 2) return null;
+  const centerM = Math.min(
+    source.widthM - minimumPierM - doorWidthM / 2,
+    Math.max(minimumPierM + doorWidthM / 2, centerDistanceM),
+  );
+  const leftWidthM = centerM - doorWidthM / 2;
+  const rightWidthM = source.widthM - centerM - doorWidthM / 2;
+  if (leftWidthM < minimumPierM || rightWidthM < minimumPierM) return null;
+  const radians = source.rotationDeg * Math.PI / 180;
+  const tangentX = Math.cos(radians);
+  const tangentY = Math.sin(radians);
+  const positionAt = (distanceFromStartM: number) => ({
+    xM: source.xM + tangentX * (distanceFromStartM - source.widthM / 2),
+    yM: source.yM + tangentY * (distanceFromStartM - source.widthM / 2),
+  });
+  const partIds: [ObjectId, ObjectId] = [createStableId("partition"), createStableId("partition")];
+  const leftCenter = positionAt(leftWidthM / 2);
+  const rightCenter = positionAt(centerM + doorWidthM / 2 + rightWidthM / 2);
+  const parts: [PlanObject, PlanObject] = [
+    { ...structuredClone(source), id: partIds[0], name: `${source.name} · 1`, ...leftCenter, widthM: leftWidthM },
+    { ...structuredClone(source), id: partIds[1], name: `${source.name} · 2`, ...rightCenter, widthM: rightWidthM },
+  ];
+  const doorCenter = positionAt(centerM);
+  const door = createObjectFromTemplate("door", doorCenter.xM, doorCenter.yM);
+  door.rotationDeg = source.rotationDeg;
+  door.widthM = doorWidthM;
+  door.depthM = source.depthM;
+  door.heightM = Math.min(2.1, source.heightM);
+  door.elevationM = source.elevationM;
+  door.layerId = source.layerId;
+  return {
+    partIds,
+    doorId: door.id,
+    project: updateProject(project, (draft) => {
+      const index = draft.objects.findIndex((object) => object.id === objectId);
+      draft.objects.splice(index, 1, parts[0], door, parts[1]);
+      for (const draftGroup of draft.groups) {
+        const memberIndex = draftGroup.objectIds.indexOf(objectId);
+        if (memberIndex >= 0) draftGroup.objectIds.splice(memberIndex, 1, partIds[0], door.id, partIds[1]);
+      }
+    }),
+  };
+}
+
 export function splitPartitionCommand(
   project: ProjectState,
   objectId: ObjectId,

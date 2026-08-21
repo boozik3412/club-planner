@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { arcFromBulge, architectureVertexMap, wallLengthM } from "./geometry";
 import {
   addArchitecturalOpeningCommand,
+  createRectangularRoomCommand,
   detachWallEndpointCommand,
   mergeArchitecturalWallsCommand,
   moveArchitecturalOpeningCommand,
@@ -29,6 +30,18 @@ function projectWithWall(curve: ArchitecturalWall["curve"] = { kind: "line" }): 
 }
 
 describe("architecture commands", () => {
+  it("creates a closed rectangular room with shared accepted vertices", () => {
+    const project = createEmptyProject();
+    project.architecture.defaultWallHeightM = 3.2;
+    const result = createRectangularRoomCommand(project, { xM: 5, yM: 4 }, { xM: 1, yM: 1 });
+
+    expect(result?.project.architecture.vertices).toHaveLength(4);
+    expect(result?.project.architecture.walls).toHaveLength(4);
+    expect(result?.wallIds).toHaveLength(4);
+    expect(result?.project.architecture.walls.every((wall) => wall.heightM === 3.2 && wall.reviewStatus === "accepted")).toBe(true);
+    expect(createRectangularRoomCommand(project, { xM: 0, yM: 0 }, { xM: 0.1, yM: 2 })).toBeNull();
+  });
+
   it("splits a line and transfers openings after the split", () => {
     let project = projectWithWall();
     const opening = addArchitecturalOpeningCommand(project, "wall", "door", 0.8)!;
@@ -58,6 +71,12 @@ describe("architecture commands", () => {
     expect(opening.widthM).toBe(1.5);
     expect(opening.sillHeightM).toBe(0.8);
     expect(removeArchitecturalOpeningCommand(changed, openingId).architecture.openings).toHaveLength(0);
+  });
+
+  it("places a door at the requested point and refuses an overlap", () => {
+    const added = addArchitecturalOpeningCommand(projectWithWall(), "wall", "door", 0.9, 1.4)!;
+    expect(added.project.architecture.openings[0].offsetM).toBeCloseTo(0.95);
+    expect(addArchitecturalOpeningCommand(added.project, "wall", "door", 0.9, 1.6)).toBeNull();
   });
 
   it("splits an arc on the same original circle", () => {

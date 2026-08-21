@@ -15,6 +15,7 @@ import type {
   ProjectState,
   SelectionState,
 } from "../editor/model/types";
+import { BLANK_PLAN_ID } from "../editor/model/types";
 import type { MassObjectPatch } from "../editor/commands/project-commands";
 import type { BetweenBoundariesMode } from "../editor/snapping/types";
 import { APP_VERSION } from "../app-version";
@@ -306,6 +307,8 @@ export function Sidebar({
   })() : 0;
   const selectedWallAngleDeg = selectedWall ? Math.atan2(selectedWall.end.yM - selectedWall.start.yM, selectedWall.end.xM - selectedWall.start.xM) * 180 / Math.PI : 0;
   const selectedWallRadiusM = selectedWall?.curve?.kind === "arc" ? arcFromBulge(selectedWall.start, selectedWall.end, selectedWall.curve.bulge)?.radiusM : undefined;
+  const activePlanSource = project.planSources.find((source) => source.id === project.activePlanSourceId);
+  const blankProject = project.activePlanSourceId === BLANK_PLAN_ID;
 
   return (
     <aside className="sidebar">
@@ -337,8 +340,8 @@ export function Sidebar({
       ) : null}
 
       <div className="base-note">
-        <strong>Актуальная базовая планировка</strong>
-        <span>Замер 2026 · слой заблокирован · {project.objects.length} предметов</span>
+        <strong>{blankProject ? "Пустой проект" : "Подложка проекта"}</strong>
+        <span>{activePlanSource?.name ?? "Без подложки"} · {blankProject ? "импортируйте план или начните чертить" : "слой заблокирован"} · {project.objects.length} предметов</span>
       </div>
 
       <section className="panel-section">
@@ -351,7 +354,7 @@ export function Sidebar({
         <button className="button button--wide" type="button" onClick={() => onCanvasChange({ rotationDeg: 0 }, "Сброс поворота холста")}>Сбросить поворот холста</button>
 
         <div className="check-grid">
-          <label className="check-row"><input type="checkbox" checked={project.canvas.basePlanVisible} onChange={(event) => onCanvasChange({ basePlanVisible: event.target.checked }, "Видимость базового плана")} />Базовый план</label>
+          <label className="check-row"><input type="checkbox" checked={project.canvas.basePlanVisible} onChange={(event) => onCanvasChange({ basePlanVisible: event.target.checked }, "Видимость подложки")} />Подложка</label>
           <label className="check-row"><input type="checkbox" checked={project.canvas.gridVisible} onChange={(event) => onCanvasChange({ gridVisible: event.target.checked }, "Видимость сетки")} />Сетка 0,5 м</label>
           <label className="check-row"><input type="checkbox" checked={project.canvas.snapEnabled} onChange={(event) => onCanvasChange({ snapEnabled: event.target.checked }, "Привязка")} />Привязка 0,1 м</label>
           <label className="check-row"><input type="checkbox" checked={project.canvas.planLabelsVisible} onChange={(event) => onCanvasChange({ planLabelsVisible: event.target.checked }, "Надписи плана")} />Надписи плана</label>
@@ -364,7 +367,7 @@ export function Sidebar({
         <NumberField label="Отступ от стены, м" value={project.canvas.wallSnapOffsetM} min={0} onCommit={(value) => onCanvasChange({ wallSnapOffsetM: Math.max(0, value) }, "Отступ от стены")} />
         <NumberField label="Минимальный проход, м" value={project.canvas.minimumPassageWidthM} min={0} onCommit={(value) => onCanvasChange({ minimumPassageWidthM: Math.max(0, value) }, "Минимальная ширина прохода")} />
         <button className="button button--wide" type="button" onClick={onStartMeasure} title="Линейка · M">Линейка · постоянный размер</button>
-        <label className="field-label">Контраст базового чертежа · {Math.round(project.canvas.basePlanOpacity * 100)}%</label>
+        <label className="field-label">Прозрачность подложки · {Math.round(project.canvas.basePlanOpacity * 100)}%</label>
         <CommitRange value={project.canvas.basePlanOpacity} onCommit={(value) => onCanvasChange({ basePlanOpacity: value }, "Контраст базового плана")} />
         <p className="hint">Колесо — масштаб · ПКМ, средняя кнопка или Пробел+ЛКМ — панорама · ЛКМ по фону — рамка · Ctrl+C / Ctrl+V — копировать / вставить. Проверка проходов информационная и не подтверждает соответствие нормам.</p>
         <details className="shortcut-help">
@@ -380,6 +383,7 @@ export function Sidebar({
             <div><dt>R / Shift+R</dt><dd>поворот вправо / влево</dd></div>
             <div><dt>Shift+H / Shift+V</dt><dd>отразить по горизонтали / вертикали</dd></div>
             <div><dt>V / H / M</dt><dd>выбор / рука / линейка</dd></div>
+            <div><dt>P / D</dt><dd>помещение / дверь на стене</dd></div>
             <div><dt>F / Ctrl+0</dt><dd>вписать план</dd></div>
             <div><dt>Ctrl+1 / 2 / 3</dt><dd>2D / 3D / совместный вид</dd></div>
             <div><dt>Стрелки / Shift+стрелки</dt><dd>шаг сетки / точный шаг 1 см</dd></div>

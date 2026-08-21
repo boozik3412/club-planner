@@ -9,6 +9,7 @@ import {
   deleteSelectionCommand,
   duplicateSelectionCommand,
   groupObjectsCommand,
+  insertDoorIntoPartitionCommand,
   mirrorSelectionCommand,
   moveObjectsCommand,
   moveObjectsSnappedCommand,
@@ -191,5 +192,26 @@ describe("project commands", () => {
     expect(Math.hypot(parts[1].xM - parts[0].xM, parts[1].yM - parts[0].yM)).toBeCloseTo(3);
     expect(result?.project.groups[0].objectIds).toEqual([result?.partIds[0], result?.partIds[1], "table"]);
     expect(splitPartitionCommand(project, "wall", 4.81)).toBeNull();
+  });
+
+  it("inserts a door at an arbitrary point and replaces the partition atomically", () => {
+    const project = updateProject(createEmptyProject(), (draft) => {
+      draft.objects = [{
+        ...createObjectFromTemplate("partition", 5, 4, "wall"),
+        widthM: 5,
+        depthM: 0.2,
+        heightM: 2.8,
+        rotationDeg: 90,
+      }];
+      draft.groups = [{ id: "room", name: "Комната", objectIds: ["wall"], locked: false }];
+    });
+    const result = insertDoorIntoPartitionCommand(project, "wall", 1.5, 1);
+    expect(result).not.toBeNull();
+    expect(result?.project.objects).toHaveLength(3);
+    const door = result?.project.objects.find((object) => object.id === result.doorId);
+    const parts = result?.project.objects.filter((object) => result.partIds.includes(object.id)) ?? [];
+    expect(door).toMatchObject({ type: "door", widthM: 1, depthM: 0.2, heightM: 2.1, rotationDeg: 90 });
+    expect(parts.map((part) => part.widthM)).toEqual([1, 3]);
+    expect(result?.project.groups[0].objectIds).toEqual([result?.partIds[0], result?.doorId, result?.partIds[1]]);
   });
 });

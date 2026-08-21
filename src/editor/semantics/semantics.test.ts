@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyProject } from "../model/project";
+import { createBundledProject } from "../model/project";
 import { createObjectFromTemplate } from "../model/templates";
 import {
   getBasePlanOpenings,
@@ -9,7 +9,7 @@ import {
 
 describe("semantic openings", () => {
   it("loads checksum-bound doors and windows", () => {
-    const project = createEmptyProject();
+    const project = createBundledProject();
     const openings = getBasePlanOpenings(project.basePlan);
     expect(openings.filter((opening) => opening.kind === "window").length).toBeGreaterThanOrEqual(6);
     expect(openings.filter((opening) => opening.kind === "door").length).toBeGreaterThanOrEqual(4);

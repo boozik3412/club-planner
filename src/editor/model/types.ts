@@ -4,6 +4,10 @@ export const BASE_PLAN_ID = "measurement-2026-08-10";
 export const BASE_PLAN_ASSET = "base_plan_new_measurement.svg";
 export const BASE_PLAN_SHA256 =
   "b3aa3f1edfe4ff58bd10afcb95138cd6f661d537e93d51e751577540841d42d5";
+export const BLANK_PLAN_ID = "blank-canvas";
+export const BLANK_PLAN_ASSET = "blank_canvas.svg";
+export const BLANK_PLAN_SHA256 =
+  "c6ddba9e72bf2e1de7e890d67076e6c45d1d4777ad0b9d425de23c5749659832";
 
 export type ObjectId = string;
 export type GroupId = string;

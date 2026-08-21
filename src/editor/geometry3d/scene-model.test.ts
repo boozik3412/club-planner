@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResolvedArchitecturalOpening, ResolvedArchitecturalWall } from "../architecture/types";
-import { createEmptyProject } from "../model/project";
+import { createBundledProject } from "../model/project";
 import { createObjectFromTemplate } from "../model/templates";
 import { buildSceneModel } from "./scene-model";
 import { buildWallSolids } from "./wall-solids";
@@ -70,7 +70,7 @@ describe("schematic 3D geometry", () => {
   });
 
   it("maps plan XY to scene XZ and keeps physical elevation", () => {
-    const project = createEmptyProject();
+    const project = createBundledProject();
     project.objects = [{
       ...createObjectFromTemplate("custom-oval", 4, 2, "oval"),
       widthM: 2,

@@ -15,7 +15,7 @@ import {
   type ProjectAssetPayload,
 } from "../editor/persistence/desktop-files";
 import { assessRecognitionQuality } from "../editor/recognition/quality";
-import { deleteReviewWallFromDraft, type ManualWallProperties, type ReviewDraftCommandResult } from "../editor/recognition/review-commands";
+import { deleteReviewWallsFromDraft, type ManualWallProperties, type ReviewDraftCommandResult } from "../editor/recognition/review-commands";
 import { createProjectFromRecognitionDraft } from "../editor/recognition/import-project";
 import { startRecognition } from "../editor/recognition/client";
 import { rectangleForQuad, transformSourcePoint } from "../editor/recognition/perspective";
@@ -154,7 +154,7 @@ export function PlanImportWizard({
   const [draft, setDraft] = useState<RecognitionDraft | null>(null);
   const [undoStack, setUndoStack] = useState<RecognitionDraft[]>([]);
   const [redoStack, setRedoStack] = useState<RecognitionDraft[]>([]);
-  const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
+  const [selectedWallIds, setSelectedWallIds] = useState<string[]>([]);
   const [manualTool, setManualTool] = useState<ReviewManualTool>("none");
   const [manualWallKind, setManualWallKind] = useState<ArchitecturalWall["kind"]>("wall");
   const [dimensionHintIds, setDimensionHintIds] = useState<string[]>([]);
@@ -341,6 +341,7 @@ export function PlanImportWizard({
     void task.result.then((result) => {
       recognitionRef.current = null;
       setDraft(result);
+      setSelectedWallIds([]);
       setUndoStack([]);
       setRedoStack([]);
       setStep("review");
@@ -412,7 +413,7 @@ export function PlanImportWizard({
       setUndoStack((stack) => [...stack, structuredClone(current)].slice(-100));
       setRedoStack([]);
       result.draft.quality = assessRecognitionQuality(result.draft);
-      if (result.wallId) setSelectedWallId(result.wallId);
+      if (result.wallId) setSelectedWallIds([result.wallId]);
       return result.draft;
     });
   }, []);
@@ -446,6 +447,7 @@ export function PlanImportWizard({
   }, [draft, redoStack]);
 
   const reviewVertices = useMemo(() => draft ? wallVertexMap(draft) : new Map<string, ArchitectureVertex>(), [draft]);
+  const selectedWallId = selectedWallIds.length === 1 ? selectedWallIds[0] : null;
   const selectedWall = draft?.walls.find((wall) => wall.id === selectedWallId) ?? null;
   const acceptedCount = draft?.walls.filter((wall) => wall.reviewStatus === "accepted").length ?? 0;
   const blockingIssues = useMemo(() => draft ? reviewBlockingIssues(draft) : [], [draft]);
@@ -658,7 +660,8 @@ export function PlanImportWizard({
                 {reviewQuality.candidateExplosion && visibleReviewWalls.length < draft.walls.length ? <span>На холсте показаны 120 наиболее уверенных кандидатов из {draft.walls.length}.</span> : null}
               </div> : null}
               <div className="button-grid button-grid--three"><button type="button" disabled={!undoStack.length} onClick={undoReview}>↶</button><button type="button" disabled={!redoStack.length} onClick={redoReview}>↷</button><button type="button" disabled={!reviewQuality?.allowBatchAccept} title={reviewQuality?.allowBatchAccept ? "Принять только кандидаты с высокой измеренной уверенностью" : "Пакетное принятие заблокировано оценкой качества"} onClick={() => applyDraft((next) => { next.walls.forEach((wall) => { if ((wall.confidence ?? 0) >= 0.86) wall.reviewStatus = "accepted"; }); return next; })}>Принять надёжные</button></div>
-              <div className="button-grid"><button type="button" disabled={!selectedWall} onClick={() => applyDraft((next) => { const wall = next.walls.find((candidate) => candidate.id === selectedWallId); if (wall) wall.reviewStatus = "accepted"; return next; })}>Принять</button><button type="button" disabled={!selectedWall} onClick={() => applyDraft((next) => { const wall = next.walls.find((candidate) => candidate.id === selectedWallId); if (wall) wall.reviewStatus = "rejected"; return next; })}>Отклонить</button></div>
+              <div className="button-grid"><button type="button" disabled={selectedWallIds.length === 0} onClick={() => applyDraft((next) => { const ids = new Set(selectedWallIds); next.walls.forEach((wall) => { if (ids.has(wall.id) && !wall.locked) wall.reviewStatus = "accepted"; }); return next; })}>Принять{selectedWallIds.length > 1 ? ` (${selectedWallIds.length})` : ""}</button><button type="button" disabled={selectedWallIds.length === 0} onClick={() => applyDraft((next) => { const ids = new Set(selectedWallIds); next.walls.forEach((wall) => { if (ids.has(wall.id) && !wall.locked) wall.reviewStatus = "rejected"; }); next.openings.forEach((opening) => { if (next.walls.some((wall) => ids.has(wall.id) && wall.id === opening.hostWallId)) opening.reviewStatus = "rejected"; }); return next; })}>Отклонить{selectedWallIds.length > 1 ? ` (${selectedWallIds.length})` : ""}</button></div>
+              {selectedWallIds.length > 1 ? <p className="hint">Выбрано рамкой: {selectedWallIds.length}. Delete удаляет всю выборку одной операцией.</p> : null}
               <label><span>Новая геометрия</span><select value={manualWallKind} onChange={(event) => setManualWallKind(event.target.value as ArchitecturalWall["kind"])}><option value="wall">Стена</option><option value="partition">Перегородка</option></select></label>
               <div className="button-grid"><button type="button" className={manualTool === "line" ? "is-active" : ""} onClick={() => setManualTool(manualTool === "line" ? "none" : "line")}>Стена · 2 точки (W)</button><button type="button" className={manualTool === "arc" ? "is-active" : ""} onClick={() => setManualTool(manualTool === "arc" ? "none" : "arc")}>Дуга · 3 точки (A)</button></div>
               <button className={manualTool === "region" ? "button button--wide is-active" : "button button--wide"} type="button" onClick={() => setManualTool(manualTool === "region" ? "none" : "region")}>Повторить анализ области · 2 угла</button>
@@ -675,9 +678,9 @@ export function PlanImportWizard({
                   {selectedWallGeometry.radiusM ? <label><span>Радиус, м</span><input type="number" min="0.02" step="0.01" value={Number(selectedWallGeometry.radiusM.toFixed(3))} onChange={(event) => changeSelectedWallGeometry("radius", Number(event.target.value))} /></label> : null}
                 </> : null}
                 <div className="button-grid"><button type="button" onClick={() => addOpening("door")}>Добавить дверь</button><button type="button" onClick={() => addOpening("window")}>Добавить окно</button></div>
-                <button type="button" className="button--danger" onClick={() => { applyReviewCommand((current) => deleteReviewWallFromDraft(current, selectedWall.id)); setSelectedWallId(null); }}>Удалить стену (Del)</button>
+                <button type="button" className="button--danger" onClick={() => { applyReviewCommand((current) => deleteReviewWallsFromDraft(current, [selectedWall.id])); setSelectedWallIds([]); }}>Удалить стену (Del)</button>
               </div> : <p className="hint">Щёлкните стену. Перетаскивание общего узла изменяет все подключённые стены.</p>}
-              <details open={blockingIssues.length > 0}><summary>Проблемы · {draft.issues.length}</summary><ul className="issue-list">{draft.issues.map((issue) => <li key={issue.id} className={`issue--${issue.severity}`}><button type="button" onClick={() => { if (issue.wallId) setSelectedWallId(issue.wallId); }}>{issue.message}</button></li>)}</ul></details>
+              <details open={blockingIssues.length > 0}><summary>Проблемы · {draft.issues.length}</summary><ul className="issue-list">{draft.issues.map((issue) => <li key={issue.id} className={`issue--${issue.severity}`}><button type="button" onClick={() => { if (issue.wallId) setSelectedWallIds([issue.wallId]); }}>{issue.message}</button></li>)}</ul></details>
               {draft.textHints.length > 0 ? <details><summary>Распознанный текст · {draft.textHints.length}</summary>{draft.textHints.map((hint) => <div className="recognized-hint" key={hint.id}>
                 {hint.suggestedDistanceM ? <label className="check-row"><input type="checkbox" checked={dimensionHintIds.includes(hint.id)} onChange={(event) => setDimensionHintIds((ids) => event.target.checked ? [...ids, hint.id] : ids.filter((id) => id !== hint.id))} />{hint.text} → постоянный размер {hint.suggestedDistanceM.toFixed(2)} м</label> : <span>{hint.text}</span>}
                 {hint.suggestedWallHeightM && selectedWall ? <button type="button" onClick={() => applyDraft((next) => { const wall = next.walls.find((candidate) => candidate.id === selectedWall.id); if (wall) { wall.heightM = hint.suggestedWallHeightM!; wall.heightSource = "user"; } return next; })}>Применить высоту {hint.suggestedWallHeightM.toFixed(2)} м к стене</button> : null}
@@ -693,10 +696,10 @@ export function PlanImportWizard({
               metersPerSourceUnit={source.metersPerSourceUnit!}
               visibleWalls={visibleReviewWalls}
               visibleVertexIds={visibleReviewVertexIds}
-              selectedWallId={selectedWallId}
+              selectedWallIds={selectedWallIds}
               manualTool={manualTool}
               manualWallProperties={manualWallProperties}
-              onSelectWall={setSelectedWallId}
+              onSelectWalls={setSelectedWallIds}
               onSetManualTool={setManualTool}
               onApplyCommand={applyReviewCommand}
               onPreviewDraft={previewReviewDraft}

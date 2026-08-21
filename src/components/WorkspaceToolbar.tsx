@@ -1,8 +1,10 @@
 import {
   Box,
   Columns2,
+  DoorOpen,
   Grid3X3,
   Hand,
+  House,
   Magnet,
   MousePointer2,
   Redo2,
@@ -13,7 +15,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
-export type WorkspaceTool = "select" | "pan" | "measure";
+export type WorkspaceTool = "select" | "pan" | "measure" | "room" | "door";
 export type WorkspaceMode = "2d" | "3d" | "split";
 
 interface WorkspaceToolbarProps {
@@ -90,6 +92,8 @@ export function WorkspaceToolbar({
         <ToolButton label="Выбор" shortcut="V" active={activeTool === "select"} onClick={() => onToolChange("select")}><MousePointer2 aria-hidden="true" /></ToolButton>
         <ToolButton label="Рука" shortcut="H" active={activeTool === "pan"} onClick={() => onToolChange("pan")}><Hand aria-hidden="true" /></ToolButton>
         <ToolButton label="Линейка" shortcut="M" active={activeTool === "measure"} onClick={() => onToolChange("measure")}><Ruler aria-hidden="true" /></ToolButton>
+        <ToolButton label="Помещение" shortcut="P" active={activeTool === "room"} onClick={() => onToolChange("room")}><House aria-hidden="true" /></ToolButton>
+        <ToolButton label="Дверь" shortcut="D" active={activeTool === "door"} onClick={() => onToolChange("door")}><DoorOpen aria-hidden="true" /></ToolButton>
       </div>
       <div className="workspace-toolbar__separator" />
       <div className="workspace-toolbar__group" aria-label="Точность и вид">

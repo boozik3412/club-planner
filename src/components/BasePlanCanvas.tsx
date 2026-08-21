@@ -21,6 +21,8 @@ import {
 } from "../editor/geometry/geometry";
 import { analyzeLayout, getClearanceBounds } from "../editor/analysis/layout-analysis";
 import { arcFromBulge } from "../editor/architecture/geometry";
+import { resolveDoorPlacement, type DoorPlacement } from "../editor/architecture/door-placement";
+import { computeRooms } from "../editor/architecture/rooms";
 import { loadBasePlan, type LoadedBasePlan } from "../editor/load-base-plan";
 import {
   constrainDimensionPoint,
@@ -32,6 +34,7 @@ import {
   type DimensionSnapGuide,
 } from "../editor/measurement/measurement";
 import { snapMeters } from "../editor/model/project";
+import { BASE_PLAN_ID } from "../editor/model/types";
 import type {
   BoundsM,
   CameraState,
@@ -71,6 +74,8 @@ interface BasePlanCanvasProps {
   measureRequest: number | null;
   selectedDimensionId: string | null;
   panToolActive?: boolean;
+  roomToolActive?: boolean;
+  doorToolActive?: boolean;
   onCameraChange: (camera: CameraState) => void;
   onVisibleCenterChange: (center: PointM) => void;
   onSelectionChange: (selection: SelectionState) => void;
@@ -86,6 +91,8 @@ interface BasePlanCanvasProps {
   onDimensionSelect: (dimensionId: string | null) => void;
   onMeasurementCancel?: () => void;
   onMeasurementMessage: (message: string) => void;
+  onAddRoom: (first: PointM, second: PointM) => void;
+  onPlaceDoor: (placement: DoorPlacement) => void;
   onReady: (labelCount: number) => void;
   onError: (message: string) => void;
 }
@@ -122,7 +129,8 @@ type Gesture =
   | { mode: "move"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; startObjects: PlanObject[]; otherObjects: PlanObject[]; boundaries: PlanBoundary[]; preview: ProjectState | null; activeBoundaryId: string | null; candidateIndex: number; lastPlan: ScreenPoint | null; snappingDisabled: boolean }
   | { mode: "resize"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; object: PlanObject; handle: ResizeHandle; preview: ProjectState | null }
   | { mode: "rotate"; pointerId: number; center: ScreenPoint; startAngle: number; baseProject: ProjectState; objectId: ObjectId | null; groupId: string | null; startObjectAngle: number; preview: ProjectState | null }
-  | { mode: "dimension"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; dimension: ProjectDimension; handle: "start" | "end" | "move"; preview: ProjectDimension | null };
+  | { mode: "dimension"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; dimension: ProjectDimension; handle: "start" | "end" | "move"; preview: ProjectDimension | null }
+  | { mode: "room"; pointerId: number; start: PointM; current: PointM };
 
 type MoveGesture = Extract<Gesture, { mode: "move" }>;
 
@@ -186,14 +194,14 @@ const BasePlanLayer = memo(function BasePlanLayer({
       {project.canvas.gridVisible ? <rect x="0" y="0" width={width} height={height} fill="url(#club-grid)" pointerEvents="none" /> : null}
       {project.canvas.basePlanVisible ? (
         <g opacity={project.canvas.basePlanOpacity} pointerEvents="none">
-          {sourceImageUrl ? <image href={sourceImageUrl} width={width} height={height} preserveAspectRatio="none" /> : (
+          {sourceImageUrl ? <image href={sourceImageUrl} width={width} height={height} preserveAspectRatio="none" /> : project.activePlanSourceId === BASE_PLAN_ID ? (
             <>
               <g dangerouslySetInnerHTML={{ __html: plan.geometryMarkup }} />
               {project.canvas.planLabelsVisible ? plan.labels.map((label) => (
                 <g key={label.id} transform={`rotate(${-project.canvas.rotationDeg} ${label.cx} ${label.cy})`} dangerouslySetInnerHTML={{ __html: label.markup }} />
               )) : null}
             </>
-          )}
+          ) : null}
         </g>
       ) : null}
     </>
@@ -211,6 +219,8 @@ export function BasePlanCanvas({
   measureRequest,
   selectedDimensionId,
   panToolActive = false,
+  roomToolActive = false,
+  doorToolActive = false,
   onCameraChange,
   onVisibleCenterChange,
   onSelectionChange,
@@ -226,6 +236,8 @@ export function BasePlanCanvas({
   onDimensionSelect,
   onMeasurementCancel,
   onMeasurementMessage,
+  onAddRoom,
+  onPlaceDoor,
   onReady,
   onError,
 }: BasePlanCanvasProps) {
@@ -239,6 +251,8 @@ export function BasePlanCanvas({
   const [measurementSession, setMeasurementSession] = useState<MeasurementSession | null>(null);
   const [dimensionPreview, setDimensionPreview] = useState<ProjectDimension | null>(null);
   const [dimensionSnapGuide, setDimensionSnapGuide] = useState<DimensionSnapGuide | null>(null);
+  const [roomPreview, setRoomPreview] = useState<{ start: PointM; end: PointM } | null>(null);
+  const [doorPlacement, setDoorPlacement] = useState<DoorPlacement | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const cameraLayerRef = useRef<SVGGElement>(null);
@@ -264,6 +278,11 @@ export function BasePlanCanvas({
   );
   const semanticBoundaries = useMemo(() => getPlanBoundaries(project), [project]);
   const semanticOpenings = useMemo(() => getPlanOpenings(project), [project]);
+  const rooms = useMemo(() => computeRooms(project.architecture), [project.architecture]);
+  const doorBoundary = useMemo(
+    () => doorPlacement ? semanticBoundaries.find((boundary) => boundary.id === doorPlacement.boundaryId) ?? null : null,
+    [doorPlacement, semanticBoundaries],
+  );
   const layoutWarnings = useMemo(() => analyzeLayout(project), [project]);
   const warningObjectIds = useMemo(
     () => new Set(layoutWarnings.flatMap((warning) => warning.objectIds)),
@@ -400,6 +419,47 @@ export function BasePlanCanvas({
     );
     return { x: units.x / project.basePlan.unitsPerMeter, y: units.y / project.basePlan.unitsPerMeter };
   }, [camera, project.basePlan.heightM, project.basePlan.unitsPerMeter, project.basePlan.widthM, project.canvas.rotationDeg]);
+
+  const snappedPlanPoint = useCallback((screen: ScreenPoint): PointM => {
+    const point = planPoint(screen);
+    return {
+      xM: snapMeters(point.x, project.canvas.snapEnabled, project.canvas.snapStepM),
+      yM: snapMeters(point.y, project.canvas.snapEnabled, project.canvas.snapStepM),
+    };
+  }, [planPoint, project.canvas.snapEnabled, project.canvas.snapStepM]);
+
+  const roomEndPoint = useCallback((start: PointM, screen: ScreenPoint, square: boolean): PointM => {
+    const point = snappedPlanPoint(screen);
+    if (!square) return point;
+    const dx = point.xM - start.xM;
+    const dy = point.yM - start.yM;
+    const sizeM = Math.max(Math.abs(dx), Math.abs(dy));
+    return {
+      xM: start.xM + Math.sign(dx || 1) * sizeM,
+      yM: start.yM + Math.sign(dy || 1) * sizeM,
+    };
+  }, [snappedPlanPoint]);
+
+  const resolveDoorAtScreen = useCallback((screen: ScreenPoint) => {
+    const point = planPoint(screen);
+    return resolveDoorPlacement(
+      project,
+      { xM: point.x, yM: point.y },
+      Math.min(0.5, 18 / Math.max(0.001, camera.zoom * project.basePlan.unitsPerMeter)),
+    );
+  }, [camera.zoom, planPoint, project]);
+
+  useEffect(() => {
+    if (!roomToolActive) {
+      setRoomPreview(null);
+      const gesture = gestureRef.current;
+      if (gesture?.mode === "room") {
+        gestureRef.current = null;
+        try { svgRef.current?.releasePointerCapture(gesture.pointerId); } catch { /* no active capture */ }
+      }
+    }
+    if (!doorToolActive) setDoorPlacement(null);
+  }, [doorToolActive, roomToolActive]);
 
   const getVisiblePlanBounds = useCallback((): BoundsM | null => {
     if (viewport.width <= 1 || viewport.height <= 1) return null;
@@ -681,6 +741,26 @@ export function BasePlanCanvas({
       return;
     }
 
+    if (event.button === 0 && roomToolActive) {
+      event.preventDefault();
+      const start = snappedPlanPoint(screen);
+      gestureRef.current = { mode: "room", pointerId: event.pointerId, start, current: start };
+      setRoomPreview({ start, end: start });
+      onSelectionChange({ objectIds: [], groupIds: [], groupEditId: selection.groupEditId });
+      onDimensionSelect(null);
+      capture(event.pointerId);
+      return;
+    }
+
+    if (event.button === 0 && doorToolActive) {
+      event.preventDefault();
+      const placement = resolveDoorAtScreen(screen);
+      setDoorPlacement(placement);
+      if (placement) onPlaceDoor(placement);
+      else onMeasurementMessage("Наведите дверь на незаблокированную стену или перегородку");
+      return;
+    }
+
     if (dimensionHandleElement && event.button === 0) {
       event.preventDefault();
       const dimensionId = dimensionHandleElement.dataset.dimensionId;
@@ -838,6 +918,10 @@ export function BasePlanCanvas({
 
   const onPointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
     const screen = localPoint(event.clientX, event.clientY);
+    if (doorToolActive && !gestureRef.current) {
+      setDoorPlacement(resolveDoorAtScreen(screen));
+      return;
+    }
     if (measurementSession?.start && !gestureRef.current) {
       const raw = planPoint(screen);
       const resolution = resolveDimensionPoint(
@@ -872,6 +956,12 @@ export function BasePlanCanvas({
     if (gesture.mode === "marquee") {
       gesture.current = screen;
       setMarquee({ start: gesture.start, current: screen });
+      return;
+    }
+    if (gesture.mode === "room") {
+      const current = roomEndPoint(gesture.start, screen, event.shiftKey);
+      gesture.current = current;
+      setRoomPreview({ start: gesture.start, end: current });
       return;
     }
     const currentPlan = planPoint(screen);
@@ -963,6 +1053,18 @@ export function BasePlanCanvas({
       return;
     }
 
+    if (gesture.mode === "room") {
+      setRoomPreview(null);
+      if (event.type !== "pointercancel"
+        && Math.abs(gesture.current.xM - gesture.start.xM) >= 0.2
+        && Math.abs(gesture.current.yM - gesture.start.yM) >= 0.2) {
+        onAddRoom(gesture.start, gesture.current);
+      } else if (event.type !== "pointercancel") {
+        onMeasurementMessage("Помещение должно быть не меньше 0,20 × 0,20 м");
+      }
+      return;
+    }
+
     if (gesture.mode === "marquee") {
       const start = planPoint(gesture.start);
       const end = planPoint(gesture.current);
@@ -1046,7 +1148,7 @@ export function BasePlanCanvas({
     <div className="canvas-frame" ref={frameRef}>
       <svg
         ref={svgRef}
-        className={`plan-canvas${panToolActive ? " is-pan-tool" : ""}`}
+        className={`plan-canvas${panToolActive ? " is-pan-tool" : ""}${roomToolActive ? " is-room-tool" : ""}${doorToolActive ? " is-door-tool" : ""}`}
         viewBox={`0 0 ${viewport.width} ${viewport.height}`}
         preserveAspectRatio="none"
         role="img"
@@ -1055,6 +1157,7 @@ export function BasePlanCanvas({
         onPointerMove={onPointerMove}
         onPointerUp={finishGesture}
         onPointerCancel={finishGesture}
+        onPointerLeave={() => { if (doorToolActive && !gestureRef.current) setDoorPlacement(null); }}
         onWheel={onWheel}
         onContextMenu={onContextMenu}
       >
@@ -1067,15 +1170,26 @@ export function BasePlanCanvas({
             {plan ? <BasePlanLayer plan={plan} project={project} sourceImageUrl={sourceImageUrl} /> : null}
             {project.canvas.semanticLayerVisible ? (
               <g className="semantic-layer">
+                <g className="rooms-layer" pointerEvents="none">
+                  {rooms.map((room) => {
+                    const center = room.polygon.reduce((sum, point) => ({ xM: sum.xM + point.xM, yM: sum.yM + point.yM }), { xM: 0, yM: 0 });
+                    center.xM /= room.polygon.length;
+                    center.yM /= room.polygon.length;
+                    return <g key={room.id} className="computed-room">
+                      <polygon points={room.polygon.map((point) => `${point.xM * unitsPerMeter},${point.yM * unitsPerMeter}`).join(" ")} />
+                      <text x={center.xM * unitsPerMeter} y={center.yM * unitsPerMeter} fontSize={14 / camera.zoom}>{room.areaM2.toFixed(1)} м²</text>
+                    </g>;
+                  })}
+                </g>
                 {semanticBoundaries.map((boundary) => (
                   <path
                     key={boundary.id}
                     className={`semantic-boundary semantic-boundary--${boundary.kind}${selectedWallId === boundary.id ? " is-selected" : ""}`}
                     d={boundarySvgPath(boundary, unitsPerMeter)}
                     vectorEffect="non-scaling-stroke"
-                    pointerEvents={onWallSelect && boundary.source !== "project-object" ? "stroke" : "none"}
+                    pointerEvents={!doorToolActive && onWallSelect && boundary.source !== "project-object" ? "stroke" : "none"}
                     onPointerDown={(event) => {
-                      if (!onWallSelect || boundary.source === "project-object") return;
+                      if (doorToolActive || !onWallSelect || boundary.source === "project-object") return;
                       event.stopPropagation();
                       onWallSelect(boundary.id);
                     }}
@@ -1098,6 +1212,17 @@ export function BasePlanCanvas({
                     </g>
                   );
                 })}</g>
+                {doorPlacement && doorBoundary ? <g className="door-placement-preview" pointerEvents="none">
+                  <path d={boundarySvgPath(doorBoundary, unitsPerMeter)} vectorEffect="non-scaling-stroke" />
+                  <line
+                    x1={(doorPlacement.point.xM - doorPlacement.tangent.xM * 0.45) * unitsPerMeter}
+                    y1={(doorPlacement.point.yM - doorPlacement.tangent.yM * 0.45) * unitsPerMeter}
+                    x2={(doorPlacement.point.xM + doorPlacement.tangent.xM * 0.45) * unitsPerMeter}
+                    y2={(doorPlacement.point.yM + doorPlacement.tangent.yM * 0.45) * unitsPerMeter}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  <circle cx={doorPlacement.point.xM * unitsPerMeter} cy={doorPlacement.point.yM * unitsPerMeter} r={6 / camera.zoom} vectorEffect="non-scaling-stroke" />
+                </g> : null}
               </g>
             ) : null}
             {project.canvas.clearanceWarningsVisible ? (
@@ -1212,6 +1337,16 @@ export function BasePlanCanvas({
                   </text>
                 </g>
               ) : null}
+              {roomPreview ? (() => {
+                const minXM = Math.min(roomPreview.start.xM, roomPreview.end.xM);
+                const minYM = Math.min(roomPreview.start.yM, roomPreview.end.yM);
+                const widthM = Math.abs(roomPreview.end.xM - roomPreview.start.xM);
+                const heightM = Math.abs(roomPreview.end.yM - roomPreview.start.yM);
+                return <g className="room-creation-preview" pointerEvents="none">
+                  <rect x={minXM * unitsPerMeter} y={minYM * unitsPerMeter} width={widthM * unitsPerMeter} height={heightM * unitsPerMeter} vectorEffect="non-scaling-stroke" />
+                  <text x={(minXM + widthM / 2) * unitsPerMeter} y={(minYM + heightM / 2) * unitsPerMeter} fontSize={14 / camera.zoom}>{widthM.toFixed(2)} × {heightM.toFixed(2)} м</text>
+                </g>;
+              })() : null}
               {dimensionSnapGuide ? (
                 <g className={`dimension-snap-marker dimension-snap-marker--${dimensionSnapGuide.kind}`} pointerEvents="none">
                   <circle cx={dimensionSnapGuide.point.xM * unitsPerMeter} cy={dimensionSnapGuide.point.yM * unitsPerMeter} r={8 / camera.zoom} vectorEffect="non-scaling-stroke" />
@@ -1340,6 +1475,18 @@ export function BasePlanCanvas({
         <div className="measurement-toolbar" role="dialog" aria-label="Инструмент Линейка">
           <strong>Линейка</strong>
           <span>{measurementSession.start ? "Укажите вторую точку · Esc — отмена" : "Укажите первую точку · Esc — отмена"}</span>
+        </div>
+      ) : null}
+      {roomToolActive ? (
+        <div className="measurement-toolbar room-tool-toolbar" role="status" aria-label="Инструмент Помещение">
+          <strong>Помещение</strong>
+          <span>{roomPreview ? "Тяните до противоположного угла · Shift — квадрат · Esc — отмена" : "Зажмите ЛКМ в первом углу и протяните до противоположного"}</span>
+        </div>
+      ) : null}
+      {doorToolActive ? (
+        <div className="measurement-toolbar door-tool-toolbar" role="status" aria-label="Инструмент Дверь">
+          <strong>Дверь · 0,90 м</strong>
+          <span>{doorPlacement ? "ЛКМ — установить на подсвеченную стену · Esc — завершить" : "Наведите на незаблокированную стену или перегородку"}</span>
         </div>
       ) : null}
       {betweenSession ? (

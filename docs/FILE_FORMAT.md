@@ -20,7 +20,7 @@ previews/<sha-prefix>-p<page>-thumb.png
 {
   "format": "clubplan",
   "formatVersion": 4,
-  "generator": { "name": "Club Planner", "version": "0.2.4" },
+  "generator": { "name": "Club Planner", "version": "0.2.5" },
   "project": { "id": "project-uuid", "createdAt": "...", "modifiedAt": "..." },
   "basePlan": { "id": "source-id", "asset": "previews/source.png", "widthM": 24.6, "heightM": 12.1, "unitsPerMeter": 100, "sha256": "..." },
   "planSources": [],
@@ -36,6 +36,8 @@ previews/<sha-prefix>-p<page>-thumb.png
 ```
 
 `basePlan` сохранён как совместимое описание размеров сцены и камеры. Источник истины для подложки — `planSources` и `activePlanSourceId`; источник архитектуры — `architecture`.
+
+Новый проект использует встроенный источник `blank-canvas` (`blank_canvas.svg`, 40 × 30 м), скрытый как подложка, и пустые массивы `architecture.vertices/walls/openings/heightRegions`. Исторический `base-plan-new-measurement` остаётся допустимым `bundled-svg` для открытых и мигрированных проектов, но не добавляется при создании нового.
 
 ## PlanSource
 

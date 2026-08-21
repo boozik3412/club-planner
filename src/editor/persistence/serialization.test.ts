@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { groupObjectsCommand } from "../commands/project-commands";
 import { addDimensionCommand, saveCompositeTemplateCommand } from "../commands/advanced-commands";
-import { createEmptyProject, updateProject } from "../model/project";
+import { createBundledProject, createEmptyProject, updateProject } from "../model/project";
 import { createObjectFromTemplate } from "../model/templates";
 import {
   createRecoveryEnvelope,
@@ -71,7 +71,7 @@ describe(".clubplan serialization", () => {
   });
 
   it("round-trips v4 architectural graph, elevations and reflections", () => {
-    const project = createEmptyProject();
+    const project = createBundledProject();
     project.planSources[0].thumbnailPath = "previews/bundled-thumb.png";
     project.architecture.defaultWallHeightM = 3.2;
     const wall = project.architecture.walls.find((candidate) => candidate.id === "wall-main-top");
@@ -120,7 +120,7 @@ describe(".clubplan serialization", () => {
   });
 
   it("keeps v4 architecture in the recovery envelope", () => {
-    const project = createEmptyProject();
+    const project = createBundledProject();
     project.architecture.defaultWallHeightM = 3.4;
     const wall = project.architecture.walls.find((candidate) => candidate.id === "wall-main-top");
     if (!wall) throw new Error("fixture wall missing");

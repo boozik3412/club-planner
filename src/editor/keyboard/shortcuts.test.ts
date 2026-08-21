@@ -30,6 +30,8 @@ describe("editor shortcuts", () => {
     expect(shortcut("KeyM")).toBe("measure");
     expect(shortcut("KeyV")).toBe("select-tool");
     expect(shortcut("KeyH")).toBe("pan-tool");
+    expect(shortcut("KeyP")).toBe("room-tool");
+    expect(shortcut("KeyD")).toBe("door-tool");
     expect(shortcut("KeyF")).toBe("fit");
     expect(shortcut("KeyH", { shiftKey: true })).toBe("mirror-horizontal");
     expect(shortcut("KeyV", { shiftKey: true })).toBe("mirror-vertical");

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyProject } from "../model/project";
+import { createBundledProject, createEmptyProject } from "../model/project";
 import { createObjectFromTemplate } from "../model/templates";
 import { resolveArchitecture } from "./resolve-architecture";
 import { validateArchitecture } from "./validate";
 
 describe("architectural height resolution", () => {
   it("uses measured thicknesses and explicit fallbacks for zero-width source walls", () => {
-    const project = createEmptyProject();
+    const project = createBundledProject();
     const architecture = resolveArchitecture(project);
     const inferred = architecture.walls.find((wall) => wall.id === "wall-main-top");
     const measured = architecture.walls.find((wall) => wall.id === "wall-mid-left");
@@ -21,7 +21,7 @@ describe("architectural height resolution", () => {
   });
 
   it("edits a project-owned wall without changing the semantic centerline", () => {
-    const project = createEmptyProject();
+    const project = createBundledProject();
     const storedWall = project.architecture.walls.find((wall) => wall.id === "wall-main-top");
     if (!storedWall) throw new Error("fixture wall missing");
     storedWall.heightM = 2.7;
@@ -58,12 +58,12 @@ describe("architectural height resolution", () => {
   });
 
   it("validates all curated base openings", () => {
-    const architecture = resolveArchitecture(createEmptyProject());
+    const architecture = resolveArchitecture(createBundledProject());
     expect(validateArchitecture(architecture)).toEqual([]);
   });
 
   it("reports an opening that is taller than its host wall", () => {
-    const architecture = resolveArchitecture(createEmptyProject());
+    const architecture = resolveArchitecture(createBundledProject());
     architecture.openings[0].openingHeightM = 4;
     expect(validateArchitecture(architecture)).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: `opening-height:${architecture.openings[0].id}`, severity: "error" }),

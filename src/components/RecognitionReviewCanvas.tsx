@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { arcFromBulge, openingEndpoints, wallSvgPath } from "../editor/architecture/geometry";
+import { arcFromBulge, openingEndpoints, wallLengthM, wallPointAtDistance, wallSvgPath } from "../editor/architecture/geometry";
 import type { ArchitecturalWall, SourcePoint } from "../editor/model/types";
 import { bulgeFromThreePoints } from "../editor/recognition/graph";
-import { addManualWallToDraft, deleteReviewWallFromDraft, type ManualWallProperties, type ReviewDraftCommandResult } from "../editor/recognition/review-commands";
+import { addManualWallToDraft, deleteReviewWallsFromDraft, type ManualWallProperties, type ReviewDraftCommandResult } from "../editor/recognition/review-commands";
+import { reviewWallsIntersectingRect, sourceRect } from "../editor/recognition/review-selection";
 import { resolveReviewSnap, type ReviewSnapResult } from "../editor/recognition/review-snap";
 import type { RecognitionDraft } from "../editor/recognition/types";
 
@@ -23,10 +24,10 @@ interface RecognitionReviewCanvasProps {
   metersPerSourceUnit: number;
   visibleWalls: ArchitecturalWall[];
   visibleVertexIds: ReadonlySet<string>;
-  selectedWallId: string | null;
+  selectedWallIds: readonly string[];
   manualTool: ReviewManualTool;
   manualWallProperties: ManualWallProperties;
-  onSelectWall: (wallId: string | null) => void;
+  onSelectWalls: (wallIds: string[]) => void;
   onSetManualTool: (tool: ReviewManualTool) => void;
   onApplyCommand: (command: (current: RecognitionDraft) => ReviewDraftCommandResult) => void;
   onPreviewDraft: (draft: RecognitionDraft) => void;
@@ -83,6 +84,9 @@ function arcPath(start: SourcePoint, through: SourcePoint, end: SourcePoint): { 
     { xM: end.x, yM: end.y },
   );
   if (!bulge) return null;
+  // The review tool creates one editable wall arc, not a circle-like major
+  // sweep. Larger curves can be composed from multiple connected arcs.
+  if (Math.abs(4 * Math.atan(bulge)) > Math.PI + 1e-6) return null;
   const arc = arcFromBulge(
     { xM: start.x, yM: start.y },
     { xM: end.x, yM: end.y },
@@ -104,7 +108,7 @@ function snapInstruction(tool: ReviewManualTool, count: number): string {
     return "Задайте кривизну третьей точкой";
   }
   if (tool === "region") return count === 0 ? "Укажите первый угол области" : "Укажите противоположный угол";
-  return "ЛКМ — выбрать · ПКМ/средняя кнопка — переместить холст";
+  return "ЛКМ — выбрать · drag по фону — рамка · ПКМ/средняя кнопка — переместить холст";
 }
 
 export function RecognitionReviewCanvas({
@@ -115,10 +119,10 @@ export function RecognitionReviewCanvas({
   metersPerSourceUnit,
   visibleWalls,
   visibleVertexIds,
-  selectedWallId,
+  selectedWallIds,
   manualTool,
   manualWallProperties,
-  onSelectWall,
+  onSelectWalls,
   onSetManualTool,
   onApplyCommand,
   onPreviewDraft,
@@ -131,6 +135,9 @@ export function RecognitionReviewCanvas({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const activeSnapIdRef = useRef<string | null>(null);
   const dragVertexRef = useRef<{ id: string; before: RecognitionDraft } | null>(null);
+  const dragArcRef = useRef<{ wallId: string; before: RecognitionDraft } | null>(null);
+  const marqueeRef = useRef<{ pointerId: number; start: SourcePoint; current: SourcePoint; additive: boolean } | null>(null);
+  const suppressClickRef = useRef(false);
   const panRef = useRef<{ clientX: number; clientY: number; viewBox: ViewBoxState } | null>(null);
   const didPanRef = useRef(false);
   const [placements, setPlacements] = useState<ReviewSnapResult[]>([]);
@@ -146,8 +153,10 @@ export function RecognitionReviewCanvas({
   const [acceptedVisible, setAcceptedVisible] = useState(true);
   const [manualVisible, setManualVisible] = useState(true);
   const [openingsVisible, setOpeningsVisible] = useState(true);
+  const [selectionMarquee, setSelectionMarquee] = useState<{ start: SourcePoint; current: SourcePoint } | null>(null);
 
   const vertices = useMemo(() => new Map(draft.vertices.map((vertex) => [vertex.id, vertex])), [draft.vertices]);
+  const selectedWallSet = useMemo(() => new Set(selectedWallIds), [selectedWallIds]);
   const pixelsPerSourceUnit = sourceScale(svgRef.current, viewBox);
   const markerRadius = 6 / pixelsPerSourceUnit;
 
@@ -164,10 +173,10 @@ export function RecognitionReviewCanvas({
   }, [manualTool]);
 
   const deleteSelected = useCallback(() => {
-    if (!selectedWallId) return;
-    onApplyCommand((current) => deleteReviewWallFromDraft(current, selectedWallId));
-    onSelectWall(null);
-  }, [onApplyCommand, onSelectWall, selectedWallId]);
+    if (selectedWallIds.length === 0) return;
+    onApplyCommand((current) => deleteReviewWallsFromDraft(current, selectedWallIds));
+    onSelectWalls([]);
+  }, [onApplyCommand, onSelectWalls, selectedWallIds]);
 
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
@@ -195,19 +204,20 @@ export function RecognitionReviewCanvas({
         onSetManualTool("arc");
       } else if (event.key === "Escape") {
         event.preventDefault();
-        if (placements.length > 0) setPlacements([]);
-        else onSetManualTool("none");
+        setPlacements([]);
+        setHoverSnap(null);
+        onSetManualTool("none");
       } else if (event.key === "Tab" && (manualTool === "line" || manualTool === "arc")) {
         event.preventDefault();
         setCycleIndex((index) => index + 1);
-      } else if ((event.key === "Delete" || event.key === "Backspace") && selectedWallId) {
+      } else if ((event.key === "Delete" || event.key === "Backspace") && selectedWallIds.length > 0) {
         event.preventDefault();
         deleteSelected();
       }
     };
     document.addEventListener("keydown", keydown, true);
     return () => document.removeEventListener("keydown", keydown, true);
-  }, [deleteSelected, manualTool, onRedo, onSetManualTool, onUndo, placements.length, selectedWallId]);
+  }, [deleteSelected, manualTool, onRedo, onSetManualTool, onUndo, placements.length, selectedWallIds.length]);
 
   const resolveAt = useCallback((rawPoint: SourcePoint, event: SvgClientEvent): ReviewSnapResult => {
     if (manualTool === "region") {
@@ -264,7 +274,7 @@ export function RecognitionReviewCanvas({
       const through = points[2];
       const curve = arcPath(start.point, through.point, end.point);
       if (!curve) {
-        onError("Три точки лежат почти на одной прямой — задайте более заметную кривизну.");
+        onError("Не удалось построить устойчивую дугу: разнесите точки или уменьшите изгиб, чтобы дуга не замыкалась в круг.");
         setPlacements(points.slice(0, 2));
         return;
       }
@@ -275,7 +285,9 @@ export function RecognitionReviewCanvas({
         { kind: "arc", bulge: curve.bulge },
         manualWallProperties,
       ));
-      setPlacements([end]);
+      setPlacements([]);
+      setHoverSnap(null);
+      onSetManualTool("none");
     }
   }, [manualTool, manualWallProperties, metersPerSourceUnit, onAnalyzeRegion, onApplyCommand, onError, onSetManualTool, placements]);
 
@@ -342,6 +354,17 @@ export function RecognitionReviewCanvas({
     return candidatesVisible;
   }), [acceptedVisible, candidatesVisible, manualVisible, visibleWalls]);
   const displayedVertexIds = useMemo(() => new Set(displayedWalls.flatMap((wall) => [wall.startVertexId, wall.endVertexId])), [displayedWalls]);
+  const selectedArcControl = useMemo(() => {
+    if (selectedWallIds.length !== 1) return null;
+    const wall = displayedWalls.find((candidate) => candidate.id === selectedWallIds[0]);
+    if (!wall || wall.curve.kind !== "arc") return null;
+    const lengthM = wallLengthM(wall, vertices);
+    const point = wallPointAtDistance(wall, vertices, lengthM / 2);
+    return point ? { wall, point: { x: point.xM / metersPerSourceUnit, y: point.yM / metersPerSourceUnit } } : null;
+  }, [displayedWalls, metersPerSourceUnit, selectedWallIds, vertices]);
+  const selectedEndpointIds = useMemo(() => new Set(displayedWalls
+    .filter((wall) => selectedWallSet.has(wall.id))
+    .flatMap((wall) => [wall.startVertexId, wall.endVertexId])), [displayedWalls, selectedWallSet]);
 
   const zoomAt = useCallback((clientX: number, clientY: number, factor: number) => {
     const svg = svgRef.current;
@@ -383,8 +406,9 @@ export function RecognitionReviewCanvas({
         <label className="review-opacity">Прозрачность <input aria-label="Прозрачность подложки" type="range" min="0.1" max="1" step="0.05" value={underlayOpacity} onChange={(event) => setUnderlayOpacity(Number(event.target.value))} /></label>
       </div>
       <div className="review-canvas__status" role="status">
-        <strong>{snapInstruction(manualTool, placements.length)}</strong>
+        <strong>{manualTool === "none" && selectedWallIds.length > 0 ? `Выбрано стен: ${selectedWallIds.length}` : snapInstruction(manualTool, placements.length)}</strong>
         {manualTool === "line" || manualTool === "arc" ? <span>Магнит: {hoverSnap?.label ?? "наведите на план"} · Alt отключает · Shift фиксирует угол · Tab меняет вариант · Esc отменяет</span> : null}
+        {manualTool === "none" ? <span>Рамка выбирает все пересечённые стены и дуги · Shift меняет состав · Delete удаляет выборку</span> : null}
       </div>
       <svg
         ref={svgRef}
@@ -400,10 +424,19 @@ export function RecognitionReviewCanvas({
           zoomAt(event.clientX, event.clientY, event.deltaY > 0 ? 1.12 : 0.89);
         }}
         onPointerDown={(event) => {
-          if (event.button !== 1 && event.button !== 2) return;
+          if (event.button === 1 || event.button === 2) {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            didPanRef.current = false;
+            panRef.current = { clientX: event.clientX, clientY: event.clientY, viewBox };
+            return;
+          }
+          if (event.button !== 0 || manualTool !== "none") return;
+          const target = event.target as Element;
+          if (target.closest(".review-wall, .review-vertex, .review-arc-handle")) return;
+          const start = eventSourcePoint(event);
           event.currentTarget.setPointerCapture(event.pointerId);
-          didPanRef.current = false;
-          panRef.current = { clientX: event.clientX, clientY: event.clientY, viewBox };
+          marqueeRef.current = { pointerId: event.pointerId, start, current: start, additive: event.shiftKey };
+          setSelectionMarquee({ start, current: start });
         }}
         onPointerMove={(event) => {
           const panning = panRef.current;
@@ -413,6 +446,12 @@ export function RecognitionReviewCanvas({
             const dy = (event.clientY - panning.clientY) / scale;
             if (Math.hypot(dx, dy) > 1) didPanRef.current = true;
             setViewBox({ ...panning.viewBox, x: panning.viewBox.x - dx, y: panning.viewBox.y - dy });
+            return;
+          }
+          const marquee = marqueeRef.current;
+          if (marquee?.pointerId === event.pointerId) {
+            marquee.current = eventSourcePoint(event);
+            setSelectionMarquee({ start: marquee.start, current: marquee.current });
             return;
           }
           const dragging = dragVertexRef.current;
@@ -428,6 +467,26 @@ export function RecognitionReviewCanvas({
             }
             return;
           }
+          const draggingArc = dragArcRef.current;
+          if (draggingArc) {
+            const next = structuredClone(draft);
+            const wall = next.walls.find((candidate) => candidate.id === draggingArc.wallId);
+            const start = wall ? next.vertices.find((vertex) => vertex.id === wall.startVertexId) : null;
+            const end = wall ? next.vertices.find((vertex) => vertex.id === wall.endVertexId) : null;
+            if (wall && start && end) {
+              const bulge = bulgeFromThreePoints(
+                { xM: start.xM, yM: start.yM },
+                { xM: rawPoint.x * metersPerSourceUnit, yM: rawPoint.y * metersPerSourceUnit },
+                { xM: end.xM, yM: end.yM },
+              );
+              if (bulge && Math.abs(4 * Math.atan(bulge)) <= Math.PI + 1e-6) {
+                wall.curve = { kind: "arc", bulge };
+                wall.provenance = "manual";
+                onPreviewDraft(next);
+              }
+            }
+            return;
+          }
           if (manualTool !== "none") setHoverSnap(resolveAt(rawPoint, event));
         }}
         onPointerUp={(event) => {
@@ -435,10 +494,31 @@ export function RecognitionReviewCanvas({
             panRef.current = null;
             if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
           }
+          const marquee = marqueeRef.current;
+          if (marquee?.pointerId === event.pointerId) {
+            marqueeRef.current = null;
+            setSelectionMarquee(null);
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+            const movedPx = Math.hypot(marquee.current.x - marquee.start.x, marquee.current.y - marquee.start.y) * sourceScale(svgRef.current, viewBox);
+            if (movedPx >= 4) {
+              const touched = reviewWallsIntersectingRect(displayedWalls, vertices, metersPerSourceUnit, sourceRect(marquee.start, marquee.current));
+              if (marquee.additive) {
+                const next = new Set(selectedWallIds);
+                touched.forEach((wallId) => next.has(wallId) ? next.delete(wallId) : next.add(wallId));
+                onSelectWalls([...next]);
+              } else onSelectWalls(touched);
+              suppressClickRef.current = true;
+            }
+          }
           const dragging = dragVertexRef.current;
           if (dragging) {
             dragVertexRef.current = null;
             onCommitPreview(dragging.before);
+          }
+          const draggingArc = dragArcRef.current;
+          if (draggingArc) {
+            dragArcRef.current = null;
+            onCommitPreview(draggingArc.before);
           }
         }}
         onPointerLeave={() => setHoverSnap(null)}
@@ -447,8 +527,12 @@ export function RecognitionReviewCanvas({
             didPanRef.current = false;
             return;
           }
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+            return;
+          }
           if (manualTool === "none") {
-            onSelectWall(null);
+            onSelectWalls([]);
             return;
           }
           commitPlacement(resolveAt(eventSourcePoint(event), event));
@@ -464,7 +548,24 @@ export function RecognitionReviewCanvas({
         </g> : null}
         {displayedWalls.map((wall) => {
           const path = wallSvgPath(wall, vertices, 1 / metersPerSourceUnit);
-          return path ? <path key={wall.id} d={path} stroke={confidenceColor(wall.confidence)} className={`review-wall${wall.id === selectedWallId ? " is-selected" : ""}`} onClick={(event) => { if (manualTool !== "none") return; event.stopPropagation(); onSelectWall(wall.id); }} /> : null;
+          return path ? <path
+            key={wall.id}
+            d={path}
+            stroke={confidenceColor(wall.confidence)}
+            className={`review-wall${selectedWallSet.has(wall.id) ? " is-selected" : ""}`}
+            onPointerDown={(event) => { if (manualTool === "none") event.stopPropagation(); }}
+            onClick={(event) => {
+              if (manualTool !== "none") return;
+              event.stopPropagation();
+              if (!event.shiftKey) onSelectWalls([wall.id]);
+              else {
+                const next = new Set(selectedWallIds);
+                if (next.has(wall.id)) next.delete(wall.id);
+                else next.add(wall.id);
+                onSelectWalls([...next]);
+              }
+            }}
+          /> : null;
         })}
         {openingsVisible ? draft.openings.filter((opening) => opening.reviewStatus !== "rejected").map((opening) => {
           const wall = draft.walls.find((candidate) => candidate.id === opening.hostWallId);
@@ -476,7 +577,7 @@ export function RecognitionReviewCanvas({
           cx={vertex.xM / metersPerSourceUnit}
           cy={vertex.yM / metersPerSourceUnit}
           r={markerRadius * 0.62}
-          className="review-vertex"
+          className={`review-vertex${selectedEndpointIds.has(vertex.id) ? " is-selected" : ""}`}
           onPointerDown={(event) => {
             if (manualTool !== "none" || event.button !== 0) return;
             event.stopPropagation();
@@ -484,6 +585,26 @@ export function RecognitionReviewCanvas({
             dragVertexRef.current = { id: vertex.id, before: structuredClone(draft) };
           }}
         />)}
+        {selectedArcControl ? <circle
+          className="review-arc-handle"
+          cx={selectedArcControl.point.x}
+          cy={selectedArcControl.point.y}
+          r={markerRadius * 1.15}
+          onPointerDown={(event) => {
+            if (manualTool !== "none" || event.button !== 0) return;
+            event.stopPropagation();
+            (event.currentTarget as SVGCircleElement).setPointerCapture(event.pointerId);
+            dragArcRef.current = { wallId: selectedArcControl.wall.id, before: structuredClone(draft) };
+          }}
+        /> : null}
+        {selectionMarquee ? <rect
+          className="review-selection-marquee"
+          x={Math.min(selectionMarquee.start.x, selectionMarquee.current.x)}
+          y={Math.min(selectionMarquee.start.y, selectionMarquee.current.y)}
+          width={Math.abs(selectionMarquee.current.x - selectionMarquee.start.x)}
+          height={Math.abs(selectionMarquee.current.y - selectionMarquee.start.y)}
+          pointerEvents="none"
+        /> : null}
         {placements.map((placement, index) => <g key={`${placement.id}:${index}`} className="manual-anchor"><circle cx={placement.point.x} cy={placement.point.y} r={markerRadius} /><text x={placement.point.x + markerRadius * 1.4} y={placement.point.y - markerRadius * 1.4}>{index + 1}</text></g>)}
         {preview?.kind === "region" ? <rect x={Math.min(preview.first.x, preview.end.x)} y={Math.min(preview.first.y, preview.end.y)} width={Math.abs(preview.end.x - preview.first.x)} height={Math.abs(preview.end.y - preview.first.y)} className="manual-region-preview" /> : null}
         {preview?.kind === "line" ? <g className="manual-wall-preview">

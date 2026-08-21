@@ -22,6 +22,8 @@ export type EditorShortcut =
   | "select-tool"
   | "pan-tool"
   | "measure"
+  | "room-tool"
+  | "door-tool"
   | "mirror-horizontal"
   | "mirror-vertical"
   | "delete"
@@ -87,6 +89,8 @@ export function resolveEditorShortcut(event: ShortcutKeyboardEvent): EditorShort
   if (code === "KeyH") return "pan-tool";
   if (code === "KeyR") return event.shiftKey ? "rotate-counterclockwise" : "rotate-clockwise";
   if (code === "KeyM") return "measure";
+  if (code === "KeyP") return "room-tool";
+  if (code === "KeyD") return "door-tool";
   if (code === "KeyF") return "fit";
   if (event.key === "ArrowLeft") return "move-left";
   if (event.key === "ArrowRight") return "move-right";

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ArchitecturalWall, ArchitectureVertex, PlanSource } from "../model/types";
 import type { RecognitionDraft } from "./types";
-import { addManualWallToDraft, deleteReviewWallFromDraft } from "./review-commands";
+import { addManualWallToDraft, deleteReviewWallFromDraft, deleteReviewWallsFromDraft } from "./review-commands";
 
 function vertex(id: string, xM: number, yM: number, provenance: ArchitectureVertex["provenance"] = "raster"): ArchitectureVertex {
   return { id, xM, yM, provenance, reviewStatus: "candidate", locked: false };
@@ -72,5 +72,16 @@ describe("recognition review commands", () => {
     const manual = deleteReviewWallFromDraft(current, "manual");
     expect(manual.draft.walls.some((candidate) => candidate.id === "manual")).toBe(false);
     expect(manual.draft.vertices.some((candidate) => candidate.id === "c" || candidate.id === "d")).toBe(false);
+  });
+
+  it("deletes a mixed multi-selection in one draft command", () => {
+    const current = draft();
+    current.vertices.push(vertex("c", 0, 1, "manual"), vertex("d", 2, 1, "manual"));
+    current.walls.push(wall("manual", "c", "d", "manual"));
+    const result = deleteReviewWallsFromDraft(current, ["existing", "manual", "manual"]);
+
+    expect(result.draft.walls.find((candidate) => candidate.id === "existing")?.reviewStatus).toBe("rejected");
+    expect(result.draft.walls.some((candidate) => candidate.id === "manual")).toBe(false);
+    expect(result.draft.vertices.some((candidate) => candidate.id === "c" || candidate.id === "d")).toBe(false);
   });
 });

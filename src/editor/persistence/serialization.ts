@@ -1,4 +1,4 @@
-import { createEmptyProject, normalizeAngle } from "../model/project";
+import { createBundledProject, createEmptyProject, normalizeAngle } from "../model/project";
 import { getObjectTemplate, OBJECT_TYPE_SET, createStableId } from "../model/templates";
 import type {
   CompositeTemplate,
@@ -426,7 +426,7 @@ function parseClubplan(root: Record<string, unknown>): DecodeResult {
 
   const warnings: string[] = [];
   if (version < 4) warnings.push(`Проект автоматически обновлён из формата v${version} в v4`);
-  const next = createEmptyProject();
+  const next = version < 4 ? createBundledProject() : createEmptyProject();
   const projectMeta = asRecord(root.project, "project");
   next.project = {
     id: asString(projectMeta.id, "project.id"),
@@ -628,7 +628,7 @@ function parseClubplan(root: Record<string, unknown>): DecodeResult {
 
 function parseLegacy(root: Record<string, unknown>): DecodeResult {
   const legacyObjects = asArray(root.objects, "objects");
-  const project = createEmptyProject();
+  const project = createBundledProject();
   const warnings = ["Импортирован legacy JSON v6; группы и слои в исходном файле отсутствовали"];
   const usedIds = new Set<string>();
   project.canvas.rotationDeg = normalizeAngle(
