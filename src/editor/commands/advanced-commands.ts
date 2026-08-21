@@ -7,6 +7,7 @@ import type {
   ObjectId,
   PlanObject,
   PointM,
+  ProjectDimension,
   ProjectState,
   SelectionState,
 } from "../model/types";
@@ -51,6 +52,29 @@ export function deleteDimensionCommand(project: ProjectState, dimensionId: strin
   if (!project.dimensions.some((dimension) => dimension.id === dimensionId)) return project;
   return updateProject(project, (draft) => {
     draft.dimensions = draft.dimensions.filter((dimension) => dimension.id !== dimensionId);
+  });
+}
+
+export function updateDimensionCommand(
+  project: ProjectState,
+  dimensionId: string,
+  patch: Pick<ProjectDimension, "start" | "end">,
+): ProjectState {
+  const dimension = project.dimensions.find((candidate) => candidate.id === dimensionId);
+  if (!dimension || Math.hypot(patch.end.xM - patch.start.xM, patch.end.yM - patch.start.yM) < 0.001) {
+    return project;
+  }
+  if (
+    dimension.start.xM === patch.start.xM
+    && dimension.start.yM === patch.start.yM
+    && dimension.end.xM === patch.end.xM
+    && dimension.end.yM === patch.end.yM
+  ) return project;
+  return updateProject(project, (draft) => {
+    const target = draft.dimensions.find((candidate) => candidate.id === dimensionId);
+    if (!target) return;
+    target.start = { ...patch.start };
+    target.end = { ...patch.end };
   });
 }
 

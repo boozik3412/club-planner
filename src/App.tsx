@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BasePlanCanvas } from "./components/BasePlanCanvas";
 import { Sidebar } from "./components/Sidebar";
+import { WorkspaceToolbar, type WorkspaceTool } from "./components/WorkspaceToolbar";
 import { analyzeLayout } from "./editor/analysis/layout-analysis";
 import { resolveArchitecture } from "./editor/architecture/resolve-architecture";
 import {
@@ -22,6 +23,7 @@ import {
   deleteDimensionCommand,
   instantiateCompositeTemplateCommand,
   saveCompositeTemplateCommand,
+  updateDimensionCommand,
 } from "./editor/commands/advanced-commands";
 import {
   addObjectCommand,
@@ -53,6 +55,7 @@ import {
 } from "./editor/history/history";
 import { resolveEditorShortcut } from "./editor/keyboard/shortcuts";
 import { loadBasePlan } from "./editor/load-base-plan";
+import { translateDimension } from "./editor/measurement/measurement";
 import { createEmptyProject, normalizeAngle, updateProject } from "./editor/model/project";
 import { EMPTY_SELECTION, type ArchitecturalOpening, type CameraState, type CanvasSettings, type ObjectType, type PointM, type ProjectState, type SelectionState } from "./editor/model/types";
 import {
@@ -120,6 +123,7 @@ export default function App() {
   const [fitRequest, setFitRequest] = useState(0);
   const [betweenRequest, setBetweenRequest] = useState<BetweenBoundariesRequest | null>(null);
   const [measureRequest, setMeasureRequest] = useState<number | null>(null);
+  const [workspaceTool, setWorkspaceTool] = useState<WorkspaceTool>("select");
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("2d");
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null);
   const [selectedDimensionId, setSelectedDimensionId] = useState<string | null>(null);
@@ -595,12 +599,30 @@ export default function App() {
     setSelectedDimensionId(null);
     measureSequenceRef.current += 1;
     setMeasureRequest(measureSequenceRef.current);
+    setWorkspaceTool("measure");
     showStatus("Укажите первую точку размера");
   }, [showStatus]);
+
+  const handleCancelMeasure = useCallback(() => {
+    setMeasureRequest(null);
+    setWorkspaceTool("select");
+  }, []);
+
+  const handleWorkspaceToolChange = useCallback((tool: WorkspaceTool) => {
+    if (tool === "measure") {
+      handleStartMeasure();
+      return;
+    }
+    setPreviewProject(null);
+    setBetweenRequest(null);
+    setMeasureRequest(null);
+    setWorkspaceTool(tool);
+  }, [handleStartMeasure]);
 
   const handleAddDimension = useCallback((start: PointM, end: PointM) => {
     const next = addDimensionCommand(history.present.project, start, end);
     setMeasureRequest(null);
+    setWorkspaceTool("select");
     if (next === history.present.project) {
       showStatus("Размер не создан: точки совпадают");
       return;
@@ -788,6 +810,8 @@ export default function App() {
         case "view-2d": setWorkspaceMode("2d"); break;
         case "view-3d": setWorkspaceMode("3d"); break;
         case "view-split": setWorkspaceMode("split"); break;
+        case "select-tool": handleWorkspaceToolChange("select"); break;
+        case "pan-tool": handleWorkspaceToolChange("pan"); break;
         case "measure": handleStartMeasure(); break;
         case "mirror-horizontal": handleMirrorSelection("horizontal"); break;
         case "mirror-vertical": handleMirrorSelection("vertical"); break;
@@ -806,10 +830,17 @@ export default function App() {
         case "move-right":
         case "move-up":
         case "move-down": {
-          if (selection.objectIds.length === 0) break;
           const step = event.shiftKey ? 0.01 : history.present.project.canvas.snapStepM;
           const deltaX = shortcut === "move-left" ? -step : shortcut === "move-right" ? step : 0;
           const deltaY = shortcut === "move-up" ? -step : shortcut === "move-down" ? step : 0;
+          if (selectedDimensionId) {
+            const dimension = history.present.project.dimensions.find((candidate) => candidate.id === selectedDimensionId);
+            if (!dimension) break;
+            const moved = translateDimension(dimension, deltaX, deltaY);
+            commitProject(updateDimensionCommand(history.present.project, dimension.id, moved), "Перемещение размера клавишами");
+            break;
+          }
+          if (selection.objectIds.length === 0) break;
           commitProject(moveObjectsCommand(history.present.project, selection.objectIds, deltaX, deltaY), "Перемещение клавишами");
           break;
         }
@@ -827,7 +858,7 @@ export default function App() {
       window.removeEventListener("contextmenu", blockContextMenu);
       window.removeEventListener("auxclick", blockAuxNavigation);
     };
-  }, [commitProject, handleCopy, handleDelete, handleDeleteDimension, handleDuplicate, handleExitGroup, handleExportPdf, handleExportSvg, handleGroup, handleMirrorSelection, handleNew, handleOpen, handlePaste, handleRedo, handleRotateSelection, handleStartMeasure, handleToggleLock, handleUndo, handleUngroup, history.present.project, saveProject, selectedDimensionId, selection]);
+  }, [commitProject, handleCopy, handleDelete, handleDeleteDimension, handleDuplicate, handleExitGroup, handleExportPdf, handleExportSvg, handleGroup, handleMirrorSelection, handleNew, handleOpen, handlePaste, handleRedo, handleRotateSelection, handleStartMeasure, handleToggleLock, handleUndo, handleUngroup, handleWorkspaceToolChange, history.present.project, saveProject, selectedDimensionId, selection]);
 
   useEffect(() => {
     if (selection.objectIds.length > 0 || selection.groupIds.length > 0) setSelectedDimensionId(null);
@@ -980,12 +1011,21 @@ export default function App() {
         onExitGroup={handleExitGroup}
       />
       <main className="workspace" aria-label="Рабочая область плана">
-        <div className="workspace-mode-toolbar" aria-label="Режим рабочей области">
-          <button type="button" title="Ctrl+1" className={workspaceMode === "2d" ? "is-active" : ""} onClick={() => setWorkspaceMode("2d")}>2D</button>
-          <button type="button" title="Ctrl+2" className={workspaceMode === "3d" ? "is-active" : ""} onClick={() => setWorkspaceMode("3d")}>3D</button>
-          <button type="button" title="Ctrl+3" className={workspaceMode === "split" ? "is-active" : ""} onClick={() => setWorkspaceMode("split")}>2D + 3D</button>
-          <span>Высоты из обмера · схема, не BIM-модель</span>
-        </div>
+        <WorkspaceToolbar
+          activeTool={workspaceTool}
+          workspaceMode={workspaceMode}
+          canUndo={canUndo(history)}
+          canRedo={canRedo(history)}
+          snapEnabled={project.canvas.snapEnabled}
+          gridVisible={project.canvas.gridVisible}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onToolChange={handleWorkspaceToolChange}
+          onFit={() => setFitRequest((value) => value + 1)}
+          onSnapToggle={() => handleCanvasChange({ snapEnabled: !project.canvas.snapEnabled }, project.canvas.snapEnabled ? "Привязки выключены" : "Привязки включены")}
+          onGridToggle={() => handleCanvasChange({ gridVisible: !project.canvas.gridVisible }, project.canvas.gridVisible ? "Сетка скрыта" : "Сетка показана")}
+          onWorkspaceModeChange={setWorkspaceMode}
+        />
         <div className={`workspace-content workspace-content--${workspaceMode}`}>
           {workspaceMode !== "3d" ? (
             <div className="workspace-pane workspace-pane--2d">
@@ -999,6 +1039,7 @@ export default function App() {
                 betweenRequest={betweenRequest}
                 measureRequest={measureRequest}
                 selectedDimensionId={selectedDimensionId}
+                panToolActive={workspaceTool === "pan"}
                 onCameraChange={setCamera}
                 onVisibleCenterChange={handleVisibleCenterChange}
                 onSelectionChange={(next) => { setSelectedWallId(null); setSelection(next); }}
@@ -1012,6 +1053,7 @@ export default function App() {
                 onBetweenMessage={showStatus}
                 onAddDimension={handleAddDimension}
                 onDimensionSelect={handleSelectDimension}
+                onMeasurementCancel={handleCancelMeasure}
                 onMeasurementMessage={showStatus}
                 onReady={(count) => showStatus(`Базовый план готов · ${count} подписей`)}
                 onError={(message) => showStatus(`Ошибка базового плана: ${message}`)}

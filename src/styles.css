@@ -633,9 +633,84 @@ button:disabled {
   font-size: 11px;
 }
 
+.workspace-toolbar {
+  position: absolute;
+  z-index: 8;
+  top: 6px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px 6px;
+  border: 1px solid rgba(34, 45, 56, 0.13);
+  border-radius: 10px;
+  background: rgba(247, 249, 250, 0.94);
+  box-shadow: 0 5px 18px rgba(20, 29, 37, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.workspace-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.workspace-toolbar__separator {
+  align-self: stretch;
+  width: 1px;
+  margin: 2px 1px;
+  background: rgba(31, 45, 56, 0.13);
+}
+
+.workspace-toolbar__spacer {
+  flex: 1;
+  min-width: 4px;
+}
+
+.workspace-command {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 40px;
+  min-height: 36px;
+  padding: 6px 9px;
+  border-color: transparent;
+  color: #33424b;
+  background: transparent;
+}
+
+.workspace-command:hover:not(:disabled) {
+  border-color: rgba(33, 126, 117, 0.18);
+  background: rgba(43, 116, 107, 0.08);
+}
+
+.workspace-command.is-active {
+  border-color: rgba(37, 121, 111, 0.38);
+  color: #f7fffd;
+  background: #28675f;
+  box-shadow: 0 2px 6px rgba(22, 74, 68, 0.22);
+}
+
+.workspace-command svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  stroke-width: 2;
+}
+
+.workspace-command span {
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 650;
+}
+
 .workspace-content {
   position: absolute;
-  inset: 44px 0 0;
+  inset: 58px 0 0;
   display: grid;
   min-width: 0;
   min-height: 0;
@@ -826,6 +901,14 @@ button:disabled {
   user-select: none;
   touch-action: none;
   cursor: crosshair;
+}
+
+.plan-canvas.is-pan-tool {
+  cursor: grab;
+}
+
+.plan-canvas.is-pan-tool.is-panning {
+  cursor: grabbing;
 }
 
 .plan-camera-layer {
@@ -1031,6 +1114,39 @@ button:disabled {
   font-weight: 700;
 }
 
+.dimension-edit-handle {
+  fill: #ffffff;
+  stroke: #e4528d;
+  stroke-width: 2.2;
+  pointer-events: all;
+}
+
+.dimension-edit-handle--endpoint {
+  cursor: crosshair;
+}
+
+.dimension-edit-handle--move {
+  fill: #e4528d;
+  stroke: #ffffff;
+  cursor: move;
+}
+
+.dimension-snap-marker circle {
+  fill: rgba(255, 255, 255, 0.85);
+  stroke: #e4528d;
+  stroke-width: 2;
+}
+
+.dimension-snap-marker line {
+  stroke: #e4528d;
+  stroke-width: 1.6;
+}
+
+.dimension-snap-marker--grid circle,
+.dimension-snap-marker--grid line {
+  stroke: #64748b;
+}
+
 .dimension-point {
   fill: #ffffff;
   stroke: #9d3561;
@@ -1123,6 +1239,23 @@ button:disabled {
   pointer-events: none;
 }
 
+.dimension-snap-badge {
+  position: absolute;
+  z-index: 8;
+  top: 56px;
+  left: 50%;
+  max-width: calc(100% - 24px);
+  padding: 6px 10px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(228, 82, 141, 0.36);
+  border-radius: 7px;
+  color: #fff1f7;
+  background: rgba(65, 23, 42, 0.92);
+  box-shadow: 0 8px 20px rgba(23, 14, 19, 0.18);
+  font-size: 11px;
+  pointer-events: none;
+}
+
 .between-boundary {
   stroke: #00a6d8;
   stroke-width: 3;
@@ -1179,6 +1312,36 @@ button:disabled {
 }
 
 .measurement-toolbar span {
+  color: #e9bdd0;
+  font-size: 11px;
+}
+
+.dimension-edit-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 28px);
+  padding: 8px 11px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(157, 53, 97, 0.38);
+  border-radius: 9px;
+  color: #fff1f7;
+  background: rgba(55, 20, 36, 0.92);
+  box-shadow: 0 10px 24px rgba(13, 18, 24, 0.2);
+  pointer-events: none;
+}
+
+.dimension-edit-toolbar strong {
+  white-space: nowrap;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.dimension-edit-toolbar span {
   color: #e9bdd0;
   font-size: 11px;
 }
@@ -1862,6 +2025,14 @@ button:disabled {
 
   .workspace-hud span {
     display: none;
+  }
+
+  .workspace-command span {
+    display: none;
+  }
+
+  .workspace-command {
+    padding-inline: 7px;
   }
 
   .import-wizard__body,

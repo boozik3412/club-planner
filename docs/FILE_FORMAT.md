@@ -20,7 +20,7 @@ previews/<sha-prefix>-p<page>-thumb.png
 {
   "format": "clubplan",
   "formatVersion": 4,
-  "generator": { "name": "Club Planner", "version": "0.2.3" },
+  "generator": { "name": "Club Planner", "version": "0.2.4" },
   "project": { "id": "project-uuid", "createdAt": "...", "modifiedAt": "..." },
   "basePlan": { "id": "source-id", "asset": "previews/source.png", "widthM": 24.6, "heightM": 12.1, "unitsPerMeter": 100, "sha256": "..." },
   "planSources": [],

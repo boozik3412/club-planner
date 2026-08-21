@@ -28,6 +28,8 @@ describe("editor shortcuts", () => {
     expect(shortcut("KeyG", { ctrlKey: true, shiftKey: true })).toBe("ungroup");
     expect(shortcut("KeyL", { ctrlKey: true })).toBe("toggle-lock");
     expect(shortcut("KeyM")).toBe("measure");
+    expect(shortcut("KeyV")).toBe("select-tool");
+    expect(shortcut("KeyH")).toBe("pan-tool");
     expect(shortcut("KeyF")).toBe("fit");
     expect(shortcut("KeyH", { shiftKey: true })).toBe("mirror-horizontal");
     expect(shortcut("KeyV", { shiftKey: true })).toBe("mirror-vertical");

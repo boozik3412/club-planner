@@ -19,6 +19,8 @@ export type EditorShortcut =
   | "view-2d"
   | "view-3d"
   | "view-split"
+  | "select-tool"
+  | "pan-tool"
   | "measure"
   | "mirror-horizontal"
   | "mirror-vertical"
@@ -81,6 +83,8 @@ export function resolveEditorShortcut(event: ShortcutKeyboardEvent): EditorShort
   if (event.key === "Escape") return "escape";
   if (event.shiftKey && code === "KeyH") return "mirror-horizontal";
   if (event.shiftKey && code === "KeyV") return "mirror-vertical";
+  if (code === "KeyV") return "select-tool";
+  if (code === "KeyH") return "pan-tool";
   if (code === "KeyR") return event.shiftKey ? "rotate-counterclockwise" : "rotate-clockwise";
   if (code === "KeyM") return "measure";
   if (code === "KeyF") return "fit";

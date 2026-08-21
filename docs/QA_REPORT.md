@@ -1,6 +1,6 @@
 # Отчёт проверки MVP
 
-Дата последнего полного прогона: 2026-08-20. Платформа проверки: Windows x64, Rust MSVC, WebView2.
+Дата последнего полного прогона: 2026-08-21. Платформа проверки: Windows x64, Rust MSVC, WebView2.
 
 ## Автоматические проверки
 
@@ -8,19 +8,29 @@
 |---|---|
 | `pnpm typecheck` | пройден |
 | `pnpm lint` | пройден без предупреждений |
-| `pnpm test` | 43 файла, 179 тестов пройдено |
+| `pnpm test` | 44 файла, 187 тестов пройдено |
 | `pnpm corpus:validate` | 30/30 fixtures: 10 vector PDF, 10 scan PNG, 10 perspective JPEG; SHA-256 и ground truth валидны |
 | `pnpm build` | production bundle собран вместе с локальными PDF.js/OpenCV.js/Tesseract `rus+eng` ресурсами |
 | `cargo fmt --check` | пройден |
 | `cargo test` | 8 Rust-тестов пройдено, включая v4 ZIP safety/checksum/round-trip |
 | `cargo clippy --all-targets -- -D warnings` | пройден; локализованное сообщение MSVC linker не является Clippy warning |
 | `pnpm tauri build --debug --no-bundle` | пройден; создан `src-tauri/target/debug/club-planner.exe`, 14 132 224 байта |
-| `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.3` собраны локально без приватного CI-ключа |
+| `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.4` собраны локально без приватного CI-ключа |
 | Portable smoke | `.exe` открыл отвечающее окно и завершил процесс после закрытия |
 | NSIS smoke | silent install → launch → close → silent uninstall пройдены во временной папке |
 | Release workflow | [GitHub Actions run 32387883068](https://github.com/boozik3412/club-planner/actions/runs/32387883068) пройден; quality gates, подписанная Tauri build и публикация Release `v0.2.3` успешны |
 
-Production frontend `v0.2.3` собран с ленивыми chunks `PlanImportWizard` 496,60 kB (149,65 kB gzip) и `Plan3DView` 909,13 kB (245,85 kB gzip). OpenCV, OCR-модели, PDF worker и базовый SVG упакованы как локальные assets; сеть для распознавания не используется. Предупреждение Vite о крупных ленивых chunks зафиксировано и не влияет на начальный 2D-экран.
+Production frontend `v0.2.4` собран с ленивыми chunks `PlanImportWizard` 496,60 kB (149,65 kB gzip) и `Plan3DView` 909,13 kB (245,85 kB gzip). OpenCV, OCR-модели, PDF worker, пиктограммы интерфейса и базовый SVG упакованы как локальные assets; сеть для распознавания не используется. Предупреждение Vite о крупных ленивых chunks зафиксировано и не влияет на начальный 2D-экран.
+
+### Командная панель и редактируемые размеры `v0.2.4`
+
+- unit/component/integration coverage добавляет чистый resolver привязки размера, неизменность длины при переносе, одну immutable-команду обновления, `V`/`H`, рабочие callbacks/active states панели, live-drag ручки и отмену по `pointercancel`;
+- preview размера хранится локально в `BasePlanCanvas`, проект не клонируется на каждом `pointermove`, итоговый `updateDimensionCommand` выполняется один раз на `pointerup`;
+- rendered QA `1280×720`: панель полностью помещается над холстом, создание двухточечного размера дало `18,70 м`, растягивание крайней ручки обновило его до `26,29 м`, перенос центральной ручкой сохранил `26,29 м`;
+- rendered QA `960×640`: подписи команд скрыты, все 11 пиктограмм и рабочая область остаются видимыми без горизонтальной прокрутки и перекрытия;
+- режим «Рука» получил `aria-pressed=true`, панорамировал сцену левой кнопкой и корректно вернулся в «Выбор»; console `error`/`warn` — 0;
+- локальная сборка `v0.2.4`: portable 28 876 800 байт, SHA-256 `368EB8E217F02ACE41802504BBC1EF40C8754AC5E830E32DAA731139079BF6E6`; NSIS 15 795 444 байта, SHA-256 `8870A9793AF4A77819D6E3AFE316BE24414E3DF72DAABB1B9DFA0C6ED03C9299`;
+- portable открыл отвечающее отдельное окно `Club Planner — планировщик клуба`; NSIS прошёл silent install → launch → close → silent uninstall с кодами 0 и удалил временную папку.
 
 Unit-тесты покрывают базовый asset, камеру, выделение, массовые команды, группировку и поворот вокруг общего центра, историю на 100 операций, serialization/legacy-import, ссылочную целостность, семантические стены/проёмы, wall/object snap, размеры, проходы, коллизии, дверные зоны, массивы, составные шаблоны, сводку и три режима геометрии между перегородками. React integration-тесты дополнительно проходят линейку, массив из выбранного предмета, сохранение/вставку проектного шаблона и изменение минимальной ширины прохода.
 

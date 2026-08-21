@@ -379,7 +379,8 @@ export function Sidebar({
             <div><dt>Ctrl+A / Ctrl+L</dt><dd>выделить всё / блокировка</dd></div>
             <div><dt>R / Shift+R</dt><dd>поворот вправо / влево</dd></div>
             <div><dt>Shift+H / Shift+V</dt><dd>отразить по горизонтали / вертикали</dd></div>
-            <div><dt>M / F / Ctrl+0</dt><dd>линейка / вписать план</dd></div>
+            <div><dt>V / H / M</dt><dd>выбор / рука / линейка</dd></div>
+            <div><dt>F / Ctrl+0</dt><dd>вписать план</dd></div>
             <div><dt>Ctrl+1 / 2 / 3</dt><dd>2D / 3D / совместный вид</dd></div>
             <div><dt>Стрелки / Shift+стрелки</dt><dd>шаг сетки / точный шаг 1 см</dd></div>
             <div><dt>Delete / Esc</dt><dd>удалить / отменить выбор</dd></div>

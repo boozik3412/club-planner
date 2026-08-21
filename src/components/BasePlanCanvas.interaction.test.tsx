@@ -132,6 +132,19 @@ describe("BasePlanCanvas pointer navigation", () => {
     expect(onCameraChange).toHaveBeenCalledWith({ x: 60, y: 60, zoom: 0.05 });
   });
 
+  it("pans with the left button while the Hand tool is active", () => {
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 71));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const { onCameraChange } = renderCanvas({ panToolActive: true });
+    const canvas = screen.getByRole("img", { name: "Актуальная планировка компьютерного клуба" });
+
+    fireEvent.pointerDown(canvas, { button: 0, pointerId: 17, clientX: 80, clientY: 90 });
+    fireEvent.pointerMove(canvas, { buttons: 1, pointerId: 17, clientX: 110, clientY: 105 });
+    fireEvent.pointerUp(canvas, { button: 0, pointerId: 17, clientX: 110, clientY: 105 });
+
+    expect(onCameraChange).toHaveBeenCalledWith({ x: 50, y: 45, zoom: 0.05 });
+  });
+
   it("keeps Shift plus right click reserved for grouping", () => {
     const onGroupSelection = vi.fn();
     renderCanvas({
@@ -160,10 +173,61 @@ describe("BasePlanCanvas pointer navigation", () => {
 
     const dimension = screen.getByRole("button", { name: "Размер 1 · 5.00 м" });
     expect(dimension).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("5.00 м")).toBeInTheDocument();
+    expect(screen.getAllByText("5.00 м")).toHaveLength(2);
 
     fireEvent.pointerDown(dimension, { button: 0, pointerId: 9, clientX: 120, clientY: 120 });
     expect(onDimensionSelect).toHaveBeenCalledWith("dimension-1");
+  });
+
+  it("edits a selected dimension with live handles and commits one undo transaction", () => {
+    const project = createEmptyProject();
+    project.dimensions = [{
+      id: "dimension-1",
+      name: "Размер 1",
+      start: { xM: 1, yM: 1 },
+      end: { xM: 4, yM: 1 },
+      labelVisible: true,
+    }];
+    const { container, onCommitProject } = renderCanvas({ project, selectedDimensionId: "dimension-1" });
+    const canvas = screen.getByRole("img", { name: "Актуальная планировка компьютерного клуба" });
+    const endHandle = container.querySelector('[data-dimension-handle="end"]') as SVGElement;
+    const units = project.basePlan.unitsPerMeter;
+    const startX = 20 + 4 * units * 0.05;
+    const y = 30 + units * 0.05;
+    const endX = 20 + 6 * units * 0.05;
+
+    expect(container.querySelectorAll(".dimension-edit-handle")).toHaveLength(3);
+    fireEvent.pointerDown(endHandle, { button: 0, pointerId: 14, clientX: startX, clientY: y });
+    fireEvent.pointerMove(canvas, { buttons: 1, pointerId: 14, clientX: endX, clientY: y, altKey: true });
+
+    expect(screen.getAllByText("5.00 м").length).toBeGreaterThan(0);
+    expect(onCommitProject).not.toHaveBeenCalled();
+
+    fireEvent.pointerUp(canvas, { button: 0, pointerId: 14, clientX: endX, clientY: y });
+    expect(onCommitProject).toHaveBeenCalledOnce();
+    expect(onCommitProject).toHaveBeenCalledWith(expect.any(Object), "Изменение размера");
+    expect(onCommitProject.mock.lastCall?.[0].dimensions[0].end.xM).toBeCloseTo(6);
+  });
+
+  it("cancels a dimension drag without committing on pointer cancellation", () => {
+    const project = createEmptyProject();
+    project.dimensions = [{
+      id: "dimension-1",
+      name: "Размер 1",
+      start: { xM: 1, yM: 1 },
+      end: { xM: 4, yM: 1 },
+      labelVisible: true,
+    }];
+    const { container, onCommitProject } = renderCanvas({ project, selectedDimensionId: "dimension-1" });
+    const canvas = screen.getByRole("img", { name: "Актуальная планировка компьютерного клуба" });
+    const moveHandle = container.querySelector('[data-dimension-handle="move"]') as SVGElement;
+
+    fireEvent.pointerDown(moveHandle, { button: 0, pointerId: 15, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(canvas, { buttons: 1, pointerId: 15, clientX: 130, clientY: 120, altKey: true });
+    fireEvent.pointerCancel(canvas, { pointerId: 15, clientX: 130, clientY: 120 });
+
+    expect(onCommitProject).not.toHaveBeenCalled();
+    expect(screen.getAllByText("3.00 м").length).toBeGreaterThan(0);
   });
 
   it("shows a long smart guide and aligns two matching visible rows", () => {

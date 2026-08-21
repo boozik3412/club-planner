@@ -11,6 +11,7 @@ import {
   rotateSelectionCommand,
   updateObjectsCommand,
 } from "../editor/commands/project-commands";
+import { updateDimensionCommand } from "../editor/commands/advanced-commands";
 import {
   getObjectsBounds,
   isObjectInsideBounds,
@@ -21,7 +22,15 @@ import {
 import { analyzeLayout, getClearanceBounds } from "../editor/analysis/layout-analysis";
 import { arcFromBulge } from "../editor/architecture/geometry";
 import { loadBasePlan, type LoadedBasePlan } from "../editor/load-base-plan";
-import { distanceMeters, formatMeters } from "../editor/measurement/measurement";
+import {
+  constrainDimensionPoint,
+  dimensionMidpoint,
+  distanceMeters,
+  formatMeters,
+  resolveDimensionSnap,
+  translateDimension,
+  type DimensionSnapGuide,
+} from "../editor/measurement/measurement";
 import { snapMeters } from "../editor/model/project";
 import type {
   BoundsM,
@@ -29,6 +38,7 @@ import type {
   ObjectId,
   PlanObject,
   PointM,
+  ProjectDimension,
   ProjectState,
   SelectionState,
 } from "../editor/model/types";
@@ -60,6 +70,7 @@ interface BasePlanCanvasProps {
   betweenRequest: BetweenBoundariesRequest | null;
   measureRequest: number | null;
   selectedDimensionId: string | null;
+  panToolActive?: boolean;
   onCameraChange: (camera: CameraState) => void;
   onVisibleCenterChange: (center: PointM) => void;
   onSelectionChange: (selection: SelectionState) => void;
@@ -73,6 +84,7 @@ interface BasePlanCanvasProps {
   onBetweenMessage: (message: string) => void;
   onAddDimension: (start: PointM, end: PointM) => void;
   onDimensionSelect: (dimensionId: string | null) => void;
+  onMeasurementCancel?: () => void;
   onMeasurementMessage: (message: string) => void;
   onReady: (labelCount: number) => void;
   onError: (message: string) => void;
@@ -109,7 +121,8 @@ type Gesture =
   | { mode: "marquee"; pointerId: number; start: ScreenPoint; current: ScreenPoint; additive: boolean }
   | { mode: "move"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; startObjects: PlanObject[]; otherObjects: PlanObject[]; boundaries: PlanBoundary[]; preview: ProjectState | null; activeBoundaryId: string | null; candidateIndex: number; lastPlan: ScreenPoint | null; snappingDisabled: boolean }
   | { mode: "resize"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; object: PlanObject; handle: ResizeHandle; preview: ProjectState | null }
-  | { mode: "rotate"; pointerId: number; center: ScreenPoint; startAngle: number; baseProject: ProjectState; objectId: ObjectId | null; groupId: string | null; startObjectAngle: number; preview: ProjectState | null };
+  | { mode: "rotate"; pointerId: number; center: ScreenPoint; startAngle: number; baseProject: ProjectState; objectId: ObjectId | null; groupId: string | null; startObjectAngle: number; preview: ProjectState | null }
+  | { mode: "dimension"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; dimension: ProjectDimension; handle: "start" | "end" | "move"; preview: ProjectDimension | null };
 
 type MoveGesture = Extract<Gesture, { mode: "move" }>;
 
@@ -197,6 +210,7 @@ export function BasePlanCanvas({
   betweenRequest,
   measureRequest,
   selectedDimensionId,
+  panToolActive = false,
   onCameraChange,
   onVisibleCenterChange,
   onSelectionChange,
@@ -210,6 +224,7 @@ export function BasePlanCanvas({
   onBetweenMessage,
   onAddDimension,
   onDimensionSelect,
+  onMeasurementCancel,
   onMeasurementMessage,
   onReady,
   onError,
@@ -222,6 +237,8 @@ export function BasePlanCanvas({
   const [movePreviewActive, setMovePreviewActive] = useState(false);
   const [betweenSession, setBetweenSession] = useState<BetweenSession | null>(null);
   const [measurementSession, setMeasurementSession] = useState<MeasurementSession | null>(null);
+  const [dimensionPreview, setDimensionPreview] = useState<ProjectDimension | null>(null);
+  const [dimensionSnapGuide, setDimensionSnapGuide] = useState<DimensionSnapGuide | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const cameraLayerRef = useRef<SVGGElement>(null);
@@ -408,6 +425,31 @@ export function BasePlanCanvas({
     };
   }, [planPoint, viewport]);
 
+  const resolveDimensionPoint = useCallback((
+    raw: PointM,
+    snappingDisabled: boolean,
+    anchor?: PointM,
+    constrained = false,
+  ) => {
+    const input = constrained && anchor ? constrainDimensionPoint(raw, anchor) : raw;
+    const resolution = resolveDimensionSnap(input, {
+      enabled: project.canvas.snapEnabled,
+      disabled: snappingDisabled,
+      gridStepM: project.canvas.snapStepM,
+      unitsPerMeter: project.basePlan.unitsPerMeter,
+      zoom: camera.zoom,
+      boundaries: semanticBoundaries,
+      openings: semanticOpenings,
+      objects: project.objects.filter((object) => visibleLayers.has(object.layerId)),
+    });
+    if (!constrained || !anchor) return resolution;
+    const point = constrainDimensionPoint(resolution.point, anchor);
+    return {
+      point,
+      guide: resolution.guide ? { ...resolution.guide, point } : null,
+    };
+  }, [camera.zoom, project.basePlan.unitsPerMeter, project.canvas.snapEnabled, project.canvas.snapStepM, project.objects, semanticBoundaries, semanticOpenings, visibleLayers]);
+
   const capture = (pointerId: number) => {
     try { svgRef.current?.setPointerCapture(pointerId); } catch { /* pointer capture is best-effort */ }
   };
@@ -443,6 +485,7 @@ export function BasePlanCanvas({
     onPreviewProject(null);
     setBetweenSession(null);
     setSnapGuide(null);
+    setDimensionSnapGuide(null);
     setMeasurementSession({ requestId: measureRequest, start: null, current: null });
     onMeasurementMessage("Укажите первую точку размера");
   }, [measureRequest, onMeasurementMessage, onPreviewProject]);
@@ -450,6 +493,7 @@ export function BasePlanCanvas({
   useEffect(() => {
     if (measureRequest || !measurementSession) return;
     setMeasurementSession(null);
+    setDimensionSnapGuide(null);
   }, [measureRequest, measurementSession]);
 
   useEffect(() => {
@@ -459,11 +503,29 @@ export function BasePlanCanvas({
       event.preventDefault();
       event.stopImmediatePropagation();
       setMeasurementSession(null);
+      setDimensionSnapGuide(null);
+      onMeasurementCancel?.();
       onMeasurementMessage("Измерение отменено");
     };
     window.addEventListener("keydown", onMeasureKeyDown, true);
     return () => window.removeEventListener("keydown", onMeasureKeyDown, true);
-  }, [measurementSession, onMeasurementMessage]);
+  }, [measurementSession, onMeasurementCancel, onMeasurementMessage]);
+
+  useEffect(() => {
+    const onDimensionKeyDown = (event: KeyboardEvent) => {
+      const gesture = gestureRef.current;
+      if (event.key !== "Escape" || gesture?.mode !== "dimension") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      gestureRef.current = null;
+      try { svgRef.current?.releasePointerCapture(gesture.pointerId); } catch { /* no active capture */ }
+      setDimensionPreview(null);
+      setDimensionSnapGuide(null);
+      onMeasurementMessage("Изменение размера отменено");
+    };
+    window.addEventListener("keydown", onDimensionKeyDown, true);
+    return () => window.removeEventListener("keydown", onDimensionKeyDown, true);
+  }, [onMeasurementMessage]);
 
   const cancelBetween = useCallback(() => {
     onPreviewProject(null);
@@ -566,6 +628,7 @@ export function BasePlanCanvas({
     if (event.button !== 0 && event.button !== 1) return;
     const target = event.target as Element;
     const handleElement = target.closest<SVGElement>("[data-handle]");
+    const dimensionHandleElement = target.closest<SVGElement>("[data-dimension-handle]");
     const objectElement = target.closest<SVGElement>("[data-object-id]");
     const boundaryElement = target.closest<SVGElement>("[data-boundary-id]");
     const dimensionElement = target.closest<SVGElement>("[data-dimension-id]");
@@ -573,16 +636,21 @@ export function BasePlanCanvas({
     if (measurementSession && event.button === 0) {
       event.preventDefault();
       const raw = planPoint(screen);
-      const point = {
-        xM: snapMeters(raw.x, project.canvas.snapEnabled, project.canvas.snapStepM),
-        yM: snapMeters(raw.y, project.canvas.snapEnabled, project.canvas.snapStepM),
-      };
+      const resolution = resolveDimensionPoint(
+        { xM: raw.x, yM: raw.y },
+        event.altKey,
+        measurementSession.start ?? undefined,
+        Boolean(measurementSession.start && event.shiftKey),
+      );
+      const point = resolution.point;
+      setDimensionSnapGuide(resolution.guide);
       if (!measurementSession.start) {
         setMeasurementSession({ ...measurementSession, start: point, current: point });
         onMeasurementMessage("Укажите вторую точку размера");
       } else if (distanceMeters(measurementSession.start, point) > 0.001) {
         onAddDimension(measurementSession.start, point);
         setMeasurementSession(null);
+        setDimensionSnapGuide(null);
       } else {
         onMeasurementMessage("Вторая точка должна отличаться от первой");
       }
@@ -601,6 +669,36 @@ export function BasePlanCanvas({
       event.preventDefault();
       gestureRef.current = { mode: "pan", pointerId: event.pointerId, start: screen, camera, currentCamera: camera, cameraChanged: false, rightButton: false };
       svgRef.current?.classList.add("is-panning");
+      capture(event.pointerId);
+      return;
+    }
+
+    if (event.button === 0 && panToolActive) {
+      event.preventDefault();
+      gestureRef.current = { mode: "pan", pointerId: event.pointerId, start: screen, camera, currentCamera: camera, cameraChanged: false, rightButton: false };
+      svgRef.current?.classList.add("is-panning");
+      capture(event.pointerId);
+      return;
+    }
+
+    if (dimensionHandleElement && event.button === 0) {
+      event.preventDefault();
+      const dimensionId = dimensionHandleElement.dataset.dimensionId;
+      const handle = dimensionHandleElement.dataset.dimensionHandle as "start" | "end" | "move" | undefined;
+      const dimension = project.dimensions.find((candidate) => candidate.id === dimensionId);
+      if (!dimension || !handle) return;
+      onDimensionSelect(dimension.id);
+      const startPlan = planPoint(screen);
+      gestureRef.current = {
+        mode: "dimension",
+        pointerId: event.pointerId,
+        startPlan,
+        baseProject: project,
+        dimension,
+        handle,
+        preview: null,
+      };
+      setDimensionPreview(dimension);
       capture(event.pointerId);
       return;
     }
@@ -742,12 +840,16 @@ export function BasePlanCanvas({
     const screen = localPoint(event.clientX, event.clientY);
     if (measurementSession?.start && !gestureRef.current) {
       const raw = planPoint(screen);
+      const resolution = resolveDimensionPoint(
+        { xM: raw.x, yM: raw.y },
+        event.altKey,
+        measurementSession.start,
+        event.shiftKey,
+      );
+      setDimensionSnapGuide(resolution.guide);
       setMeasurementSession((current) => current ? {
         ...current,
-        current: {
-          xM: snapMeters(raw.x, project.canvas.snapEnabled, project.canvas.snapStepM),
-          yM: snapMeters(raw.y, project.canvas.snapEnabled, project.canvas.snapStepM),
-        },
+        current: resolution.point,
       } : current);
       return;
     }
@@ -791,6 +893,37 @@ export function BasePlanCanvas({
       onPreviewProject(preview);
       return;
     }
+    if (gesture.mode === "dimension") {
+      const raw = { xM: currentPlan.x, yM: currentPlan.y };
+      let preview: ProjectDimension;
+      if (gesture.handle === "start") {
+        const resolution = resolveDimensionPoint(raw, event.altKey, gesture.dimension.end, event.shiftKey);
+        setDimensionSnapGuide(resolution.guide);
+        preview = { ...gesture.dimension, start: resolution.point };
+      } else if (gesture.handle === "end") {
+        const resolution = resolveDimensionPoint(raw, event.altKey, gesture.dimension.start, event.shiftKey);
+        setDimensionSnapGuide(resolution.guide);
+        preview = { ...gesture.dimension, end: resolution.point };
+      } else {
+        const baseMidpoint = dimensionMidpoint(gesture.dimension);
+        let targetMidpoint = {
+          xM: baseMidpoint.xM + currentPlan.x - gesture.startPlan.x,
+          yM: baseMidpoint.yM + currentPlan.y - gesture.startPlan.y,
+        };
+        if (event.shiftKey) targetMidpoint = constrainDimensionPoint(targetMidpoint, baseMidpoint);
+        const resolution = resolveDimensionPoint(targetMidpoint, event.altKey);
+        setDimensionSnapGuide(resolution.guide);
+        preview = translateDimension(
+          gesture.dimension,
+          resolution.point.xM - baseMidpoint.xM,
+          resolution.point.yM - baseMidpoint.yM,
+        );
+      }
+      if (distanceMeters(preview.start, preview.end) < 0.001) return;
+      gesture.preview = preview;
+      setDimensionPreview(preview);
+      return;
+    }
     const pointerAngle = Math.atan2(currentPlan.y - gesture.center.y, currentPlan.x - gesture.center.x);
     let deltaDeg = (pointerAngle - gesture.startAngle) * 180 / Math.PI;
     if (event.shiftKey) deltaDeg = Math.round(deltaDeg / 15) * 15;
@@ -829,6 +962,7 @@ export function BasePlanCanvas({
       if (gesture.cameraChanged) onCameraChange(gesture.currentCamera);
       return;
     }
+
     if (gesture.mode === "marquee") {
       const start = planPoint(gesture.start);
       const end = planPoint(gesture.current);
@@ -862,6 +996,17 @@ export function BasePlanCanvas({
       setMarquee(null);
       return;
     }
+    if (gesture.mode === "dimension") {
+      setDimensionPreview(null);
+      setDimensionSnapGuide(null);
+      if (event.type === "pointercancel" || !gesture.preview) return;
+      const next = updateDimensionCommand(gesture.baseProject, gesture.dimension.id, {
+        start: gesture.preview.start,
+        end: gesture.preview.end,
+      });
+      if (next !== gesture.baseProject) onCommitProject(next, "Изменение размера");
+      return;
+    }
     if (gesture.mode === "move" || gesture.mode === "resize" || gesture.mode === "rotate") {
       setSnapGuide(null);
       setMovePreviewActive(false);
@@ -891,6 +1036,9 @@ export function BasePlanCanvas({
 
   const showSingleHandles = selection.objectIds.length === 1 && selection.groupIds.length === 0;
   const showGroupHandle = selection.groupIds.length === 1 && selectionBounds;
+  const activeDimension = dimensionPreview
+    ?? project.dimensions.find((dimension) => dimension.id === selectedDimensionId)
+    ?? null;
   const zoomPercent = Math.round(camera.zoom * 1000) / 10;
   const unitsPerMeter = project.basePlan.unitsPerMeter;
 
@@ -898,7 +1046,7 @@ export function BasePlanCanvas({
     <div className="canvas-frame" ref={frameRef}>
       <svg
         ref={svgRef}
-        className="plan-canvas"
+        className={`plan-canvas${panToolActive ? " is-pan-tool" : ""}`}
         viewBox={`0 0 ${viewport.width} ${viewport.height}`}
         preserveAspectRatio="none"
         role="img"
@@ -1004,9 +1152,10 @@ export function BasePlanCanvas({
             </g>
             <g className="dimensions-layer">
               {project.dimensions.map((dimension) => {
-                const midX = (dimension.start.xM + dimension.end.xM) / 2 * unitsPerMeter;
-                const midY = (dimension.start.yM + dimension.end.yM) / 2 * unitsPerMeter;
-                const length = formatMeters(distanceMeters(dimension.start, dimension.end));
+                const visibleDimension = dimensionPreview?.id === dimension.id ? dimensionPreview : dimension;
+                const midX = (visibleDimension.start.xM + visibleDimension.end.xM) / 2 * unitsPerMeter;
+                const midY = (visibleDimension.start.yM + visibleDimension.end.yM) / 2 * unitsPerMeter;
+                const length = formatMeters(distanceMeters(visibleDimension.start, visibleDimension.end));
                 const selected = selectedDimensionId === dimension.id;
                 return (
                   <g
@@ -1023,10 +1172,24 @@ export function BasePlanCanvas({
                       onDimensionSelect(dimension.id);
                     }}
                   >
-                    <line className="dimension-hit-line" x1={dimension.start.xM * unitsPerMeter} y1={dimension.start.yM * unitsPerMeter} x2={dimension.end.xM * unitsPerMeter} y2={dimension.end.yM * unitsPerMeter} vectorEffect="non-scaling-stroke" />
-                    <line className="dimension-line" x1={dimension.start.xM * unitsPerMeter} y1={dimension.start.yM * unitsPerMeter} x2={dimension.end.xM * unitsPerMeter} y2={dimension.end.yM * unitsPerMeter} vectorEffect="non-scaling-stroke" />
-                    <circle className="dimension-point" pointerEvents="none" cx={dimension.start.xM * unitsPerMeter} cy={dimension.start.yM * unitsPerMeter} r={3.5 / camera.zoom} vectorEffect="non-scaling-stroke" />
-                    <circle className="dimension-point" pointerEvents="none" cx={dimension.end.xM * unitsPerMeter} cy={dimension.end.yM * unitsPerMeter} r={3.5 / camera.zoom} vectorEffect="non-scaling-stroke" />
+                    <line
+                      className="dimension-hit-line"
+                      data-dimension-id={dimension.id}
+                      data-dimension-handle={selected ? "move" : undefined}
+                      x1={visibleDimension.start.xM * unitsPerMeter}
+                      y1={visibleDimension.start.yM * unitsPerMeter}
+                      x2={visibleDimension.end.xM * unitsPerMeter}
+                      y2={visibleDimension.end.yM * unitsPerMeter}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    <line className="dimension-line" x1={visibleDimension.start.xM * unitsPerMeter} y1={visibleDimension.start.yM * unitsPerMeter} x2={visibleDimension.end.xM * unitsPerMeter} y2={visibleDimension.end.yM * unitsPerMeter} vectorEffect="non-scaling-stroke" />
+                    <circle className="dimension-point" pointerEvents="none" cx={visibleDimension.start.xM * unitsPerMeter} cy={visibleDimension.start.yM * unitsPerMeter} r={3.5 / camera.zoom} vectorEffect="non-scaling-stroke" />
+                    <circle className="dimension-point" pointerEvents="none" cx={visibleDimension.end.xM * unitsPerMeter} cy={visibleDimension.end.yM * unitsPerMeter} r={3.5 / camera.zoom} vectorEffect="non-scaling-stroke" />
+                    {selected ? <>
+                      <circle className="dimension-edit-handle dimension-edit-handle--endpoint" data-dimension-id={dimension.id} data-dimension-handle="start" cx={visibleDimension.start.xM * unitsPerMeter} cy={visibleDimension.start.yM * unitsPerMeter} r={7 / camera.zoom} vectorEffect="non-scaling-stroke" />
+                      <circle className="dimension-edit-handle dimension-edit-handle--endpoint" data-dimension-id={dimension.id} data-dimension-handle="end" cx={visibleDimension.end.xM * unitsPerMeter} cy={visibleDimension.end.yM * unitsPerMeter} r={7 / camera.zoom} vectorEffect="non-scaling-stroke" />
+                      <rect className="dimension-edit-handle dimension-edit-handle--move" data-dimension-id={dimension.id} data-dimension-handle="move" x={midX - 6 / camera.zoom} y={midY - 6 / camera.zoom} width={12 / camera.zoom} height={12 / camera.zoom} rx={2 / camera.zoom} vectorEffect="non-scaling-stroke" />
+                    </> : null}
                     <text
                       className="dimension-label"
                       pointerEvents="none"
@@ -1047,6 +1210,13 @@ export function BasePlanCanvas({
                   <text className="dimension-label" x={(measurementSession.start.xM + measurementSession.current.xM) / 2 * unitsPerMeter} y={(measurementSession.start.yM + measurementSession.current.yM) / 2 * unitsPerMeter - 8 / camera.zoom} fontSize={13 / camera.zoom}>
                     {formatMeters(distanceMeters(measurementSession.start, measurementSession.current))}
                   </text>
+                </g>
+              ) : null}
+              {dimensionSnapGuide ? (
+                <g className={`dimension-snap-marker dimension-snap-marker--${dimensionSnapGuide.kind}`} pointerEvents="none">
+                  <circle cx={dimensionSnapGuide.point.xM * unitsPerMeter} cy={dimensionSnapGuide.point.yM * unitsPerMeter} r={8 / camera.zoom} vectorEffect="non-scaling-stroke" />
+                  <line x1={dimensionSnapGuide.point.xM * unitsPerMeter - 11 / camera.zoom} y1={dimensionSnapGuide.point.yM * unitsPerMeter} x2={dimensionSnapGuide.point.xM * unitsPerMeter + 11 / camera.zoom} y2={dimensionSnapGuide.point.yM * unitsPerMeter} vectorEffect="non-scaling-stroke" />
+                  <line x1={dimensionSnapGuide.point.xM * unitsPerMeter} y1={dimensionSnapGuide.point.yM * unitsPerMeter - 11 / camera.zoom} x2={dimensionSnapGuide.point.xM * unitsPerMeter} y2={dimensionSnapGuide.point.yM * unitsPerMeter + 11 / camera.zoom} vectorEffect="non-scaling-stroke" />
                 </g>
               ) : null}
             </g>
@@ -1153,6 +1323,17 @@ export function BasePlanCanvas({
             ? ` · ${snapGuide.candidateIndex + 1}/${snapGuide.candidateCount} · Tab — вариант`
             : ""}
           {" · Alt — отключить"}
+        </div>
+      ) : null}
+      {dimensionSnapGuide ? (
+        <div className="dimension-snap-badge" role="status">
+          {dimensionSnapGuide.label} · Alt — без привязки
+        </div>
+      ) : null}
+      {activeDimension && !measurementSession ? (
+        <div className="dimension-edit-toolbar" role="status" aria-label="Редактирование размера">
+          <strong>{formatMeters(distanceMeters(activeDimension.start, activeDimension.end))}</strong>
+          <span>Тяните крайние ручки для длины или центральную — для переноса · Shift — по оси · Esc — отмена</span>
         </div>
       ) : null}
       {measurementSession ? (

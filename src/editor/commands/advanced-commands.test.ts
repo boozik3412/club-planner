@@ -7,6 +7,7 @@ import {
   deleteDimensionCommand,
   instantiateCompositeTemplateCommand,
   saveCompositeTemplateCommand,
+  updateDimensionCommand,
 } from "./advanced-commands";
 
 describe("advanced project commands", () => {
@@ -15,6 +16,25 @@ describe("advanced project commands", () => {
     const measured = addDimensionCommand(project, { xM: 1, yM: 1 }, { xM: 4, yM: 5 });
     expect(measured.dimensions).toHaveLength(1);
     expect(deleteDimensionCommand(measured, measured.dimensions[0].id).dimensions).toHaveLength(0);
+  });
+
+  it("updates a persistent dimension as one immutable command", () => {
+    const measured = addDimensionCommand(createEmptyProject(), { xM: 1, yM: 1 }, { xM: 4, yM: 1 });
+    const dimensionId = measured.dimensions[0].id;
+    const updated = updateDimensionCommand(measured, dimensionId, {
+      start: { xM: 2, yM: 3 },
+      end: { xM: 7, yM: 3 },
+    });
+    expect(updated).not.toBe(measured);
+    expect(updated.dimensions[0]).toMatchObject({
+      start: { xM: 2, yM: 3 },
+      end: { xM: 7, yM: 3 },
+    });
+    expect(measured.dimensions[0].start).toEqual({ xM: 1, yM: 1 });
+    expect(updateDimensionCommand(updated, dimensionId, {
+      start: { xM: 2, yM: 3 },
+      end: { xM: 7, yM: 3 },
+    })).toBe(updated);
   });
 
   it("creates a horizontal array in one project state", () => {

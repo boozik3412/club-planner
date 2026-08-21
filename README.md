@@ -10,7 +10,7 @@
 - [Club-Planner_0.2.3_x64-portable.exe](https://github.com/boozik3412/club-planner/releases/latest/download/Club-Planner_0.2.3_x64-portable.exe) — запуск без установки;
 - [SHA256SUMS.txt](https://github.com/boozik3412/club-planner/releases/latest/download/SHA256SUMS.txt) — контрольные суммы загрузок.
 
-Опубликованная стабильная версия — `0.2.3`.
+Опубликованная стабильная версия — `0.2.3`; текущая локально проверенная сборка исходников — `0.2.4`.
 
 См. [инструкцию по установке и проверке файла](docs/INSTALLATION.md). Сборка пока не подписана коммерческим сертификатом, поэтому Windows SmartScreen может показать предупреждение издателя.
 
@@ -74,7 +74,7 @@ pnpm tauri build
 Артефакты создаются в:
 
 - `src-tauri/target/release/club-planner.exe`;
-- `src-tauri/target/release/bundle/nsis/Club Planner_0.2.3_x64-setup.exe`.
+- `src-tauri/target/release/bundle/nsis/Club Planner_0.2.4_x64-setup.exe`.
 
 ## Основные сочетания клавиш
 
@@ -91,7 +91,8 @@ pnpm tauri build
 | Блокировать / разблокировать выборку | `Ctrl+L` |
 | Повернуть выбранное | `R` / `Shift+R` |
 | Отразить слева-направо / сверху-вниз | `Shift+H` / `Shift+V` |
-| Линейка / вписать план | `M` / `F` или `Ctrl+0` |
+| Выбор / Рука / Линейка | `V` / `H` / `M` |
+| Вписать план | `F` или `Ctrl+0` |
 | 2D / 3D / совместный вид | `Ctrl+1` / `Ctrl+2` / `Ctrl+3` |
 | Переместить | стрелки; `Shift` — шаг 0,01 м |
 | Выйти из группы / снять выделение | `Esc` |
@@ -105,6 +106,7 @@ pnpm tauri build
 - [Формат проекта](docs/FILE_FORMAT.md)
 - [Импорт и редактирование распознанного плана](docs/USER_GUIDE.md)
 - [Установка на Windows](docs/INSTALLATION.md)
+- [Примечания к версии 0.2.4](docs/RELEASE_NOTES_0.2.4.md)
 - [Примечания к версии 0.2.3](docs/RELEASE_NOTES_0.2.3.md)
 - [Примечания к версии 0.2.2](docs/RELEASE_NOTES_0.2.2.md)
 - [Примечания к версии 0.2.1](docs/RELEASE_NOTES_0.2.1.md)

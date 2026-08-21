@@ -194,6 +194,10 @@ describe("App integration", () => {
     fireEvent.keyDown(window, { key: "2", code: "Digit2", ctrlKey: true, cancelable: true });
     expect(await screen.findByRole("region", { name: "Тестовый 3D-вид" })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "1", code: "Digit1", ctrlKey: true, cancelable: true });
+    fireEvent.keyDown(window, { key: "р", code: "KeyH", cancelable: true });
+    expect(screen.getByRole("button", { name: "Рука (H)" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(window, { key: "м", code: "KeyV", cancelable: true });
+    expect(screen.getByRole("button", { name: "Выбор (V)" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.keyDown(window, { key: "ь", code: "KeyM", cancelable: true });
     expect(screen.getByRole("button", { name: "Создать тестовый размер" })).toBeInTheDocument();
   });
