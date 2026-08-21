@@ -18,7 +18,7 @@
 | `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.6` собраны локально без приватного CI-ключа |
 | Portable smoke | `.exe` открыл отвечающее окно и завершил процесс после закрытия |
 | NSIS smoke | silent install → launch → close → silent uninstall пройдены во временной папке |
-| Release workflow | [GitHub Actions run 32387883068](https://github.com/boozik3412/club-planner/actions/runs/32387883068) пройден; quality gates, подписанная Tauri build и публикация Release `v0.2.3` успешны |
+| Release workflow | [GitHub Actions run 32481303022](https://github.com/boozik3412/club-planner/actions/runs/32481303022) пройден; quality gates, подписанная Tauri build и публикация Release `v0.2.6` успешны |
 
 Production frontend `v0.2.6` собран с ленивыми chunks `PlanImportWizard` 500,84 kB (150,99 kB gzip) и `Plan3DView` 909,13 kB (245,84 kB gzip). OpenCV, OCR-модели, PDF worker, Tesseract `rus+eng`, пиктограммы интерфейса и совместимый базовый SVG упакованы как локальные assets; сеть для распознавания не используется. Предупреждение Vite о крупных ленивых chunks зафиксировано и не влияет на начальный 2D-экран.
 
@@ -143,6 +143,9 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 
 ## Нативная Windows-проверка
 
+- опубликованный [Release v0.2.6](https://github.com/boozik3412/club-planner/releases/tag/v0.2.6) создан успешным [Windows release workflow](https://github.com/boozik3412/club-planner/actions/runs/32481303022): frontend quality gate, Rust format/test/Clippy, подписанная Tauri/NSIS-сборка и загрузка всех артефактов прошли;
+- публичный `latest.json` содержит `version: 0.2.6`, платформы `windows-x86_64` и `windows-x86_64-nsis`; 424-байтовая подпись манифеста точно совпадает с отдельным `.sig`;
+- повторно скачанный portable имеет размер 28 864 512 байт и SHA-256 `95F6C9E8161214C1A9063143A0541B2FBA5FD0A2F20AACBD23B94570696DC1E0`; NSIS installer — 15 810 003 байта и SHA-256 `8939689469B87217C4ADEA40E1F952CBBD5154BFEAB0E6FF09756961120C2DF0`; оба файла имеют PE-заголовок `MZ`, совпадают с `SHA256SUMS.txt` и digest GitHub;
 - опубликованный [Release v0.2.5](https://github.com/boozik3412/club-planner/releases/tag/v0.2.5) создан успешным [Windows release workflow](https://github.com/boozik3412/club-planner/actions/runs/32466034544) за 18 мин 13 с: frontend quality gate, Rust format/test/Clippy, подписанная Tauri/NSIS-сборка и загрузка всех артефактов прошли;
 - публичный `latest.json` содержит `version: 0.2.5`, платформы `windows-x86_64` и `windows-x86_64-nsis`, непустые подписи по 424 байта и API URL опубликованного installer; подписи обеих платформ совпадают с отдельным `.sig`;
 - повторно скачанный portable имеет размер 28 864 512 байт и SHA-256 `BF438A92122871EF07E7E4DDE8BD82E6B5D84507679E5A25CEB88692EA9A6438`; NSIS installer — 15 812 332 байта и SHA-256 `0AFE31A4BB11F81350CD616E6FD1280FC393D2B38047A6DA5484668A8D3A83E0`; оба файла имеют PE-заголовок `MZ`, совпадают с `SHA256SUMS.txt` и digest GitHub;
@@ -186,4 +189,4 @@ Unit-тесты покрывают базовый asset, камеру, выде�
 
 ## Границы проверки
 
-Локальная и публичная `v0.2.5`, синтетический benchmark прямых стен/проёмов, контурные curved-wall unit cases, rendered review, плавность camera hot path, запуск portable, полный цикл локального installer и подписанный updater-манифест проверены. Разрешённый реальный holdout с эталонной разметкой дуг и отдельная clean Windows 10/11 VM в этой среде не выполнялись; перед широкой эксплуатацией на произвольных документах остаётся внешний offline-сценарий import/edit/save → restart/open → update → uninstall.
+Локальная и публичная `v0.2.6`, синтетический benchmark прямых стен/проёмов, контурные curved-wall unit cases, rendered review, читаемость и редактирование принятых стен, плавность camera hot path, запуск portable, полный цикл локального installer и подписанный updater-манифест проверены. Разрешённый реальный holdout с эталонной разметкой дуг и отдельная clean Windows 10/11 VM в этой среде не выполнялись; перед широкой эксплуатацией на произвольных документах остаётся внешний offline-сценарий import/edit/save → restart/open → update → uninstall.
