@@ -315,6 +315,45 @@ describe("BasePlanCanvas pointer navigation", () => {
     expect(onPreviewProject).toHaveBeenLastCalledWith(null);
   });
 
+  it("magnetically straightens a dragged line endpoint to a 15 degree direction", () => {
+    const project = createEmptyProject();
+    project.canvas.snapEnabled = false;
+    project.architecture.vertices = [
+      { id: "v1", xM: 1, yM: 1, provenance: "manual", reviewStatus: "accepted", locked: false },
+      { id: "v2", xM: 5, yM: 1, provenance: "manual", reviewStatus: "accepted", locked: false },
+    ];
+    project.architecture.walls = [{
+      id: "wall", kind: "wall", startVertexId: "v1", endVertexId: "v2", curve: { kind: "line" },
+      thicknessM: 0.15, heightM: 3, baseElevationM: 0, heightSource: "user", thicknessSource: "user",
+      provenance: "manual", reviewStatus: "accepted", locked: false,
+    }];
+    const { container, onPreviewProject } = renderCanvas({
+      project,
+      selectedWallId: "wall",
+      camera: { x: 20, y: 30, zoom: 1 },
+      onWallSelect: vi.fn(),
+    });
+    const canvas = screen.getByRole("img", { name: "Актуальная планировка компьютерного клуба" });
+    const handle = container.querySelector('[data-architecture-vertex-id="v2"]') as SVGElement;
+    const targetAngleRad = 13 * Math.PI / 180;
+    const targetXM = 1 + Math.cos(targetAngleRad) * 4;
+    const targetYM = 1 + Math.sin(targetAngleRad) * 4;
+
+    fireEvent.pointerDown(handle, { button: 0, pointerId: 34, clientX: 520, clientY: 130 });
+    fireEvent.pointerMove(canvas, {
+      buttons: 1,
+      pointerId: 34,
+      clientX: 20 + targetXM * 100,
+      clientY: 30 + targetYM * 100,
+    });
+
+    const preview = onPreviewProject.mock.lastCall?.[0];
+    const start = preview.architecture.vertices.find((vertex: { id: string }) => vertex.id === "v1");
+    const end = preview.architecture.vertices.find((vertex: { id: string }) => vertex.id === "v2");
+    expect(Math.atan2(end.yM - start.yM, end.xM - start.xM) * 180 / Math.PI).toBeCloseTo(15);
+    expect(Math.hypot(end.xM - start.xM, end.yM - start.yM)).toBeCloseTo(4);
+  });
+
   it("shows a long smart guide and aligns two matching visible rows", () => {
     const project = createEmptyProject();
     const moving = [1, 2, 3].map((x, index) => createObjectFromTemplate("table", x, 1, `moving-${index}`));

@@ -780,6 +780,23 @@ button:disabled {
   font-size: 11px;
 }
 
+.wall-angle-tools {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid #34404a;
+  border-radius: 7px;
+  background: #11171c;
+}
+
+.wall-angle-tools .property-field--wide {
+  margin-top: 0;
+}
+
+.wall-angle-tools .hint {
+  margin: 0;
+}
+
 .three-view {
   position: absolute;
   inset: 8px 8px 50px;

@@ -15,6 +15,7 @@ import {
   wallLengthM,
   wallPointAtDistance,
 } from "./geometry";
+import { roundAngleDeg } from "./angle-snap";
 
 export interface ArchitectureCommandResult {
   project: ProjectState;
@@ -280,6 +281,24 @@ export function resizeArchitecturalWallCommand(
       if (opening.hostWallId === wallId) opening.offsetM = Math.min(opening.offsetM, Math.max(0, nextLengthM - opening.widthM));
     });
   });
+}
+
+export function straightenArchitecturalWallCommand(
+  project: ProjectState,
+  wallId: string,
+  stepDeg = 15,
+): ProjectState {
+  const wall = editableWall(project, wallId);
+  if (!wall || wall.curve.kind !== "line" || !Number.isFinite(stepDeg) || stepDeg <= 0) return project;
+  const endpoints = wallEndpoints(wall, architectureVertexMap(project.architecture));
+  if (!endpoints) return project;
+  const currentAngleDeg = Math.atan2(
+    endpoints.end.yM - endpoints.start.yM,
+    endpoints.end.xM - endpoints.start.xM,
+  ) * 180 / Math.PI;
+  const nextAngleDeg = roundAngleDeg(currentAngleDeg, stepDeg);
+  if (Math.abs(nextAngleDeg - currentAngleDeg) < 1e-9) return project;
+  return resizeArchitecturalWallCommand(project, wallId, { angleDeg: nextAngleDeg });
 }
 
 export function addArchitecturalOpeningCommand(

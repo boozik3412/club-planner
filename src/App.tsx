@@ -12,6 +12,7 @@ import {
   mergeArchitecturalWallsCommand,
   removeArchitecturalOpeningCommand,
   resizeArchitecturalWallCommand,
+  straightenArchitecturalWallCommand,
   setArchitectureReviewStatusCommand,
   splitArchitecturalWallCommand,
   updateArchitecturalOpeningCommand,
@@ -438,6 +439,15 @@ export default function App() {
       return;
     }
     commitProject(next, label);
+  }, [commitProject, history.present.project, showStatus]);
+
+  const handleStraightenArchitecturalWall = useCallback((wallId: string, stepDeg: number) => {
+    const next = straightenArchitecturalWallCommand(history.present.project, wallId, stepDeg);
+    if (next === history.present.project) {
+      showStatus("Угол уже выровнен, стена заблокирована или является дугой");
+      return;
+    }
+    commitProject(next, `Выпрямление угла стены до ${stepDeg}°`);
   }, [commitProject, history.present.project, showStatus]);
 
   const handleSplitArchitecturalWall = useCallback((wallId: string, distanceM?: number) => {
@@ -1038,6 +1048,7 @@ export default function App() {
         onWallOverrideChange={handleWallOverrideChange}
         onResetWallOverride={handleResetWallOverride}
         onResizeArchitecturalWall={handleResizeArchitecturalWall}
+        onStraightenArchitecturalWall={handleStraightenArchitecturalWall}
         onSplitArchitecturalWall={handleSplitArchitecturalWall}
         onMergeArchitecturalWalls={handleMergeArchitecturalWalls}
         onDetachWallEndpoint={handleDetachWallEndpoint}

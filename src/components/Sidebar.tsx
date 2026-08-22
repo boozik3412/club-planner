@@ -21,6 +21,8 @@ import type { BetweenBoundariesMode } from "../editor/snapping/types";
 import { APP_VERSION } from "../app-version";
 import { formatDownloadProgress, type UpdaterViewState } from "../editor/updater/app-updater";
 
+const WALL_ANGLE_STEPS_DEG = [1, 5, 15, 45, 90] as const;
+
 interface SidebarProps {
   project: ProjectState;
   selection: SelectionState;
@@ -56,6 +58,7 @@ interface SidebarProps {
   onWallOverrideChange: (wallId: string, patch: { heightM?: number; thicknessM?: number; baseElevationM?: number }, label: string) => void;
   onResetWallOverride: (wallId: string) => void;
   onResizeArchitecturalWall: (wallId: string, patch: { lengthM?: number; angleDeg?: number; radiusM?: number }, label: string) => void;
+  onStraightenArchitecturalWall: (wallId: string, stepDeg: number) => void;
   onSplitArchitecturalWall: (wallId: string, distanceM?: number) => void;
   onMergeArchitecturalWalls: (firstWallId: string, secondWallId: string) => void;
   onDetachWallEndpoint: (wallId: string, endpoint: "start" | "end") => void;
@@ -247,6 +250,7 @@ export function Sidebar({
   onWallOverrideChange,
   onResetWallOverride,
   onResizeArchitecturalWall,
+  onStraightenArchitecturalWall,
   onSplitArchitecturalWall,
   onMergeArchitecturalWalls,
   onDetachWallEndpoint,
@@ -282,6 +286,7 @@ export function Sidebar({
   const [templateName, setTemplateName] = useState("");
   const [passageWidthM, setPassageWidthM] = useState(0.9);
   const [mergeWallId, setMergeWallId] = useState("");
+  const [wallAngleStepDeg, setWallAngleStepDeg] = useState(15);
   const selectedWallOpenings = selectedWall
     ? project.architecture.openings.filter((opening) => opening.hostWallId === selectedWall.id)
     : [];
@@ -427,8 +432,30 @@ export function Sidebar({
               <NumberField label="Толщина стены, м" value={selectedWall.thicknessM} min={0.01} onCommit={(value) => onWallOverrideChange(selectedWall.id, { thicknessM: Math.max(0.01, value) }, "Толщина стены")} />
               <NumberField label="Отметка основания, м" value={selectedWall.baseElevationM} min={0} onCommit={(value) => onWallOverrideChange(selectedWall.id, { baseElevationM: Math.max(0, value) }, "Отметка основания стены")} />
               <NumberField label="Длина / обрезка, м" value={selectedWallLengthM} min={0.05} onCommit={(value) => onResizeArchitecturalWall(selectedWall.id, { lengthM: Math.max(0.05, value) }, "Изменение длины стены")} />
-              <NumberField label="Угол хорды, °" value={selectedWallAngleDeg} step={1} onCommit={(value) => onResizeArchitecturalWall(selectedWall.id, { angleDeg: value }, "Изменение угла стены")} />
+              <NumberField
+                label={selectedWall.curve?.kind === "arc" ? "Точный угол хорды дуги, °" : "Точный угол стены, °"}
+                value={selectedWallAngleDeg}
+                step={1}
+                onCommit={(value) => onResizeArchitecturalWall(selectedWall.id, { angleDeg: value }, "Точный угол стены")}
+              />
               {selectedWallRadiusM !== undefined ? <NumberField label="Радиус дуги, м" value={selectedWallRadiusM} min={0.05} onCommit={(value) => onResizeArchitecturalWall(selectedWall.id, { radiusM: value }, "Изменение радиуса дуги")} /> : null}
+            </div>
+            <div className="wall-angle-tools">
+              <label className="property-field property-field--wide">
+                <span>Шаг автовыпрямления угла</span>
+                <select value={wallAngleStepDeg} onChange={(event) => setWallAngleStepDeg(Number(event.target.value))}>
+                  {WALL_ANGLE_STEPS_DEG.map((step) => <option key={step} value={step}>{step}°</option>)}
+                </select>
+              </label>
+              <button
+                className="button button--wide"
+                type="button"
+                disabled={selectedWall.curve?.kind === "arc"}
+                onClick={() => onStraightenArchitecturalWall(selectedWall.id, wallAngleStepDeg)}
+              >
+                Выровнять к ближайшим {wallAngleStepDeg}°
+              </button>
+              <p className="hint">При перетаскивании узла угол магнитится к шагу 15°. Shift фиксирует магнит, Alt временно отключает.</p>
             </div>
             <div className="button-grid"><button type="button" onClick={() => onDetachWallEndpoint(selectedWall.id, "start")}>Отделить начало</button><button type="button" onClick={() => onDetachWallEndpoint(selectedWall.id, "end")}>Отделить конец</button></div>
             <div className="button-grid"><button type="button" onClick={() => onSplitArchitecturalWall(selectedWall.id, selectedWallLengthM / 2)}>Разделить пополам</button><button type="button" onClick={() => onAddArchitecturalOpening(selectedWall.id, "door")}>Добавить дверь</button><button type="button" onClick={() => onAddArchitecturalOpening(selectedWall.id, "window")}>Добавить окно</button></div>

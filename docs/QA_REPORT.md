@@ -1,6 +1,6 @@
 # Отчёт проверки MVP
 
-Дата последнего полного прогона: 2026-08-21. Платформа проверки: Windows x64, Rust MSVC, WebView2.
+Дата последнего полного прогона: 2026-08-22. Платформа проверки: Windows x64, Rust MSVC, WebView2.
 
 ## Автоматические проверки
 
@@ -8,19 +8,28 @@
 |---|---|
 | `pnpm typecheck` | пройден |
 | `pnpm lint` | пройден без предупреждений |
-| `pnpm test` | 47 файлов, 203 теста пройдено |
+| `pnpm test` | 48 файлов, 207 тестов пройдено |
 | `pnpm corpus:validate` | 30/30 fixtures: 10 vector PDF, 10 scan PNG, 10 perspective JPEG; SHA-256 и ground truth валидны |
 | `pnpm build` | production bundle собран вместе с локальными PDF.js/OpenCV.js/Tesseract `rus+eng` ресурсами |
 | `cargo fmt --check` | пройден |
 | `cargo test` | 8 Rust-тестов пройдено, включая v4 ZIP safety/checksum/round-trip |
 | `cargo clippy --all-targets -- -D warnings` | пройден; локализованное сообщение MSVC linker не является Clippy warning |
 | `pnpm tauri build --debug --no-bundle` | пройден; создан `src-tauri/target/debug/club-planner.exe`, 14 132 224 байта |
-| `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.6` собраны локально без приватного CI-ключа |
+| `pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'` | пройден; release portable и NSIS x64 `v0.2.7` собраны локально без приватного CI-ключа |
 | Portable smoke | `.exe` открыл отвечающее окно и завершил процесс после закрытия |
 | NSIS smoke | silent install → launch → close → silent uninstall пройдены во временной папке |
 | Release workflow | [GitHub Actions run 32481303022](https://github.com/boozik3412/club-planner/actions/runs/32481303022) пройден; quality gates, подписанная Tauri build и публикация Release `v0.2.6` успешны |
 
-Production frontend `v0.2.6` собран с ленивыми chunks `PlanImportWizard` 500,84 kB (150,99 kB gzip) и `Plan3DView` 909,13 kB (245,84 kB gzip). OpenCV, OCR-модели, PDF worker, Tesseract `rus+eng`, пиктограммы интерфейса и совместимый базовый SVG упакованы как локальные assets; сеть для распознавания не используется. Предупреждение Vite о крупных ленивых chunks зафиксировано и не влияет на начальный 2D-экран.
+Production frontend `v0.2.7` собран с ленивыми chunks `PlanImportWizard` 500,84 kB (150,99 kB gzip) и `Plan3DView` 909,13 kB (245,85 kB gzip). OpenCV, OCR-модели, PDF worker, Tesseract `rus+eng`, пиктограммы интерфейса и совместимый базовый SVG упакованы как локальные assets; сеть для распознавания не используется. Предупреждение Vite о крупных ленивых chunks зафиксировано и не влияет на начальный 2D-экран.
+
+### Точные и автоматически выпрямляемые углы `v0.2.7`
+
+- чистая геометрия проверяет округление к настраиваемому шагу, мягкий порог и принудительный режим; архитектурная команда сохраняет длину прямой стены, не меняет уже выровненную стену и не применяется к дуге;
+- component pointer-test подтверждает магнитное выпрямление крайнего узла с `13°` до `15°` и сохранение длины `4 м`;
+- rendered Browser QA на `http://127.0.0.1:1420/` создал помещение из четырёх стен, вручную изменил угол `0° → 13°`, затем выровнял `13° → 15°` без изменения длины;
+- выбор шага `5°` округлил ручной угол `17° → 15°`; одна команда Undo вернула точно `17°`, Redo снова установил `15°`; console `error`/`warn` — 0, framework overlay отсутствует;
+- локальный portable: 28 880 896 байт, SHA-256 `1061370C3707D6CC33EF0FBE90686C6212E06F014AAB1CD705FD364EBE9C1755`, отдельное окно открылось и отвечало;
+- локальный NSIS: 15 802 616 байт, SHA-256 `C630DDEF54F99B8E7E37BD8FB98855001C08865214CB0E1DCA76324341102E2A`; silent install → responding launch → close → silent uninstall пройдены, коды 0, временная папка удалена.
 
 ### Читаемые импортированные стены `v0.2.6`
 

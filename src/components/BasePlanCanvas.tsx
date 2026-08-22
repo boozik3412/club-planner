@@ -21,6 +21,7 @@ import {
 } from "../editor/geometry/geometry";
 import { analyzeLayout, getClearanceBounds } from "../editor/analysis/layout-analysis";
 import { moveArchitectureVertexCommand } from "../editor/architecture/commands";
+import { snapPointToAngleIncrement } from "../editor/architecture/angle-snap";
 import { arcFromBulge } from "../editor/architecture/geometry";
 import { resolveDoorPlacement, type DoorPlacement } from "../editor/architecture/door-placement";
 import { computeRooms } from "../editor/architecture/rooms";
@@ -131,7 +132,7 @@ type Gesture =
   | { mode: "resize"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; object: PlanObject; handle: ResizeHandle; preview: ProjectState | null }
   | { mode: "rotate"; pointerId: number; center: ScreenPoint; startAngle: number; baseProject: ProjectState; objectId: ObjectId | null; groupId: string | null; startObjectAngle: number; preview: ProjectState | null }
   | { mode: "dimension"; pointerId: number; startPlan: ScreenPoint; baseProject: ProjectState; dimension: ProjectDimension; handle: "start" | "end" | "move"; preview: ProjectDimension | null }
-  | { mode: "architecture-vertex"; pointerId: number; vertexId: string; baseProject: ProjectState; preview: ProjectState | null }
+  | { mode: "architecture-vertex"; pointerId: number; vertexId: string; anchorVertexId: string; angleSnap: boolean; baseProject: ProjectState; preview: ProjectState | null }
   | { mode: "room"; pointerId: number; start: PointM; current: PointM };
 
 type MoveGesture = Extract<Gesture, { mode: "move" }>;
@@ -1027,9 +1028,13 @@ export function BasePlanCanvas({
       return;
     }
     if (gesture.mode === "architecture-vertex") {
-      const point = event.altKey
+      let point = event.altKey
         ? { xM: currentPlan.x, yM: currentPlan.y }
         : snappedPlanPoint(screen);
+      if (!event.altKey && gesture.angleSnap) {
+        const anchor = gesture.baseProject.architecture.vertices.find((vertex) => vertex.id === gesture.anchorVertexId);
+        if (anchor) point = snapPointToAngleIncrement(anchor, point, 15, 4, event.shiftKey);
+      }
       const preview = moveArchitectureVertexCommand(gesture.baseProject, gesture.vertexId, point);
       gesture.preview = preview === gesture.baseProject ? null : preview;
       onPreviewProject(gesture.preview);
@@ -1235,7 +1240,7 @@ export function BasePlanCanvas({
                     </g>
                   );
                 })}
-                {selectedArchitectureVertices.map((vertex) => (
+                {selectedArchitectureWall ? selectedArchitectureVertices.map((vertex) => (
                   <circle
                     key={vertex.id}
                     className="architecture-vertex-handle"
@@ -1252,13 +1257,17 @@ export function BasePlanCanvas({
                         mode: "architecture-vertex",
                         pointerId: event.pointerId,
                         vertexId: vertex.id,
+                        anchorVertexId: vertex.id === selectedArchitectureWall.startVertexId
+                          ? selectedArchitectureWall.endVertexId
+                          : selectedArchitectureWall.startVertexId,
+                        angleSnap: selectedArchitectureWall.curve.kind === "line",
                         baseProject: project,
                         preview: null,
                       };
                       capture(event.pointerId);
                     }}
                   />
-                ))}
+                )) : null}
                 <g pointerEvents="none">{semanticOpenings.map((opening) => {
                   const sweepPath = opening.kind === "door"
                     ? doorSweepPath(opening, unitsPerMeter)

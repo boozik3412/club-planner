@@ -8,6 +8,7 @@ import {
   moveArchitecturalOpeningCommand,
   removeArchitecturalOpeningCommand,
   resizeArchitecturalWallCommand,
+  straightenArchitecturalWallCommand,
   splitArchitecturalWallCommand,
   updateArchitecturalOpeningCommand,
 } from "./commands";
@@ -113,5 +114,24 @@ describe("architecture commands", () => {
     const end = resized.architecture.vertices.find((vertex) => vertex.id === wall.endVertexId)!;
     expect(end.xM).toBeCloseTo(0);
     expect(end.yM).toBeCloseTo(6);
+  });
+
+  it("straightens a line to the chosen angle increment without changing its length", () => {
+    const project = projectWithWall();
+    const lengthM = 4;
+    const sourceAngleRad = 13 * Math.PI / 180;
+    project.architecture.vertices[1].xM = Math.cos(sourceAngleRad) * lengthM;
+    project.architecture.vertices[1].yM = Math.sin(sourceAngleRad) * lengthM;
+
+    const straightened = straightenArchitecturalWallCommand(project, "wall", 15);
+    const wall = straightened.architecture.walls[0];
+    const vertices = architectureVertexMap(straightened.architecture);
+    const start = vertices.get(wall.startVertexId)!;
+    const end = vertices.get(wall.endVertexId)!;
+    expect(Math.atan2(end.yM - start.yM, end.xM - start.xM) * 180 / Math.PI).toBeCloseTo(15);
+    expect(wallLengthM(wall, vertices)).toBeCloseTo(lengthM);
+    expect(straightenArchitecturalWallCommand(straightened, "wall", 15)).toBe(straightened);
+    const arcProject = projectWithWall({ kind: "arc", bulge: 0.2 });
+    expect(straightenArchitecturalWallCommand(arcProject, "wall", 15)).toBe(arcProject);
   });
 });
